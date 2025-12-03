@@ -64,7 +64,7 @@ def image_to_base64(image):
 
 def call_gemini_api(api_key, image, prompt):
     # --- จุดที่แก้ไข: เปลี่ยน Model ID เป็น gemini-3-pro-image-preview ---
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key={api_key}"
     
     # ** ถ้าใช้ตัวบนแล้วยัง 404 ให้ลองเอา # ออกจากบรรทัดล่างนี้เพื่อใช้ตัวเสถียรแทนครับ **
     # api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
@@ -238,3 +238,4 @@ with tab_manager:
                 st.session_state.prompt_library.pop(idx)
                 save_prompts(st.session_state.prompt_library)
                 st.rerun()
+
