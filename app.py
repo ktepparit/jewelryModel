@@ -5,6 +5,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 import time
+import pandas as pd # เพิ่ม pandas เพื่อแสดงตารางสวยๆ
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
@@ -73,12 +74,11 @@ def save_prompts(data):
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
-    # Resize เล็กน้อยเพื่อความรวดเร็วในการส่งข้อมูล แต่ยังคมชัดพอให้ AI อ่าน
     img.thumbnail((1024, 1024)) 
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
-# ฟังก์ชันสำหรับ Gen รูปภาพ (Gemini 3 Pro Preview)
+# ฟังก์ชัน Gen รูปภาพ
 def generate_image(api_key, image_list, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
@@ -94,7 +94,7 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชันสำหรับ Gen SEO Tags (Gemini 3 Pro Preview) - Tab 1
+# ฟังก์ชัน Gen SEO (Tab 1)
 def generate_seo_tags_post_gen(api_key, product_url):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
     final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
@@ -110,13 +110,10 @@ def generate_seo_tags_post_gen(api_key, product_url):
         return None, "No text returned from model."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชันสำหรับ Bulk SEO (Gemini 3 Pro Preview) - Tab 2
+# ฟังก์ชัน Bulk SEO (Tab 2)
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    # --- UPDATE: เปลี่ยนมาใช้ gemini-3-pro-preview ตามที่ user ต้องการ ---
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
-    
     final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    
     payload = {
         "contents": [{
             "parts": [
@@ -126,7 +123,6 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         }],
         "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048}
     }
-    
     try:
         res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
@@ -135,6 +131,18 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         return None, "Model returned no text."
     except Exception as e: return None, str(e)
 
+# --- NEW FUNCTION: Check Available Models (Tab 4) ---
+def list_available_models(api_key):
+    # Endpoint มาตรฐานสำหรับเช็คโมเดลทั้งหมดที่ Key นี้เข้าถึงได้
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json().get("models", [])
+        else:
+            return None
+    except:
+        return None
 
 # --- 4. UI LOGIC ---
 if "library" not in st.session_state:
@@ -159,7 +167,8 @@ with st.sidebar:
 
 st.title("💎 Jewelry AI Studio")
 
-tab1, tab2, tab3 = st.tabs(["✨ Generate Image", "🏷️ Bulk SEO Tags", "📚 Library Manager"])
+# เพิ่ม Tab 4 เข้าไป
+tab1, tab2, tab3, tab4 = st.tabs(["✨ Generate Image", "🏷️ Bulk SEO Tags", "📚 Library Manager", "ℹ️ About Models"])
 
 # === TAB 1: GENERATE IMAGE ===
 with tab1:
@@ -169,6 +178,7 @@ with tab1:
         files = st.file_uploader("Upload Images for Gen", accept_multiple_files=True, type=["jpg", "png", "jpeg"], key="gen_upload")
         images_to_send = [Image.open(f) for f in files] if files else []
         if images_to_send:
+            st.caption(f"Selected {len(images_to_send)} images:")
             cols = st.columns(4)
             for i, img in enumerate(images_to_send): cols[i%4].image(img, use_column_width=True)
 
@@ -227,7 +237,7 @@ with tab1:
 
         else: st.warning("Library empty.")
 
-# === TAB 2: BULK SEO TAGS (Gemini 3 Pro) ===
+# === TAB 2: BULK SEO TAGS ===
 with tab2:
     st.header("🏷️ Generate SEO Tags for Existing Images")
     st.caption("อัปโหลดรูปภาพสินค้าที่มีอยู่แล้ว เพื่อให้ AI ช่วยเขียน File Name และ Alt Tag ตาม URL สินค้า")
@@ -240,7 +250,11 @@ with tab2:
         bulk_images = [Image.open(f) for f in bulk_files] if bulk_files else []
         
         if bulk_images:
-            st.info(f"Loaded {len(bulk_images)} images ready for analysis.")
+            st.success(f"✅ Ready! {len(bulk_images)} images selected.")
+            st.caption("Preview:")
+            cols_preview = st.columns(4)
+            for i, img_pil in enumerate(bulk_images):
+                 cols_preview[i % 4].image(img_pil, use_column_width=True, caption=f"#{i+1}")
         
     with bc2:
         st.subheader("2. Product Details & Run")
@@ -335,3 +349,43 @@ with tab3:
             st.session_state.library.pop(i)
             save_prompts(st.session_state.library)
             st.rerun()
+
+# === NEW TAB 4: ABOUT MODELS (ตรวจสอบสิทธิ์) ===
+with tab4:
+    st.header("🔍 Check Gemini Model Availability")
+    st.write("หน้านี้จะช่วยตรวจสอบว่า API Key ของคุณสามารถเข้าถึงโมเดลใดได้บ้างจาก Google Server โดยตรง")
+    
+    if st.button("📡 Scan Available Models"):
+        if not api_key:
+            st.error("Please enter your API Key in the sidebar settings first.")
+        else:
+            with st.spinner("Connecting to Google API..."):
+                models_data = list_available_models(api_key)
+                
+                if models_data:
+                    # เตรียมข้อมูลสำหรับแสดงผล
+                    gemini_models = []
+                    for m in models_data:
+                        # กรองเอาเฉพาะโมเดล Gemini เพื่อความดูง่าย (หรือจะเอาทั้งหมดก็ได้)
+                        if "gemini" in m['name']:
+                            gemini_models.append({
+                                "Model ID (Name)": m['name'],
+                                "Version": m['version'],
+                                "Display Name": m['displayName'],
+                                "Input Token Limit": m.get('inputTokenLimit', 'N/A'),
+                                "Methods": ", ".join(m.get('supportedGenerationMethods', []))
+                            })
+                    
+                    if gemini_models:
+                        st.success(f"Found {len(gemini_models)} Gemini models accessible by your key!")
+                        
+                        # สร้าง DataFrame เพื่อแสดงเป็นตารางสวยงาม
+                        df = pd.DataFrame(gemini_models)
+                        st.dataframe(df, use_container_width=True)
+                        
+                        st.info("💡 **Tip:** Look for models like `gemini-3-pro-preview` or `gemini-1.5-flash` in the list. If they appear here, the app can use them.")
+                    else:
+                        st.warning("Connected successfully, but no 'Gemini' models were found in the list. You might only have access to PaLM legacy models.")
+                        st.write(models_data) # Show raw data just in case
+                else:
+                    st.error("Failed to fetch models. Please check your API Key validity.")
