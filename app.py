@@ -68,7 +68,7 @@ def img_to_base64(img):
     img.save(buf, format="JPEG")
     return base64.b64encode(buf.getvalue()).decode()
 
-# ฟังก์ชันสำหรับ Gen รูปภาพ (ใช้ Gemini Pro Vision)
+# ฟังก์ชันสำหรับ Gen รูปภาพ (ใช้ Gemini 3 Pro Image Preview)
 def generate_image(api_key, image_list, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
@@ -84,17 +84,16 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชันใหม่สำหรับ Gen SEO Tags (ใช้ Gemini Flash เพื่อความเร็ว เพราะเป็นงาน Text)
+# ฟังก์ชันสำหรับ Gen SEO Tags (อัปเดตเป็น gemini-3-pro-preview ตามที่คุณแนะนำ)
 def generate_seo_tags(api_key, product_url):
-    # ใช้รุ่น Flash ก็พอสำหรับงาน Text-only
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    # --- ใช้โมเดล gemini-3-pro-preview ---
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
     
-    # แทนที่ URL ลงใน Template Prompt
     final_seo_prompt = SEO_PROMPT_TEMPLATE.replace("{product_url}", product_url)
     
     payload = {
         "contents": [{"parts": [{"text": final_seo_prompt}]}],
-        "generationConfig": {"temperature": 0.7} # เพิ่ม creativity นิดหน่อยสำหรับการคิดคำ
+        "generationConfig": {"temperature": 0.7}
     }
     
     try:
@@ -114,7 +113,6 @@ if "library" not in st.session_state:
     st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state:
     st.session_state.edit_target = None
-# State สำหรับเก็บสถานะว่า Gen รูปเสร็จหรือยัง
 if "image_generated_success" not in st.session_state:
     st.session_state.image_generated_success = False
 
@@ -169,20 +167,19 @@ with tab1:
             if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send:
                     st.error("Check Key & Images")
-                    st.session_state.image_generated_success = False # Reset status
+                    st.session_state.image_generated_success = False
                 else:
                     with st.spinner("Generating Image..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.image(d)
                             st.download_button("Download", d, "gen.jpg")
-                            # Set success state to True to show SEO tools
                             st.session_state.image_generated_success = True 
                         else:
                             st.error(e)
                             st.session_state.image_generated_success = False
 
-            # --- SEO Tools Section (แสดงเฉพาะเมื่อ Gen รูปสำเร็จ) ---
+            # --- SEO Tools Section ---
             if st.session_state.image_generated_success:
                 st.divider()
                 st.subheader("🌍 SEO Tools (Post-Generation)")
@@ -194,13 +191,12 @@ with tab1:
                     if not product_url_input:
                         st.warning("Please enter a Product URL first.")
                     else:
-                        with st.spinner("Consulting SEO Specialist AI..."):
+                        with st.spinner("Consulting SEO Specialist AI (Gemini 3 Pro)..."):
                             seo_result, seo_err = generate_seo_tags(api_key, product_url_input)
                             
                             if seo_result:
-                                # แสดงผลลัพธ์ใน Expander ที่เปิดอัตโนมัติ (คล้าย Pop-up)
                                 with st.expander("✅ SEO Tags Generated!", expanded=True):
-                                    st.code(seo_result, language="yaml") # ใช้ code block เพื่อให้ copy ง่าย
+                                    st.code(seo_result, language="yaml")
                                     st.caption("Copy these tags to your product listing.")
                             else:
                                 st.error(f"SEO Generation Failed: {seo_err}")
