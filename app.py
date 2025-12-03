@@ -5,29 +5,40 @@ import base64
 from io import BytesIO
 from PIL import Image
 import time
-import pandas as pd # เพิ่ม pandas เพื่อแสดงตารางสวยๆ
+import pandas as pd
+import re # เพิ่ม regex เพื่อช่วยแกะ JSON
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Prompt A: สำหรับ Gen SEO หลังสร้างรูปเสร็จ (Tab 1)
+# Model IDs Configuration (แยกกันชัดเจนตามที่คุณระบุ)
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" # สำหรับสร้างรูป
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview"       # สำหรับเขียน SEO
+
+# Prompt A: สำหรับ Gen SEO (Tab 1) - สั่งให้ตอบเป็น JSON
 SEO_PROMPT_POST_GEN = """
 You are an SEO specialist with 15-20 years of experience. 
 Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
 To rank well on organic search engines by customer groups interested in this type of product.
 
-Please provide the output exactly in this format:
----
-File Name: [your-optimized-filename.jpg]
-Alt Tag: [Your optimized descriptive alt tag with keywords]
----
+IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
+Structure:
+{
+  "file_name": "your-optimized-filename.jpg",
+  "alt_tag": "Your optimized descriptive alt tag"
+}
 """
 
-# Prompt B: สำหรับ Bulk SEO รูปที่มีอยู่แล้ว (Tab 2)
+# Prompt B: สำหรับ Bulk SEO (Tab 2) - สั่งให้ตอบเป็น JSON
 SEO_PROMPT_BULK_EXISTING = """
 คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 
-Please provide the output clearly separating File Name and Alt Tag.
+IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
+Structure:
+{
+  "file_name": "your-optimized-filename.jpg",
+  "alt_tag": "Your optimized descriptive alt tag"
+}
 """
 
 # Default Data
@@ -70,7 +81,7 @@ def save_prompts(data):
     except Exception as e:
         st.error(f"Save failed: {e}")
 
-# --- 3. HELPER FUNCTIONS (AI & Image) ---
+# --- 3. HELPER FUNCTIONS ---
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
@@ -78,29 +89,42 @@ def img_to_base64(img):
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
-# ฟังก์ชัน Gen รูปภาพ
+def parse_json_response(text):
+    """ฟังก์ชันช่วยแกะ JSON ออกจากข้อความที่ AI ตอบกลับมา"""
+    try:
+        # ลบ markdown code block ถ้ามี (```json ... ```)
+        text = re.sub(r"```json", "", text)
+        text = re.sub(r"```", "", text)
+        text = text.strip()
+        return json.loads(text)
+    except:
+        return None
+
+# Function 1: Gen รูปภาพ (ใช้ models/gemini-3-pro-image-preview)
 def generate_image(api_key, image_list, prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list:
         parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     try:
         res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
+        
+        # การแกะ Response ของ Image Model
         content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
         if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
         if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
-        if "text" in content: return None, f"Model returned text: {content['text']}"
+        if "text" in content: return None, f"Model returned text instead of image: {content['text']}"
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชัน Gen SEO (Tab 1)
+# Function 2: Gen SEO Post-Gen (ใช้ models/gemini-3-pro-preview)
 def generate_seo_tags_post_gen(api_key, product_url):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {
         "contents": [{"parts": [{"text": final_seo_prompt}]}],
-        "generationConfig": {"temperature": 0.7}
+        "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"} # บังคับ JSON Mode
     }
     try:
         res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
@@ -110,10 +134,11 @@ def generate_seo_tags_post_gen(api_key, product_url):
         return None, "No text returned from model."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชัน Bulk SEO (Tab 2)
+# Function 3: Bulk SEO (ใช้ models/gemini-3-pro-preview)
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
+    
     payload = {
         "contents": [{
             "parts": [
@@ -121,8 +146,9 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
                 {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}
             ]
         }],
-        "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048}
+        "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "responseMimeType": "application/json"}
     }
+    
     try:
         res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
@@ -131,9 +157,7 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         return None, "Model returned no text."
     except Exception as e: return None, str(e)
 
-# --- NEW FUNCTION: Check Available Models (Tab 4) ---
 def list_available_models(api_key):
-    # Endpoint มาตรฐานสำหรับเช็คโมเดลทั้งหมดที่ Key นี้เข้าถึงได้
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
     try:
         response = requests.get(url)
@@ -167,7 +191,6 @@ with st.sidebar:
 
 st.title("💎 Jewelry AI Studio")
 
-# เพิ่ม Tab 4 เข้าไป
 tab1, tab2, tab3, tab4 = st.tabs(["✨ Generate Image", "🏷️ Bulk SEO Tags", "📚 Library Manager", "ℹ️ About Models"])
 
 # === TAB 1: GENERATE IMAGE ===
@@ -207,7 +230,8 @@ with tab1:
                     st.error("Check Key & Images")
                     st.session_state.image_generated_success = False
                 else:
-                    with st.spinner("Generating Image (Gemini 3 Pro)..."):
+                    # ใช้ MODEL_IMAGE_GEN (Image Preview)
+                    with st.spinner(f"Generating Image ({MODEL_IMAGE_GEN})..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.image(d)
@@ -220,18 +244,29 @@ with tab1:
             if st.session_state.image_generated_success:
                 st.divider()
                 st.subheader("🌍 SEO Tools (Post-Generation)")
-                st.caption("Generate tags for the NEW image above.")
+                st.caption("Generate separate tags for the NEW image above.")
                 product_url_input = st.text_input("Paste Product URL here:", placeholder="https://yourshop.com/product/...", key="post_gen_url")
                 
                 if st.button("✨ Gen Tags for New Image"):
                     if not product_url_input:
                         st.warning("Please enter a Product URL first.")
                     else:
-                        with st.spinner("Consulting SEO Specialist AI (Gemini 3 Pro)..."):
-                            seo_result, seo_err = generate_seo_tags_post_gen(api_key, product_url_input)
-                            if seo_result:
-                                with st.expander("✅ SEO Tags Generated!", expanded=True):
-                                    st.code(seo_result, language="yaml")
+                        # ใช้ MODEL_TEXT_SEO (Pro Preview)
+                        with st.spinner(f"Consulting SEO Specialist AI ({MODEL_TEXT_SEO})..."):
+                            seo_text_json, seo_err = generate_seo_tags_post_gen(api_key, product_url_input)
+                            
+                            if seo_text_json:
+                                seo_data = parse_json_response(seo_text_json)
+                                if seo_data:
+                                    with st.expander("✅ SEO Results", expanded=True):
+                                        st.write("📄 **Image File Name:**")
+                                        st.code(seo_data.get('file_name', 'N/A'), language="text")
+                                        
+                                        st.write("🏷️ **Alt Tag:**")
+                                        st.code(seo_data.get('alt_tag', 'N/A'), language="text")
+                                else:
+                                    st.error("Failed to parse JSON response. Showing raw text:")
+                                    st.code(seo_text_json)
                             else:
                                 st.error(f"SEO Generation Failed: {seo_err}")
 
@@ -240,7 +275,6 @@ with tab1:
 # === TAB 2: BULK SEO TAGS ===
 with tab2:
     st.header("🏷️ Generate SEO Tags for Existing Images")
-    st.caption("อัปโหลดรูปภาพสินค้าที่มีอยู่แล้ว เพื่อให้ AI ช่วยเขียน File Name และ Alt Tag ตาม URL สินค้า")
     
     bc1, bc2 = st.columns([1, 1.5])
     
@@ -277,8 +311,8 @@ with tab2:
             results_container = st.container()
 
             for i, img_pil in enumerate(bulk_images):
-                with st.spinner(f"Analyzing Image {i+1}/{len(bulk_images)} with Gemini 3 Pro..."):
-                    seo_text, error = generate_seo_for_existing_image(api_key, img_pil, bulk_url)
+                with st.spinner(f"Analyzing Image {i+1}/{len(bulk_images)} with {MODEL_TEXT_SEO}..."):
+                    seo_text_json, error = generate_seo_for_existing_image(api_key, img_pil, bulk_url)
                     progress_bar.progress((i + 1) / len(bulk_images))
                     
                     with results_container:
@@ -286,9 +320,17 @@ with tab2:
                         with rc1:
                             st.image(img_pil, width=100, caption=f"Image {i+1}")
                         with rc2:
-                            if seo_text:
-                                with st.expander(f"✅ Tags for Image {i+1}", expanded=True):
-                                    st.code(seo_text, language="markdown") 
+                            if seo_text_json:
+                                seo_data = parse_json_response(seo_text_json)
+                                if seo_data:
+                                    with st.expander(f"✅ Tags for Image {i+1}", expanded=True):
+                                        st.write("📄 **File Name:**")
+                                        st.code(seo_data.get('file_name', 'N/A'), language="text")
+                                        st.write("🏷️ **Alt Tag:**")
+                                        st.code(seo_data.get('alt_tag', 'N/A'), language="text")
+                                else:
+                                    st.warning(f"Could not format JSON for Image {i+1}. Raw output:")
+                                    st.code(seo_text_json)
                             else:
                                 st.error(f"Failed image {i+1}: {error}")
                     st.divider()
@@ -350,43 +392,29 @@ with tab3:
             save_prompts(st.session_state.library)
             st.rerun()
 
-# === NEW TAB 4: ABOUT MODELS (ตรวจสอบสิทธิ์) ===
+# === TAB 4: ABOUT MODELS ===
 with tab4:
     st.header("🔍 Check Gemini Model Availability")
-    st.write("หน้านี้จะช่วยตรวจสอบว่า API Key ของคุณสามารถเข้าถึงโมเดลใดได้บ้างจาก Google Server โดยตรง")
-    
     if st.button("📡 Scan Available Models"):
         if not api_key:
             st.error("Please enter your API Key in the sidebar settings first.")
         else:
             with st.spinner("Connecting to Google API..."):
                 models_data = list_available_models(api_key)
-                
                 if models_data:
-                    # เตรียมข้อมูลสำหรับแสดงผล
                     gemini_models = []
                     for m in models_data:
-                        # กรองเอาเฉพาะโมเดล Gemini เพื่อความดูง่าย (หรือจะเอาทั้งหมดก็ได้)
                         if "gemini" in m['name']:
                             gemini_models.append({
-                                "Model ID (Name)": m['name'],
+                                "Model ID": m['name'],
                                 "Version": m['version'],
-                                "Display Name": m['displayName'],
-                                "Input Token Limit": m.get('inputTokenLimit', 'N/A'),
-                                "Methods": ", ".join(m.get('supportedGenerationMethods', []))
+                                "Display Name": m['displayName']
                             })
-                    
                     if gemini_models:
-                        st.success(f"Found {len(gemini_models)} Gemini models accessible by your key!")
-                        
-                        # สร้าง DataFrame เพื่อแสดงเป็นตารางสวยงาม
-                        df = pd.DataFrame(gemini_models)
-                        st.dataframe(df, use_container_width=True)
-                        
-                        st.info("💡 **Tip:** Look for models like `gemini-3-pro-preview` or `gemini-1.5-flash` in the list. If they appear here, the app can use them.")
+                        st.success(f"Found {len(gemini_models)} Gemini models!")
+                        st.dataframe(pd.DataFrame(gemini_models), use_container_width=True)
+                        st.info(f"Current Config:\n- Image Gen: `{MODEL_IMAGE_GEN}`\n- SEO Text: `{MODEL_TEXT_SEO}`")
                     else:
-                        st.warning("Connected successfully, but no 'Gemini' models were found in the list. You might only have access to PaLM legacy models.")
-                        st.write(models_data) # Show raw data just in case
+                        st.warning("No Gemini models found.")
                 else:
-                    st.error("Failed to fetch models. Please check your API Key validity.")
-
+                    st.error("Failed to fetch models.")
