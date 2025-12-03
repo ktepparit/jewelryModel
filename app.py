@@ -8,7 +8,7 @@ from PIL import Image
 # --- 1. CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Default Data (กรณี Database ว่างเปล่า)
+# Default Data
 DEFAULT_PROMPTS = [
     {
         "id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
@@ -26,18 +26,15 @@ DEFAULT_PROMPTS = [
 
 # --- 2. CLOUD DATABASE FUNCTIONS (JsonBin.io) ---
 def get_prompts():
-    # พยายามดึง Key จาก Secrets
     try:
         API_KEY = st.secrets["JSONBIN_API_KEY"]
         BIN_ID = st.secrets["JSONBIN_BIN_ID"]
         url = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
         headers = {"X-Master-Key": API_KEY}
-        
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.json().get("record", DEFAULT_PROMPTS)
-        else:
-            return DEFAULT_PROMPTS
+        return DEFAULT_PROMPTS
     except:
         return DEFAULT_PROMPTS
 
@@ -46,10 +43,7 @@ def save_prompts(data):
         API_KEY = st.secrets["JSONBIN_API_KEY"]
         BIN_ID = st.secrets["JSONBIN_BIN_ID"]
         url = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
-        headers = {
-            "Content-Type": "application/json",
-            "X-Master-Key": API_KEY
-        }
+        headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
         requests.put(url, json=data, headers=headers)
     except Exception as e:
         st.error(f"Save failed: {e}")
@@ -63,21 +57,12 @@ def img_to_base64(img):
 
 def generate_image(api_key, image_list, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
-    
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
-    
     for img in image_list:
-        parts.append({
-            "inline_data": {
-                "mime_type": "image/jpeg",
-                "data": img_to_base64(img)
-            }
-        })
-
+        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     try:
         res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
-        
         content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
         if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
         if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
@@ -89,20 +74,22 @@ def generate_image(api_key, image_list, prompt):
 if "library" not in st.session_state:
     st.session_state.library = get_prompts()
 
+# State สำหรับการ Edit
+if "edit_target" not in st.session_state:
+    st.session_state.edit_target = None
+
 with st.sidebar:
     st.title("⚙️ Config")
-    # Check Gemini Key
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("API Key Ready")
     except:
         api_key = st.text_input("Gemini API Key", type="password")
-        
-    # Check Database Connection
+    
     if "JSONBIN_API_KEY" in st.secrets:
-        st.caption("✅ Cloud Database Connected")
+        st.caption("✅ Database Connected")
     else:
-        st.warning("⚠️ Using Local Mode (Data will reset)")
+        st.warning("⚠️ Local Mode")
 
 st.title("💎 Jewelry AI Studio")
 tab1, tab2 = st.tabs(["✨ Generate Image", "📚 Library Manager"])
@@ -147,31 +134,77 @@ with tab1:
                         else: st.error(e)
         else: st.warning("Library empty.")
 
-# === TAB 2: LIBRARY ===
+# === TAB 2: LIBRARY (UPDATED WITH EDIT) ===
 with tab2:
-    st.subheader("Add New Style")
-    with st.form("new_style"):
+    st.subheader("🛠️ Prompt Library")
+    
+    # ดูว่าตอนนี้กำลัง Edit ใครอยู่หรือเปล่า?
+    target = st.session_state.edit_target
+    form_title = f"✏️ Edit Style: {target['name']}" if target else "➕ Add New Style"
+    
+    # 1. ฟอร์ม (ใช้ร่วมกันทั้ง Add และ Edit)
+    with st.form("style_form"):
+        st.write(f"**{form_title}**")
         c1, c2 = st.columns(2)
-        n = c1.text_input("Name")
-        c = c2.text_input("Category")
-        t = st.text_area("Template")
-        v = st.text_input("Variables", "size, color")
-        u = st.text_input("Sample Image URL")
-        if st.form_submit_button("Save to Cloud"):
-            new_item = {
-                "id": str(len(st.session_state.library)+100), 
+        
+        # ถ้ามี target (กำลัง Edit) ให้ดึงค่าเก่ามาใส่, ถ้าไม่มี (Add New) ให้เป็นค่าว่าง
+        n = c1.text_input("Name", value=target['name'] if target else "")
+        c = c2.text_input("Category", value=target['category'] if target else "")
+        t = st.text_area("Template", value=target['template'] if target else "A model wearing {color} ring...")
+        v = st.text_input("Variables", value=target['variables'] if target else "color, size")
+        u = st.text_input("Sample Image URL", value=target['sample_url'] if target else "")
+        
+        # ปุ่มกดในฟอร์ม
+        cols = st.columns([1, 4])
+        submitted = cols[0].form_submit_button("💾 Save Style")
+        
+        # ถ้ากำลัง Edit จะมีปุ่ม Cancel ให้ด้วย
+        if target:
+            if cols[1].form_submit_button("❌ Cancel Edit"):
+                st.session_state.edit_target = None
+                st.rerun()
+
+        if submitted:
+            # เตรียมข้อมูลใหม่
+            new_data = {
+                "id": target['id'] if target else str(len(st.session_state.library) + 1000),
                 "name": n, "category": c, "template": t, "variables": v, "sample_url": u
             }
-            st.session_state.library.append(new_item)
-            save_prompts(st.session_state.library) # Save to Cloud
-            st.success("Saved to Database!"); st.rerun()
             
+            if target:
+                # กรณี Edit: หาตัวเดิมแล้วทับค่าลงไป
+                for idx, item in enumerate(st.session_state.library):
+                    if item['id'] == target['id']:
+                        st.session_state.library[idx] = new_data
+                        break
+                st.success("Updated Successfully!")
+            else:
+                # กรณี Add: เพิ่มต่อท้าย
+                st.session_state.library.append(new_data)
+                st.success("Added Successfully!")
+            
+            # Save ลง Database
+            save_prompts(st.session_state.library)
+            
+            # Reset state และ Refresh
+            st.session_state.edit_target = None
+            st.rerun()
+
     st.divider()
+    
+    # 2. รายการ Style (เพิ่มปุ่ม Edit)
     for i, p in enumerate(st.session_state.library):
-        c1, c2, c3 = st.columns([1, 4, 1])
+        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
         if p.get("sample_url"): c1.image(p["sample_url"], width=50)
         c2.write(f"**{p['name']}** ({p['category']})")
-        if c3.button("Delete", key=f"del_{i}"):
+        
+        # ปุ่ม Edit
+        if c3.button("✏️ Edit", key=f"edit_{i}"):
+            st.session_state.edit_target = p # ส่งข้อมูลตัวนี้ขึ้นไปที่ฟอร์ม
+            st.rerun()
+            
+        # ปุ่ม Delete
+        if c4.button("🗑️ Del", key=f"del_{i}"):
             st.session_state.library.pop(i)
-            save_prompts(st.session_state.library) # Save to Cloud
+            save_prompts(st.session_state.library)
             st.rerun()
