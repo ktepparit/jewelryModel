@@ -153,4 +153,88 @@ with tab_gen:
                 current_style = next(p for p in filtered_prompts if p['id'] == selected_style_id)
                 
                 if current_style.get("sample_url"):
-                    st.image(current_style["sample_url"], width=15
+                    st.image(current_style["sample_url"], width=150)
+                
+                st.markdown("---")
+                
+                # Dynamic Variables
+                variables = [v.strip() for v in current_style.get('variables', '').split(",")]
+                user_vars = {}
+                if variables and variables[0] != "":
+                    st.write("📝 **Parameters**")
+                    for var in variables:
+                        user_vars[var] = st.text_input(f"Value for '{var}'", placeholder="e.g. large, gold")
+                
+                # Calculate Base Prompt
+                base_prompt = current_style['template']
+                for var, val in user_vars.items():
+                    base_prompt = base_prompt.replace(f"{{{var}}}", val if val else "")
+                
+                st.write("✏️ **Final Prompt (Editable):**")
+                # Editable Text Area
+                final_prompt_editable = st.text_area(
+                    "You can edit the prompt below before generating:", 
+                    value=base_prompt, 
+                    height=120
+                )
+                
+                if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
+                    if not final_image or not api_key:
+                        st.error("Missing Image or API Key")
+                    else:
+                        with st.spinner("AI is generating... (Gemini 3 Pro)"):
+                            # Send editable prompt
+                            img_data, error = call_gemini_api(api_key, final_image, final_prompt_editable)
+                            if img_data:
+                                st.balloons()
+                                st.success("Done!")
+                                st.image(img_data, use_column_width=True)
+                                st.download_button("Download", img_data, "gen_jewelry.jpg", "image/jpeg")
+                            else:
+                                st.error(error)
+            else:
+                st.warning("No styles found.")
+        else:
+            st.warning("Library empty.")
+
+# === TAB 2: MANAGE LIBRARY ===
+with tab_manager:
+    st.subheader("🛠️ Prompt Manager")
+    st.caption("Note: To edit a style, currently you have to Delete and Add New.")
+    
+    with st.expander("➕ Add New Style", expanded=False):
+        with st.form("add_prompt"):
+            new_name = st.text_input("Style Name")
+            new_cat = st.text_input("Category")
+            new_temp = st.text_area("Template (Use {var} for variables)", "A model wearing {color} ring...")
+            new_vars = st.text_input("Variables (comma separated)", "color, size")
+            new_url = st.text_input("Sample Image URL")
+            
+            if st.form_submit_button("Save Style"):
+                new_entry = {
+                    "id": f"p{len(st.session_state.prompt_library) + 1000}",
+                    "name": new_name,
+                    "category": new_cat,
+                    "template": new_temp,
+                    "variables": new_vars,
+                    "sample_url": new_url
+                }
+                st.session_state.prompt_library.append(new_entry)
+                save_prompts(st.session_state.prompt_library)
+                st.success("Saved!")
+                st.rerun()
+    
+    st.divider()
+    for idx, p in enumerate(st.session_state.prompt_library):
+        c1, c2, c3 = st.columns([1, 4, 1])
+        with c1:
+            if p.get("sample_url"):
+                st.image(p["sample_url"], width=50)
+        with c2:
+            st.write(f"**{p['name']}**")
+            st.caption(f"{p['template'][:50]}...")
+        with c3:
+            if st.button("Delete", key=f"del_{idx}"):
+                st.session_state.prompt_library.pop(idx)
+                save_prompts(st.session_state.prompt_library)
+                st.rerun()
