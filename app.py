@@ -4,12 +4,13 @@ import requests
 import base64
 from io import BytesIO
 from PIL import Image
+import time
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Prompt สำหรับ SEO Specialist
-SEO_PROMPT_TEMPLATE = """
+# Prompt A: สำหรับ Gen SEO หลังสร้างรูปเสร็จ (Tab 1)
+SEO_PROMPT_POST_GEN = """
 You are an SEO specialist with 15-20 years of experience. 
 Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
 To rank well on organic search engines by customer groups interested in this type of product.
@@ -19,6 +20,13 @@ Please provide the output exactly in this format:
 File Name: [your-optimized-filename.jpg]
 Alt Tag: [Your optimized descriptive alt tag with keywords]
 ---
+"""
+
+# Prompt B: สำหรับ Bulk SEO รูปที่มีอยู่แล้ว (Tab 2)
+SEO_PROMPT_BULK_EXISTING = """
+คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
+
+Please provide the output clearly separating File Name and Alt Tag.
 """
 
 # Default Data
@@ -65,12 +73,14 @@ def save_prompts(data):
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
-    img.save(buf, format="JPEG")
+    # Resize เล็กน้อยเพื่อความรวดเร็วในการส่งข้อมูล แต่ยังคมชัดพอให้ AI อ่าน
+    img.thumbnail((1024, 1024)) 
+    img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
-# ฟังก์ชันสำหรับ Gen รูปภาพ (ใช้ Gemini 3 Pro Image Preview)
+# ฟังก์ชันสำหรับ Gen รูปภาพ (Gemini 3 Pro Preview)
 def generate_image(api_key, image_list, prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list:
         parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
@@ -84,29 +94,47 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
-# ฟังก์ชันสำหรับ Gen SEO Tags (อัปเดตเป็น gemini-3-pro-preview ตามที่คุณแนะนำ)
-def generate_seo_tags(api_key, product_url):
-    # --- ใช้โมเดล gemini-3-pro-preview ---
+# ฟังก์ชันสำหรับ Gen SEO Tags (Gemini 3 Pro Preview) - Tab 1
+def generate_seo_tags_post_gen(api_key, product_url):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
-    
-    final_seo_prompt = SEO_PROMPT_TEMPLATE.replace("{product_url}", product_url)
-    
+    final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {
         "contents": [{"parts": [{"text": final_seo_prompt}]}],
         "generationConfig": {"temperature": 0.7}
     }
+    try:
+        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+        if res.status_code != 200: return None, f"API Error: {res.text}"
+        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+        if "text" in content: return content["text"], None
+        return None, "No text returned from model."
+    except Exception as e: return None, str(e)
+
+# ฟังก์ชันสำหรับ Bulk SEO (Gemini 3 Pro Preview) - Tab 2
+def generate_seo_for_existing_image(api_key, img_pil, product_url):
+    # --- UPDATE: เปลี่ยนมาใช้ gemini-3-pro-preview ตามที่ user ต้องการ ---
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
+    
+    final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": final_prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}
+            ]
+        }],
+        "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048}
+    }
     
     try:
         res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-        if res.status_code != 200:
-            return None, f"API Error: {res.text}"
-        
+        if res.status_code != 200: return None, f"API Error: {res.text}"
         content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-        if "text" in content:
-            return content["text"], None
-        return None, "No text returned from model."
-    except Exception as e:
-        return None, str(e)
+        if "text" in content: return content["text"], None
+        return None, "Model returned no text."
+    except Exception as e: return None, str(e)
+
 
 # --- 4. UI LOGIC ---
 if "library" not in st.session_state:
@@ -130,14 +158,15 @@ with st.sidebar:
         st.warning("⚠️ Local Mode")
 
 st.title("💎 Jewelry AI Studio")
-tab1, tab2 = st.tabs(["✨ Generate Image", "📚 Library Manager"])
 
-# === TAB 1: GENERATE ===
+tab1, tab2, tab3 = st.tabs(["✨ Generate Image", "🏷️ Bulk SEO Tags", "📚 Library Manager"])
+
+# === TAB 1: GENERATE IMAGE ===
 with tab1:
     c1, c2 = st.columns([1, 1.2])
     with c1:
-        st.subheader("1. Upload")
-        files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png", "jpeg"])
+        st.subheader("1. Upload Reference")
+        files = st.file_uploader("Upload Images for Gen", accept_multiple_files=True, type=["jpg", "png", "jpeg"], key="gen_upload")
         images_to_send = [Image.open(f) for f in files] if files else []
         if images_to_send:
             cols = st.columns(4)
@@ -163,13 +192,12 @@ with tab1:
             st.write("✏️ **Edit Prompt:**")
             prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
             
-            # --- Generate Button ---
             if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send:
                     st.error("Check Key & Images")
                     st.session_state.image_generated_success = False
                 else:
-                    with st.spinner("Generating Image..."):
+                    with st.spinner("Generating Image (Gemini 3 Pro)..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.image(d)
@@ -179,32 +207,84 @@ with tab1:
                             st.error(e)
                             st.session_state.image_generated_success = False
 
-            # --- SEO Tools Section ---
             if st.session_state.image_generated_success:
                 st.divider()
                 st.subheader("🌍 SEO Tools (Post-Generation)")
-                st.caption("Generate optimized tags based on the product URL.")
+                st.caption("Generate tags for the NEW image above.")
+                product_url_input = st.text_input("Paste Product URL here:", placeholder="https://yourshop.com/product/...", key="post_gen_url")
                 
-                product_url_input = st.text_input("Paste Product URL here:", placeholder="https://yourshop.com/product/...")
-                
-                if st.button("✨ Gen Alt Tag & File Name"):
+                if st.button("✨ Gen Tags for New Image"):
                     if not product_url_input:
                         st.warning("Please enter a Product URL first.")
                     else:
                         with st.spinner("Consulting SEO Specialist AI (Gemini 3 Pro)..."):
-                            seo_result, seo_err = generate_seo_tags(api_key, product_url_input)
-                            
+                            seo_result, seo_err = generate_seo_tags_post_gen(api_key, product_url_input)
                             if seo_result:
                                 with st.expander("✅ SEO Tags Generated!", expanded=True):
                                     st.code(seo_result, language="yaml")
-                                    st.caption("Copy these tags to your product listing.")
                             else:
                                 st.error(f"SEO Generation Failed: {seo_err}")
 
         else: st.warning("Library empty.")
 
-# === TAB 2: LIBRARY (EDITABLE) ===
+# === TAB 2: BULK SEO TAGS (Gemini 3 Pro) ===
 with tab2:
+    st.header("🏷️ Generate SEO Tags for Existing Images")
+    st.caption("อัปโหลดรูปภาพสินค้าที่มีอยู่แล้ว เพื่อให้ AI ช่วยเขียน File Name และ Alt Tag ตาม URL สินค้า")
+    
+    bc1, bc2 = st.columns([1, 1.5])
+    
+    with bc1:
+        st.subheader("1. Upload Existing Images")
+        bulk_files = st.file_uploader("Choose images (Max 10 recommended)", accept_multiple_files=True, type=["jpg", "png", "jpeg"], key="bulk_seo_upload")
+        bulk_images = [Image.open(f) for f in bulk_files] if bulk_files else []
+        
+        if bulk_images:
+            st.info(f"Loaded {len(bulk_images)} images ready for analysis.")
+        
+    with bc2:
+        st.subheader("2. Product Details & Run")
+        bulk_url = st.text_input("Product URL (ใช้เป็นข้อมูลอ้างอิงสำหรับทุกรูป):", placeholder="https://yourshop.com/product/...", key="bulk_seo_url")
+        
+        run_bulk_btn = st.button("🚀 Run SEO Specialist AI (Batch)", type="primary", use_container_width=True, disabled=(not bulk_images))
+        
+    st.divider()
+    st.subheader("📝 Results")
+
+    if run_bulk_btn:
+        if not api_key:
+            st.error("Please provide API Key in settings first.")
+        elif not bulk_url:
+            st.error("Please provide a Product URL.")
+        elif not bulk_images:
+             st.warning("Please upload images first.")
+        else:
+            progress_bar = st.progress(0)
+            results_container = st.container()
+
+            for i, img_pil in enumerate(bulk_images):
+                with st.spinner(f"Analyzing Image {i+1}/{len(bulk_images)} with Gemini 3 Pro..."):
+                    seo_text, error = generate_seo_for_existing_image(api_key, img_pil, bulk_url)
+                    progress_bar.progress((i + 1) / len(bulk_images))
+                    
+                    with results_container:
+                        rc1, rc2 = st.columns([1, 4])
+                        with rc1:
+                            st.image(img_pil, width=100, caption=f"Image {i+1}")
+                        with rc2:
+                            if seo_text:
+                                with st.expander(f"✅ Tags for Image {i+1}", expanded=True):
+                                    st.code(seo_text, language="markdown") 
+                            else:
+                                st.error(f"Failed image {i+1}: {error}")
+                    st.divider()
+                    time.sleep(0.5) 
+            
+            st.success("🎉 All images processed!")
+            progress_bar.empty()
+
+# === TAB 3: LIBRARY MANAGER ===
+with tab3:
     st.subheader("🛠️ Prompt Library")
     target = st.session_state.edit_target
     form_title = f"✏️ Edit Style: {target['name']}" if target else "➕ Add New Style"
