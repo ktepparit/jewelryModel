@@ -6,16 +6,16 @@ from io import BytesIO
 from PIL import Image
 import time
 import pandas as pd
-import re # เพิ่ม regex เพื่อช่วยแกะ JSON
+import re
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Model IDs Configuration (แยกกันชัดเจนตามที่คุณระบุ)
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" # สำหรับสร้างรูป
-MODEL_TEXT_SEO = "models/gemini-3-pro-preview"       # สำหรับเขียน SEO
+# Model IDs Configuration
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
-# Prompt A: สำหรับ Gen SEO (Tab 1) - สั่งให้ตอบเป็น JSON
+# Prompt A: สำหรับ Gen SEO (Tab 1) - JSON Output
 SEO_PROMPT_POST_GEN = """
 You are an SEO specialist with 15-20 years of experience. 
 Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
@@ -29,7 +29,7 @@ Structure:
 }
 """
 
-# Prompt B: สำหรับ Bulk SEO (Tab 2) - สั่งให้ตอบเป็น JSON
+# Prompt B: สำหรับ Bulk SEO (Tab 2) - JSON Output
 SEO_PROMPT_BULK_EXISTING = """
 คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 
@@ -90,9 +90,7 @@ def img_to_base64(img):
     return base64.b64encode(buf.getvalue()).decode()
 
 def parse_json_response(text):
-    """ฟังก์ชันช่วยแกะ JSON ออกจากข้อความที่ AI ตอบกลับมา"""
     try:
-        # ลบ markdown code block ถ้ามี (```json ... ```)
         text = re.sub(r"```json", "", text)
         text = re.sub(r"```", "", text)
         text = text.strip()
@@ -100,7 +98,7 @@ def parse_json_response(text):
     except:
         return None
 
-# Function 1: Gen รูปภาพ (ใช้ models/gemini-3-pro-image-preview)
+# Function 1: Gen รูปภาพ
 def generate_image(api_key, image_list, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
@@ -109,8 +107,6 @@ def generate_image(api_key, image_list, prompt):
     try:
         res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
-        
-        # การแกะ Response ของ Image Model
         content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
         if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
         if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
@@ -118,23 +114,51 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
-# Function 2: Gen SEO Post-Gen (ใช้ models/gemini-3-pro-preview)
+# Function 2: Gen SEO Post-Gen (พร้อมระบบ Auto-Retry แก้ปัญหา 503)
 def generate_seo_tags_post_gen(api_key, product_url):
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {
         "contents": [{"parts": [{"text": final_seo_prompt}]}],
-        "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"} # บังคับ JSON Mode
+        "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}
     }
-    try:
-        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-        if res.status_code != 200: return None, f"API Error: {res.text}"
-        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-        if "text" in content: return content["text"], None
-        return None, "No text returned from model."
-    except Exception as e: return None, str(e)
+    
+    # --- Retry Logic ---
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            
+            if res.status_code == 200:
+                # สำเร็จ! แกะข้อมูลแล้วส่งกลับ
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                if "text" in content: return content["text"], None
+                return None, "No text returned from model."
+            
+            elif res.status_code == 503:
+                # ถ้าเจอ 503 ให้รอแล้วลองใหม่
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2 # รอ 2s, 4s, 6s
+                    st.toast(f"Model overloaded (503). Retrying in {wait_time}s...", icon="⏳")
+                    time.sleep(wait_time)
+                    continue # วนลูปไปลองใหม่
+                else:
+                    # ถ้าครบกำหนดแล้วยังไม่ได้
+                    return None, f"API Error 503: Model still overloaded after {max_retries} attempts. Please try again later."
+            
+            else:
+                # Error อื่นๆ ที่ไม่ใช่ 503
+                return None, f"API Error {res.status_code}: {res.text}"
+                
+        except Exception as e:
+             if attempt < max_retries - 1:
+                 time.sleep(2)
+                 continue
+             return None, str(e)
+    
+    return None, "Unknown error after retries."
 
-# Function 3: Bulk SEO (ใช้ models/gemini-3-pro-preview)
+# Function 3: Bulk SEO
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
@@ -149,13 +173,25 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "responseMimeType": "application/json"}
     }
     
-    try:
-        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-        if res.status_code != 200: return None, f"API Error: {res.text}"
-        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-        if "text" in content: return content["text"], None
-        return None, "Model returned no text."
-    except Exception as e: return None, str(e)
+    # Bulk ก็ควรมี Retry เหมือนกันเผื่อเจอ 503
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                if "text" in content: return content["text"], None
+                return None, "Model returned no text."
+            elif res.status_code == 503 and attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 2)
+                continue
+            else:
+                return None, f"API Error {res.status_code}: {res.text}"
+        except Exception as e:
+            if attempt < max_retries - 1: time.sleep(2); continue
+            return None, str(e)
+            
+    return None, "Failed after retries."
 
 def list_available_models(api_key):
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
@@ -173,8 +209,12 @@ if "library" not in st.session_state:
     st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state:
     st.session_state.edit_target = None
+
+# --- SESSION STATE สำหรับจำรูปภาพ ---
 if "image_generated_success" not in st.session_state:
     st.session_state.image_generated_success = False
+if "current_generated_image" not in st.session_state:
+    st.session_state.current_generated_image = None # เก็บข้อมูลรูปภาพ (bytes)
 
 with st.sidebar:
     st.title("⚙️ Config")
@@ -225,47 +265,56 @@ with tab1:
             st.write("✏️ **Edit Prompt:**")
             prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
             
+            # --- ปุ่ม Generate ---
             if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send:
                     st.error("Check Key & Images")
                     st.session_state.image_generated_success = False
+                    st.session_state.current_generated_image = None
                 else:
-                    # ใช้ MODEL_IMAGE_GEN (Image Preview)
                     with st.spinner(f"Generating Image ({MODEL_IMAGE_GEN})..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
-                            st.image(d)
-                            st.download_button("Download", d, "gen.jpg")
-                            st.session_state.image_generated_success = True 
+                            # บันทึกลง Session State
+                            st.session_state.current_generated_image = d
+                            st.session_state.image_generated_success = True
+                            st.rerun() # Rerun เพื่อให้ส่วนแสดงผลด้านล่างทำงาน
                         else:
                             st.error(e)
                             st.session_state.image_generated_success = False
+                            st.session_state.current_generated_image = None
 
-            if st.session_state.image_generated_success:
+            # --- ส่วนแสดงผลรูปภาพและ SEO (อยู่นอก if st.button) ---
+            if st.session_state.image_generated_success and st.session_state.current_generated_image:
+                st.divider()
+                st.subheader("🎉 Result")
+                # ดึงรูปจาก Session State มาแสดง
+                st.image(st.session_state.current_generated_image, use_column_width=True)
+                st.download_button("Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="primary")
+                
                 st.divider()
                 st.subheader("🌍 SEO Tools (Post-Generation)")
-                st.caption("Generate separate tags for the NEW image above.")
+                st.caption("Generate separate tags for this NEW image.")
                 product_url_input = st.text_input("Paste Product URL here:", placeholder="https://yourshop.com/product/...", key="post_gen_url")
                 
                 if st.button("✨ Gen Tags for New Image"):
                     if not product_url_input:
                         st.warning("Please enter a Product URL first.")
                     else:
-                        # ใช้ MODEL_TEXT_SEO (Pro Preview)
                         with st.spinner(f"Consulting SEO Specialist AI ({MODEL_TEXT_SEO})..."):
                             seo_text_json, seo_err = generate_seo_tags_post_gen(api_key, product_url_input)
                             
                             if seo_text_json:
                                 seo_data = parse_json_response(seo_text_json)
                                 if seo_data:
-                                    with st.expander("✅ SEO Results", expanded=True):
+                                    with st.expander("✅ SEO Results (Ready to Copy)", expanded=True):
                                         st.write("📄 **Image File Name:**")
                                         st.code(seo_data.get('file_name', 'N/A'), language="text")
                                         
                                         st.write("🏷️ **Alt Tag:**")
                                         st.code(seo_data.get('alt_tag', 'N/A'), language="text")
                                 else:
-                                    st.error("Failed to parse JSON response. Showing raw text:")
+                                    st.error("Failed to parse JSON. Raw output:")
                                     st.code(seo_text_json)
                             else:
                                 st.error(f"SEO Generation Failed: {seo_err}")
