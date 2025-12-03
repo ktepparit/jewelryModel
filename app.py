@@ -59,21 +59,35 @@ if "prompt_library" not in st.session_state:
 # --- 3. HELPER FUNCTIONS ---
 def image_to_base64(image):
     buffered = BytesIO()
+    # Convert RGBA to RGB if necessary
+    if image.mode == 'RGBA':
+        image = image.convert('RGB')
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-def call_gemini_api(api_key, image, prompt):
-    # API Endpoint (Gemini 3 Pro Image)
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key={api_key}"
+# --- แก้ไข: ฟังก์ชันรับ List ของรูปภาพ ---
+def call_gemini_api(api_key, image_list, prompt):
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     
-    base64_img = image_to_base64(image)
+    # 1. เริ่มต้นสร้าง parts ด้วย Text Prompt ก่อน
+    request_parts = [
+        {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product(s) shown in the input images MUST remain exactly as they are. Analyze all reference images to understand the product structure and details precisely. Do not alter the jewelry design. Generate a realistic human model wearing it."}
+    ]
     
+    # 2. วนลูปเพื่อเพิ่มรูปภาพทุกรูปลงใน parts
+    for img in image_list:
+        base64_img = image_to_base64(img)
+        request_parts.append({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": base64_img
+            }
+        })
+
+    # 3. ประกอบ Payload
     payload = {
         "contents": [{
-            "parts": [
-                {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product in the image MUST remain exactly as it is in the input. Do not alter the jewelry design. Generate a realistic human model wearing it."},
-                {"inline_data": {"mime_type": "image/jpeg", "data": base64_img}}
-            ]
+            "parts": request_parts
         }],
         "generationConfig": {
             "temperature": 0.3,
@@ -90,8 +104,6 @@ def call_gemini_api(api_key, image, prompt):
             if "candidates" in result and result["candidates"]:
                 content = result["candidates"][0]["content"]["parts"][0]
                 
-                # --- จุดที่แก้ไข (Fix JSON Key) ---
-                # เช็คทั้ง inline_data (แบบ Python) และ inlineData (แบบ REST JSON)
                 if "inline_data" in content:
                     return base64.b64decode(content["inline_data"]["data"]), None
                 elif "inlineData" in content:
@@ -113,9 +125,9 @@ with st.sidebar:
         st.success("✅ API Key Loaded")
     except:
         api_key = st.text_input("Enter Gemini API Key", type="password")
-    st.info("Tip: Use 'Manage Library' to add custom prompts.")
+    st.info("Tip: Uploading multiple angles helps the AI understand the product structure better.")
 
-st.title("💎 Jewelry AI Studio")
+st.title("💎 Jewelry AI Studio (Multi-Reference)")
 
 tab_gen, tab_manager = st.tabs(["✨ Create Image", "📚 Manage Library"])
 
@@ -124,14 +136,26 @@ with tab_gen:
     col_input, col_config = st.columns([1, 1.2])
 
     with col_input:
-        st.subheader("1. Input Product")
-        uploaded_file = st.file_uploader("Upload Product Image", type=["jpg", "png", "jpeg"])
-        final_image = None
-        if uploaded_file:
-            final_image = Image.open(uploaded_file)
-            st.image(final_image, caption="Product Preview", use_column_width=True)
+        st.subheader("1. Input Product(s)")
+        # --- แก้ไข UI: เปิดให้รับหลายไฟล์ ---
+        uploaded_files = st.file_uploader(
+            "Upload Product Images (Max 3-4 recommended)", 
+            type=["jpg", "png", "jpeg"],
+            accept_multiple_files=True # Key Change!
+        )
+        
+        final_images_list = []
+        if uploaded_files:
+            st.write(f"Selected {len(uploaded_files)} images:")
+            # แสดง Preview รูปแบบ Grid
+            cols = st.columns(len(uploaded_files))
+            for idx, uploaded_file in enumerate(uploaded_files):
+                img = Image.open(uploaded_file)
+                final_images_list.append(img)
+                with cols[idx]:
+                    st.image(img, caption=f"Ref {idx+1}", use_column_width=True)
         else:
-            st.info("👆 Please upload an image first.")
+            st.info("👆 Please upload at least one image.")
 
     with col_config:
         st.subheader("2. Select Style & Edit")
@@ -177,17 +201,19 @@ with tab_gen:
                     height=120
                 )
                 
+                # --- แก้ไข: เช็คว่ามีรูปใน list ไหม ---
                 if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
-                    if not final_image or not api_key:
-                        st.error("Missing Image or API Key")
+                    if not final_images_list or not api_key:
+                        st.error("Missing Images or API Key")
                     else:
-                        with st.spinner("AI is generating... (Gemini 3 Pro)"):
-                            img_data, error = call_gemini_api(api_key, final_image, final_prompt_editable)
+                        with st.spinner(f"AI is analyzing {len(final_images_list)} images & generating..."):
+                            # ส่ง List ของรูปภาพไป
+                            img_data, error = call_gemini_api(api_key, final_images_list, final_prompt_editable)
                             if img_data:
                                 st.balloons()
                                 st.success("Done!")
                                 st.image(img_data, use_column_width=True)
-                                st.download_button("Download", img_data, "gen_jewelry.jpg", "image/jpeg")
+                                st.download_button("Download", img_data, "gen_jewelry_multi.jpg", "image/jpeg")
                             else:
                                 st.error(error)
             else:
@@ -236,4 +262,3 @@ with tab_manager:
                 st.session_state.prompt_library.pop(idx)
                 save_prompts(st.session_state.prompt_library)
                 st.rerun()
-
