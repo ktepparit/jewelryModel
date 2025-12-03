@@ -1,4 +1,3 @@
 streamlit
-streamlit-paste-image
 requests
 Pillow
