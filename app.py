@@ -5,6 +5,8 @@ import requests
 import base64
 from io import BytesIO
 from PIL import Image
+# เรียกใช้ Library สำหรับ Paste (ต้องแก้ requirements.txt ให้ถูกก่อนนะ)
+from streamlit_paste_image import paste_image
 
 # --- 1. SETUP & CONFIG ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio", page_icon="💎")
@@ -59,22 +61,20 @@ if "prompt_library" not in st.session_state:
 # --- 3. HELPER FUNCTIONS ---
 def image_to_base64(image):
     buffered = BytesIO()
-    # Convert RGBA to RGB if necessary
     if image.mode == 'RGBA':
         image = image.convert('RGB')
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# --- แก้ไข: ฟังก์ชันรับ List ของรูปภาพ ---
 def call_gemini_api(api_key, image_list, prompt):
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     
-    # 1. เริ่มต้นสร้าง parts ด้วย Text Prompt ก่อน
+    # Create request parts with prompt
     request_parts = [
         {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product(s) shown in the input images MUST remain exactly as they are. Analyze all reference images to understand the product structure and details precisely. Do not alter the jewelry design. Generate a realistic human model wearing it."}
     ]
     
-    # 2. วนลูปเพื่อเพิ่มรูปภาพทุกรูปลงใน parts
+    # Add all images to parts
     for img in image_list:
         base64_img = image_to_base64(img)
         request_parts.append({
@@ -84,7 +84,6 @@ def call_gemini_api(api_key, image_list, prompt):
             }
         })
 
-    # 3. ประกอบ Payload
     payload = {
         "contents": [{
             "parts": request_parts
@@ -110,7 +109,6 @@ def call_gemini_api(api_key, image_list, prompt):
                     return base64.b64decode(content["inlineData"]["data"]), None
                 elif "text" in content:
                     return None, "Model returned text: " + content["text"]
-            
             return None, f"Unknown response format: {result}"
         else:
             return None, f"API Error: {response.text}"
@@ -125,9 +123,9 @@ with st.sidebar:
         st.success("✅ API Key Loaded")
     except:
         api_key = st.text_input("Enter Gemini API Key", type="password")
-    st.info("Tip: Uploading multiple angles helps the AI understand the product structure better.")
+    st.info("Tip: You can use BOTH paste and upload together.")
 
-st.title("💎 Jewelry AI Studio (Multi-Reference)")
+st.title("💎 Jewelry AI Studio")
 
 tab_gen, tab_manager = st.tabs(["✨ Create Image", "📚 Manage Library"])
 
@@ -137,25 +135,39 @@ with tab_gen:
 
     with col_input:
         st.subheader("1. Input Product(s)")
-        # --- แก้ไข UI: เปิดให้รับหลายไฟล์ ---
-        uploaded_files = st.file_uploader(
-            "Upload Product Images (Max 3-4 recommended)", 
-            type=["jpg", "png", "jpeg"],
-            accept_multiple_files=True # Key Change!
-        )
         
+        # --- A. PASTE AREA ---
+        st.markdown("📋 **Quick Paste (Ctrl+V)**")
+        # ปุ่ม Paste Image (กดแล้วค่อยกด Ctrl+V)
+        paste_result = paste_image(label="Click here then Ctrl+V", key="paster", text_color="#ffffff", background_color="#FF4B4B")
+        
+        # --- B. UPLOAD AREA ---
+        st.markdown("📂 **Or Upload Files**")
+        uploaded_files = st.file_uploader("Select images", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+        
+        # --- รวมรูปจากทั้ง 2 แหล่ง ---
         final_images_list = []
+        
+        # 1. เช็ครูปจาก Paste
+        if paste_result.image_data is not None:
+            st.success("Image Pasted!")
+            final_images_list.append(paste_result.image_data)
+            
+        # 2. เช็ครูปจาก Upload
         if uploaded_files:
-            st.write(f"Selected {len(uploaded_files)} images:")
-            # แสดง Preview รูปแบบ Grid
-            cols = st.columns(len(uploaded_files))
-            for idx, uploaded_file in enumerate(uploaded_files):
-                img = Image.open(uploaded_file)
-                final_images_list.append(img)
-                with cols[idx]:
-                    st.image(img, caption=f"Ref {idx+1}", use_column_width=True)
+            for f in uploaded_files:
+                final_images_list.append(Image.open(f))
+        
+        # แสดงรูปทั้งหมดที่จะส่งไปให้ AI
+        if final_images_list:
+            st.write(f"Total Images: {len(final_images_list)}")
+            cols = st.columns(min(len(final_images_list), 4)) # แสดงสูงสุด 4 รูปแนวนอน
+            for idx, img in enumerate(final_images_list):
+                # ใช้ modulo เพื่อวนแสดงผลใน grid
+                with cols[idx % 4]:
+                    st.image(img, caption=f"Img {idx+1}", use_column_width=True)
         else:
-            st.info("👆 Please upload at least one image.")
+            st.info("Waiting for image... (Paste or Upload)")
 
     with col_config:
         st.subheader("2. Select Style & Edit")
@@ -181,7 +193,6 @@ with tab_gen:
                 
                 st.markdown("---")
                 
-                # Dynamic Variables
                 variables = [v.strip() for v in current_style.get('variables', '').split(",")]
                 user_vars = {}
                 if variables and variables[0] != "":
@@ -189,31 +200,28 @@ with tab_gen:
                     for var in variables:
                         user_vars[var] = st.text_input(f"Value for '{var}'", placeholder="e.g. large, gold")
                 
-                # Calculate Base Prompt
                 base_prompt = current_style['template']
                 for var, val in user_vars.items():
                     base_prompt = base_prompt.replace(f"{{{var}}}", val if val else "")
                 
                 st.write("✏️ **Final Prompt (Editable):**")
                 final_prompt_editable = st.text_area(
-                    "You can edit the prompt below before generating:", 
+                    "Edit prompt:", 
                     value=base_prompt, 
                     height=120
                 )
                 
-                # --- แก้ไข: เช็คว่ามีรูปใน list ไหม ---
                 if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
                     if not final_images_list or not api_key:
                         st.error("Missing Images or API Key")
                     else:
-                        with st.spinner(f"AI is analyzing {len(final_images_list)} images & generating..."):
-                            # ส่ง List ของรูปภาพไป
+                        with st.spinner(f"AI is analyzing {len(final_images_list)} images..."):
                             img_data, error = call_gemini_api(api_key, final_images_list, final_prompt_editable)
                             if img_data:
                                 st.balloons()
                                 st.success("Done!")
                                 st.image(img_data, use_column_width=True)
-                                st.download_button("Download", img_data, "gen_jewelry_multi.jpg", "image/jpeg")
+                                st.download_button("Download", img_data, "gen_jewelry.jpg", "image/jpeg")
                             else:
                                 st.error(error)
             else:
@@ -224,14 +232,13 @@ with tab_gen:
 # === TAB 2: MANAGE LIBRARY ===
 with tab_manager:
     st.subheader("🛠️ Prompt Manager")
-    st.caption("Note: To edit a style, currently you have to Delete and Add New.")
     
     with st.expander("➕ Add New Style", expanded=False):
         with st.form("add_prompt"):
             new_name = st.text_input("Style Name")
             new_cat = st.text_input("Category")
-            new_temp = st.text_area("Template (Use {var} for variables)", "A model wearing {color} ring...")
-            new_vars = st.text_input("Variables (comma separated)", "color, size")
+            new_temp = st.text_area("Template", "A model wearing {color} ring...")
+            new_vars = st.text_input("Variables", "color, size")
             new_url = st.text_input("Sample Image URL")
             
             if st.form_submit_button("Save Style"):
@@ -256,7 +263,6 @@ with tab_manager:
                 st.image(p["sample_url"], width=50)
         with c2:
             st.write(f"**{p['name']}**")
-            st.caption(f"{p['template'][:50]}...")
         with c3:
             if st.button("Delete", key=f"del_{idx}"):
                 st.session_state.prompt_library.pop(idx)
