@@ -63,22 +63,27 @@ def image_to_base64(image):
     return base64.b64encode(buffered.getvalue()).decode()
 
 def call_gemini_api(api_key, image, prompt):
-    # ใช้ Model ID: gemini-1.5-flash เพื่อความเร็วและประหยัด (หรือเปลี่ยนเป็น pro ได้)
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    # --- จุดที่แก้ไข: เปลี่ยน Model ID เป็น gemini-3-pro-image-preview ---
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
+    
+    # ** ถ้าใช้ตัวบนแล้วยัง 404 ให้ลองเอา # ออกจากบรรทัดล่างนี้เพื่อใช้ตัวเสถียรแทนครับ **
+    # api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
     
     base64_img = image_to_base64(image)
     
     payload = {
         "contents": [{
             "parts": [
-                {"text": f"Task: AI Image Generator / Virtual Try-on. \nInstruction: {prompt} \nConstraint: Keep the jewelry product in the input image EXACTLY as is. Do not hallucinate new jewelry designs. Make it look realistic."},
+                # เพิ่ม Instruction ให้ชัดเจนขึ้นสำหรับ Gemini 3
+                {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product in the image MUST remain exactly as it is in the input. Do not alter the jewelry design. Generate a realistic human model wearing it."},
                 {"inline_data": {"mime_type": "image/jpeg", "data": base64_img}}
             ]
         }],
         "generationConfig": {
-            "temperature": 0.4,
+            # Gemini 3 อาจต้องการ temperature ที่ต่ำลงเพื่อความแม่นยำ
+            "temperature": 0.3,
             "topK": 32,
-            "topP": 1,
+            "topP": 0.95,
             "maxOutputTokens": 2048
         }
     }
@@ -87,14 +92,15 @@ def call_gemini_api(api_key, image, prompt):
         response = requests.post(api_url, json=payload, headers={"Content-Type": "application/json"})
         if response.status_code == 200:
             result = response.json()
-            if "candidates" in result:
+            if "candidates" in result and result["candidates"]:
                 content = result["candidates"][0]["content"]["parts"][0]
                 if "inline_data" in content:
                     return base64.b64decode(content["inline_data"]["data"]), None
                 elif "text" in content:
                     return None, "Model returned text: " + content["text"]
-            return None, "Unknown response format"
+            return None, f"Unknown response format: {result}"
         else:
+            # คืนค่า Error เต็มๆ เพื่อให้ Debug ง่ายขึ้น
             return None, f"API Error: {response.text}"
     except Exception as e:
         return None, str(e)
@@ -147,88 +153,4 @@ with tab_gen:
                 current_style = next(p for p in filtered_prompts if p['id'] == selected_style_id)
                 
                 if current_style.get("sample_url"):
-                    st.image(current_style["sample_url"], width=150)
-                
-                st.markdown("---")
-                
-                # Dynamic Variables
-                variables = [v.strip() for v in current_style.get('variables', '').split(",")]
-                user_vars = {}
-                if variables and variables[0] != "":
-                    st.write("📝 **Parameters**")
-                    for var in variables:
-                        user_vars[var] = st.text_input(f"Value for '{var}'", placeholder="e.g. large, gold")
-                
-                # --- ส่วนสำคัญ: คำนวณ Prompt และเปิดให้แก้ไข ---
-                base_prompt = current_style['template']
-                for var, val in user_vars.items():
-                    base_prompt = base_prompt.replace(f"{{{var}}}", val if val else "")
-                
-                st.write("✏️ **Final Prompt (Editable):**")
-                # ใช้ text_area แทน code เพื่อให้ user แก้ไขข้อความได้ก่อนส่ง
-                final_prompt_editable = st.text_area(
-                    "You can edit the prompt below before generating:", 
-                    value=base_prompt, 
-                    height=120
-                )
-                
-                if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
-                    if not final_image or not api_key:
-                        st.error("Missing Image or API Key")
-                    else:
-                        with st.spinner("AI is generating..."):
-                            # ส่ง final_prompt_editable ไปแทน
-                            img_data, error = call_gemini_api(api_key, final_image, final_prompt_editable)
-                            if img_data:
-                                st.balloons()
-                                st.success("Done!")
-                                st.image(img_data, use_column_width=True)
-                                st.download_button("Download", img_data, "gen_jewelry.jpg", "image/jpeg")
-                            else:
-                                st.error(error)
-            else:
-                st.warning("No styles found.")
-        else:
-            st.warning("Library empty.")
-
-# === TAB 2: MANAGE LIBRARY ===
-with tab_manager:
-    st.subheader("🛠️ Prompt Manager")
-    st.caption("Note: To edit a style, currently you have to Delete and Add New.")
-    
-    with st.expander("➕ Add New Style", expanded=False):
-        with st.form("add_prompt"):
-            new_name = st.text_input("Style Name")
-            new_cat = st.text_input("Category")
-            new_temp = st.text_area("Template (Use {var} for variables)", "A model wearing {color} ring...")
-            new_vars = st.text_input("Variables (comma separated)", "color, size")
-            new_url = st.text_input("Sample Image URL")
-            
-            if st.form_submit_button("Save Style"):
-                new_entry = {
-                    "id": f"p{len(st.session_state.prompt_library) + 1000}",
-                    "name": new_name,
-                    "category": new_cat,
-                    "template": new_temp,
-                    "variables": new_vars,
-                    "sample_url": new_url
-                }
-                st.session_state.prompt_library.append(new_entry)
-                save_prompts(st.session_state.prompt_library)
-                st.success("Saved!")
-                st.rerun()
-    
-    st.divider()
-    for idx, p in enumerate(st.session_state.prompt_library):
-        c1, c2, c3 = st.columns([1, 4, 1])
-        with c1:
-            if p.get("sample_url"):
-                st.image(p["sample_url"], width=50)
-        with c2:
-            st.write(f"**{p['name']}**")
-            st.caption(f"{p['template'][:50]}...")
-        with c3:
-            if st.button("Delete", key=f"del_{idx}"):
-                st.session_state.prompt_library.pop(idx)
-                save_prompts(st.session_state.prompt_library)
-                st.rerun()
+                    st.image(current_style["sample_url"], width=15
