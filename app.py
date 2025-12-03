@@ -63,24 +63,19 @@ def image_to_base64(image):
     return base64.b64encode(buffered.getvalue()).decode()
 
 def call_gemini_api(api_key, image, prompt):
-    # --- จุดที่แก้ไข: เปลี่ยน Model ID เป็น gemini-3-pro-image-preview ---
+    # API Endpoint (Gemini 3 Pro Image)
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
-    
-    # ** ถ้าใช้ตัวบนแล้วยัง 404 ให้ลองเอา # ออกจากบรรทัดล่างนี้เพื่อใช้ตัวเสถียรแทนครับ **
-    # api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
     
     base64_img = image_to_base64(image)
     
     payload = {
         "contents": [{
             "parts": [
-                # เพิ่ม Instruction ให้ชัดเจนขึ้นสำหรับ Gemini 3
                 {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product in the image MUST remain exactly as it is in the input. Do not alter the jewelry design. Generate a realistic human model wearing it."},
                 {"inline_data": {"mime_type": "image/jpeg", "data": base64_img}}
             ]
         }],
         "generationConfig": {
-            # Gemini 3 อาจต้องการ temperature ที่ต่ำลงเพื่อความแม่นยำ
             "temperature": 0.3,
             "topK": 32,
             "topP": 0.95,
@@ -94,13 +89,18 @@ def call_gemini_api(api_key, image, prompt):
             result = response.json()
             if "candidates" in result and result["candidates"]:
                 content = result["candidates"][0]["content"]["parts"][0]
+                
+                # --- จุดที่แก้ไข (Fix JSON Key) ---
+                # เช็คทั้ง inline_data (แบบ Python) และ inlineData (แบบ REST JSON)
                 if "inline_data" in content:
                     return base64.b64decode(content["inline_data"]["data"]), None
+                elif "inlineData" in content:
+                    return base64.b64decode(content["inlineData"]["data"]), None
                 elif "text" in content:
                     return None, "Model returned text: " + content["text"]
+            
             return None, f"Unknown response format: {result}"
         else:
-            # คืนค่า Error เต็มๆ เพื่อให้ Debug ง่ายขึ้น
             return None, f"API Error: {response.text}"
     except Exception as e:
         return None, str(e)
@@ -171,7 +171,6 @@ with tab_gen:
                     base_prompt = base_prompt.replace(f"{{{var}}}", val if val else "")
                 
                 st.write("✏️ **Final Prompt (Editable):**")
-                # Editable Text Area
                 final_prompt_editable = st.text_area(
                     "You can edit the prompt below before generating:", 
                     value=base_prompt, 
@@ -183,7 +182,6 @@ with tab_gen:
                         st.error("Missing Image or API Key")
                     else:
                         with st.spinner("AI is generating... (Gemini 3 Pro)"):
-                            # Send editable prompt
                             img_data, error = call_gemini_api(api_key, final_image, final_prompt_editable)
                             if img_data:
                                 st.balloons()
@@ -238,5 +236,3 @@ with tab_manager:
                 st.session_state.prompt_library.pop(idx)
                 save_prompts(st.session_state.prompt_library)
                 st.rerun()
-
-
