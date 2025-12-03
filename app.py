@@ -64,7 +64,7 @@ def image_to_base64(image):
 
 def call_gemini_api(api_key, image, prompt):
     # API Endpoint (Gemini 3 Pro Image)
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key={api_key}"
     
     base64_img = image_to_base64(image)
     
@@ -236,3 +236,4 @@ with tab_manager:
                 st.session_state.prompt_library.pop(idx)
                 save_prompts(st.session_state.prompt_library)
                 st.rerun()
+
