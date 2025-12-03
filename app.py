@@ -5,8 +5,6 @@ import requests
 import base64
 from io import BytesIO
 from PIL import Image
-# เรียกใช้ Library สำหรับ Paste (ต้องแก้ requirements.txt ให้ถูกก่อนนะ)
-from streamlit_paste_image import paste_image
 
 # --- 1. SETUP & CONFIG ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio", page_icon="💎")
@@ -61,20 +59,22 @@ if "prompt_library" not in st.session_state:
 # --- 3. HELPER FUNCTIONS ---
 def image_to_base64(image):
     buffered = BytesIO()
+    # Convert RGBA to RGB (prevent errors with transparent pngs)
     if image.mode == 'RGBA':
         image = image.convert('RGB')
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
 def call_gemini_api(api_key, image_list, prompt):
+    # Endpoint สำหรับ Gemini 3 Pro Image Preview
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     
-    # Create request parts with prompt
+    # สร้าง Parts: เริ่มต้นด้วยคำสั่ง Text
     request_parts = [
         {"text": f"Task: AI Virtual Try-on product photography. \nInstruction: {prompt} \nConstraint: The jewelry product(s) shown in the input images MUST remain exactly as they are. Analyze all reference images to understand the product structure and details precisely. Do not alter the jewelry design. Generate a realistic human model wearing it."}
     ]
     
-    # Add all images to parts
+    # วนลูปเอารูปภาพทั้งหมดใส่เข้าไป
     for img in image_list:
         base64_img = image_to_base64(img)
         request_parts.append({
@@ -103,12 +103,14 @@ def call_gemini_api(api_key, image_list, prompt):
             if "candidates" in result and result["candidates"]:
                 content = result["candidates"][0]["content"]["parts"][0]
                 
+                # รองรับ Key ทั้ง 2 รูปแบบ (ป้องกัน Error Unknown format)
                 if "inline_data" in content:
                     return base64.b64decode(content["inline_data"]["data"]), None
                 elif "inlineData" in content:
                     return base64.b64decode(content["inlineData"]["data"]), None
                 elif "text" in content:
                     return None, "Model returned text: " + content["text"]
+            
             return None, f"Unknown response format: {result}"
         else:
             return None, f"API Error: {response.text}"
@@ -123,9 +125,9 @@ with st.sidebar:
         st.success("✅ API Key Loaded")
     except:
         api_key = st.text_input("Enter Gemini API Key", type="password")
-    st.info("Tip: You can use BOTH paste and upload together.")
+    st.info("Tip: You can drag and drop multiple images at once.")
 
-st.title("💎 Jewelry AI Studio")
+st.title("💎 Jewelry AI Studio (Pro)")
 
 tab_gen, tab_manager = st.tabs(["✨ Create Image", "📚 Manage Library"])
 
@@ -136,38 +138,28 @@ with tab_gen:
     with col_input:
         st.subheader("1. Input Product(s)")
         
-        # --- A. PASTE AREA ---
-        st.markdown("📋 **Quick Paste (Ctrl+V)**")
-        # ปุ่ม Paste Image (กดแล้วค่อยกด Ctrl+V)
-        paste_result = paste_image(label="Click here then Ctrl+V", key="paster", text_color="#ffffff", background_color="#FF4B4B")
+        # --- ใช้ File Uploader มาตรฐาน (รองรับ Drag & Drop หลายไฟล์) ---
+        uploaded_files = st.file_uploader(
+            "Drag & Drop your product images here", 
+            type=["jpg", "png", "jpeg"],
+            accept_multiple_files=True
+        )
         
-        # --- B. UPLOAD AREA ---
-        st.markdown("📂 **Or Upload Files**")
-        uploaded_files = st.file_uploader("Select images", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
-        
-        # --- รวมรูปจากทั้ง 2 แหล่ง ---
         final_images_list = []
-        
-        # 1. เช็ครูปจาก Paste
-        if paste_result.image_data is not None:
-            st.success("Image Pasted!")
-            final_images_list.append(paste_result.image_data)
-            
-        # 2. เช็ครูปจาก Upload
         if uploaded_files:
+            st.caption(f"Selected {len(uploaded_files)} images")
+            
+            # เก็บรูปเข้า List
             for f in uploaded_files:
                 final_images_list.append(Image.open(f))
-        
-        # แสดงรูปทั้งหมดที่จะส่งไปให้ AI
-        if final_images_list:
-            st.write(f"Total Images: {len(final_images_list)}")
-            cols = st.columns(min(len(final_images_list), 4)) # แสดงสูงสุด 4 รูปแนวนอน
+            
+            # แสดง Grid Preview (สูงสุด 4 รูปแนวนอน)
+            cols = st.columns(min(len(final_images_list), 4))
             for idx, img in enumerate(final_images_list):
-                # ใช้ modulo เพื่อวนแสดงผลใน grid
                 with cols[idx % 4]:
-                    st.image(img, caption=f"Img {idx+1}", use_column_width=True)
+                    st.image(img, use_column_width=True)
         else:
-            st.info("Waiting for image... (Paste or Upload)")
+            st.info("👆 Please drag & drop images here.")
 
     with col_config:
         st.subheader("2. Select Style & Edit")
@@ -193,6 +185,7 @@ with tab_gen:
                 
                 st.markdown("---")
                 
+                # Dynamic Variables
                 variables = [v.strip() for v in current_style.get('variables', '').split(",")]
                 user_vars = {}
                 if variables and variables[0] != "":
@@ -200,13 +193,15 @@ with tab_gen:
                     for var in variables:
                         user_vars[var] = st.text_input(f"Value for '{var}'", placeholder="e.g. large, gold")
                 
+                # Prepare Prompt
                 base_prompt = current_style['template']
                 for var, val in user_vars.items():
                     base_prompt = base_prompt.replace(f"{{{var}}}", val if val else "")
                 
+                # Editable Prompt Area
                 st.write("✏️ **Final Prompt (Editable):**")
                 final_prompt_editable = st.text_area(
-                    "Edit prompt:", 
+                    "Edit prompt before generating:", 
                     value=base_prompt, 
                     height=120
                 )
@@ -219,9 +214,9 @@ with tab_gen:
                             img_data, error = call_gemini_api(api_key, final_images_list, final_prompt_editable)
                             if img_data:
                                 st.balloons()
-                                st.success("Done!")
+                                st.success("Generation Complete!")
                                 st.image(img_data, use_column_width=True)
-                                st.download_button("Download", img_data, "gen_jewelry.jpg", "image/jpeg")
+                                st.download_button("Download Image", img_data, "gen_jewelry.jpg", "image/jpeg")
                             else:
                                 st.error(error)
             else:
@@ -237,8 +232,8 @@ with tab_manager:
         with st.form("add_prompt"):
             new_name = st.text_input("Style Name")
             new_cat = st.text_input("Category")
-            new_temp = st.text_area("Template", "A model wearing {color} ring...")
-            new_vars = st.text_input("Variables", "color, size")
+            new_temp = st.text_area("Template (Use {var} for variables)", "A model wearing {color} ring...")
+            new_vars = st.text_input("Variables (comma separated)", "color, size")
             new_url = st.text_input("Sample Image URL")
             
             if st.form_submit_button("Save Style"):
