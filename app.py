@@ -5,8 +5,21 @@ import base64
 from io import BytesIO
 from PIL import Image
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
+
+# Prompt สำหรับ SEO Specialist
+SEO_PROMPT_TEMPLATE = """
+You are an SEO specialist with 15-20 years of experience. 
+Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
+To rank well on organic search engines by customer groups interested in this type of product.
+
+Please provide the output exactly in this format:
+---
+File Name: [your-optimized-filename.jpg]
+Alt Tag: [Your optimized descriptive alt tag with keywords]
+---
+"""
 
 # Default Data
 DEFAULT_PROMPTS = [
@@ -48,13 +61,14 @@ def save_prompts(data):
     except Exception as e:
         st.error(f"Save failed: {e}")
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 3. HELPER FUNCTIONS (AI & Image) ---
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
     img.save(buf, format="JPEG")
     return base64.b64encode(buf.getvalue()).decode()
 
+# ฟังก์ชันสำหรับ Gen รูปภาพ (ใช้ Gemini Pro Vision)
 def generate_image(api_key, image_list, prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
@@ -70,13 +84,39 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown response format."
     except Exception as e: return None, str(e)
 
+# ฟังก์ชันใหม่สำหรับ Gen SEO Tags (ใช้ Gemini Flash เพื่อความเร็ว เพราะเป็นงาน Text)
+def generate_seo_tags(api_key, product_url):
+    # ใช้รุ่น Flash ก็พอสำหรับงาน Text-only
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    
+    # แทนที่ URL ลงใน Template Prompt
+    final_seo_prompt = SEO_PROMPT_TEMPLATE.replace("{product_url}", product_url)
+    
+    payload = {
+        "contents": [{"parts": [{"text": final_seo_prompt}]}],
+        "generationConfig": {"temperature": 0.7} # เพิ่ม creativity นิดหน่อยสำหรับการคิดคำ
+    }
+    
+    try:
+        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+        if res.status_code != 200:
+            return None, f"API Error: {res.text}"
+        
+        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+        if "text" in content:
+            return content["text"], None
+        return None, "No text returned from model."
+    except Exception as e:
+        return None, str(e)
+
 # --- 4. UI LOGIC ---
 if "library" not in st.session_state:
     st.session_state.library = get_prompts()
-
-# State สำหรับการ Edit
 if "edit_target" not in st.session_state:
     st.session_state.edit_target = None
+# State สำหรับเก็บสถานะว่า Gen รูปเสร็จหรือยัง
+if "image_generated_success" not in st.session_state:
+    st.session_state.image_generated_success = False
 
 with st.sidebar:
     st.title("⚙️ Config")
@@ -125,85 +165,96 @@ with tab1:
             st.write("✏️ **Edit Prompt:**")
             prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
             
-            if st.button("🚀 GENERATE", type="primary", use_container_width=True):
-                if not api_key or not images_to_send: st.error("Check Key & Images")
+            # --- Generate Button ---
+            if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
+                if not api_key or not images_to_send:
+                    st.error("Check Key & Images")
+                    st.session_state.image_generated_success = False # Reset status
                 else:
-                    with st.spinner("Generating..."):
+                    with st.spinner("Generating Image..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
-                        if d: st.image(d); st.download_button("Download", d, "gen.jpg")
-                        else: st.error(e)
+                        if d:
+                            st.image(d)
+                            st.download_button("Download", d, "gen.jpg")
+                            # Set success state to True to show SEO tools
+                            st.session_state.image_generated_success = True 
+                        else:
+                            st.error(e)
+                            st.session_state.image_generated_success = False
+
+            # --- SEO Tools Section (แสดงเฉพาะเมื่อ Gen รูปสำเร็จ) ---
+            if st.session_state.image_generated_success:
+                st.divider()
+                st.subheader("🌍 SEO Tools (Post-Generation)")
+                st.caption("Generate optimized tags based on the product URL.")
+                
+                product_url_input = st.text_input("Paste Product URL here:", placeholder="https://yourshop.com/product/...")
+                
+                if st.button("✨ Gen Alt Tag & File Name"):
+                    if not product_url_input:
+                        st.warning("Please enter a Product URL first.")
+                    else:
+                        with st.spinner("Consulting SEO Specialist AI..."):
+                            seo_result, seo_err = generate_seo_tags(api_key, product_url_input)
+                            
+                            if seo_result:
+                                # แสดงผลลัพธ์ใน Expander ที่เปิดอัตโนมัติ (คล้าย Pop-up)
+                                with st.expander("✅ SEO Tags Generated!", expanded=True):
+                                    st.code(seo_result, language="yaml") # ใช้ code block เพื่อให้ copy ง่าย
+                                    st.caption("Copy these tags to your product listing.")
+                            else:
+                                st.error(f"SEO Generation Failed: {seo_err}")
+
         else: st.warning("Library empty.")
 
-# === TAB 2: LIBRARY (UPDATED WITH EDIT) ===
+# === TAB 2: LIBRARY (EDITABLE) ===
 with tab2:
     st.subheader("🛠️ Prompt Library")
-    
-    # ดูว่าตอนนี้กำลัง Edit ใครอยู่หรือเปล่า?
     target = st.session_state.edit_target
     form_title = f"✏️ Edit Style: {target['name']}" if target else "➕ Add New Style"
     
-    # 1. ฟอร์ม (ใช้ร่วมกันทั้ง Add และ Edit)
     with st.form("style_form"):
         st.write(f"**{form_title}**")
         c1, c2 = st.columns(2)
-        
-        # ถ้ามี target (กำลัง Edit) ให้ดึงค่าเก่ามาใส่, ถ้าไม่มี (Add New) ให้เป็นค่าว่าง
         n = c1.text_input("Name", value=target['name'] if target else "")
         c = c2.text_input("Category", value=target['category'] if target else "")
         t = st.text_area("Template", value=target['template'] if target else "A model wearing {color} ring...")
         v = st.text_input("Variables", value=target['variables'] if target else "color, size")
         u = st.text_input("Sample Image URL", value=target['sample_url'] if target else "")
         
-        # ปุ่มกดในฟอร์ม
         cols = st.columns([1, 4])
         submitted = cols[0].form_submit_button("💾 Save Style")
-        
-        # ถ้ากำลัง Edit จะมีปุ่ม Cancel ให้ด้วย
         if target:
             if cols[1].form_submit_button("❌ Cancel Edit"):
                 st.session_state.edit_target = None
                 st.rerun()
 
         if submitted:
-            # เตรียมข้อมูลใหม่
             new_data = {
                 "id": target['id'] if target else str(len(st.session_state.library) + 1000),
                 "name": n, "category": c, "template": t, "variables": v, "sample_url": u
             }
-            
             if target:
-                # กรณี Edit: หาตัวเดิมแล้วทับค่าลงไป
                 for idx, item in enumerate(st.session_state.library):
                     if item['id'] == target['id']:
                         st.session_state.library[idx] = new_data
                         break
-                st.success("Updated Successfully!")
+                st.success("Updated!")
             else:
-                # กรณี Add: เพิ่มต่อท้าย
                 st.session_state.library.append(new_data)
-                st.success("Added Successfully!")
-            
-            # Save ลง Database
+                st.success("Added!")
             save_prompts(st.session_state.library)
-            
-            # Reset state และ Refresh
             st.session_state.edit_target = None
             st.rerun()
 
     st.divider()
-    
-    # 2. รายการ Style (เพิ่มปุ่ม Edit)
     for i, p in enumerate(st.session_state.library):
         c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
         if p.get("sample_url"): c1.image(p["sample_url"], width=50)
         c2.write(f"**{p['name']}** ({p['category']})")
-        
-        # ปุ่ม Edit
         if c3.button("✏️ Edit", key=f"edit_{i}"):
-            st.session_state.edit_target = p # ส่งข้อมูลตัวนี้ขึ้นไปที่ฟอร์ม
+            st.session_state.edit_target = p
             st.rerun()
-            
-        # ปุ่ม Delete
         if c4.button("🗑️ Del", key=f"del_{i}"):
             st.session_state.library.pop(i)
             save_prompts(st.session_state.library)
