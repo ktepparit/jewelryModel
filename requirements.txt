@@ -1,4 +1,5 @@
 streamlit
-streamlit_paste_image
+streamlit-paste-image
 requests
 Pillow
+watchdog
