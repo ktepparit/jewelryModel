@@ -80,7 +80,7 @@ def img_to_base64(img):
 
 # ฟังก์ชัน Gen รูปภาพ
 def generate_image(api_key, image_list, prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list:
         parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
@@ -389,3 +389,4 @@ with tab4:
                         st.write(models_data) # Show raw data just in case
                 else:
                     st.error("Failed to fetch models. Please check your API Key validity.")
+
