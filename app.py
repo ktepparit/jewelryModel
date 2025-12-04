@@ -153,4 +153,296 @@ def safe_st_image(url, width=None):
 
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
-    url = f"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={api_key}"
+    parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
+    for img in image_list:
+        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
+    try:
+        res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
+        if res.status_code != 200: return None, f"API Error: {res.text}"
+        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+        if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
+        if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
+        return None, "No image returned."
+    except Exception as e: return None, str(e)
+
+def generate_seo_tags_post_gen(api_key, product_url):
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
+    final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
+    payload = {"contents": [{"parts": [{"text": final_seo_prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
+    
+    for _ in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                return content.get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
+
+def generate_seo_for_existing_image(api_key, img_pil, product_url):
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
+    final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
+    payload = {"contents": [{"parts": [{"text": final_prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
+    
+    for _ in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                return content.get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
+
+def generate_full_product_content(api_key, img_pil, raw_input):
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
+    final_prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
+    parts = [{"text": final_prompt}]
+    if img_pil: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}})
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
+    
+    for _ in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                return content.get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
+
+# --- NEW FUNCTION: List Models (Debug Version) ---
+def list_available_models(api_key):
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){api_key}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json().get("models", []), None
+        else:
+            # Return None Data + Error Message
+            return None, f"Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return None, str(e)
+
+# --- 4. UI LOGIC ---
+if "library" not in st.session_state: st.session_state.library = get_prompts()
+if "edit_target" not in st.session_state: st.session_state.edit_target = None
+if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
+if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
+
+with st.sidebar:
+    st.title("⚙️ Config")
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        st.success("API Key Ready")
+    except:
+        api_key = st.text_input("Gemini API Key", type="password")
+    
+    if "JSONBIN_API_KEY" in st.secrets:
+        st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
+    else:
+        st.warning("⚠️ Local Mode")
+
+st.title("💎 Jewelry AI Studio")
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
+
+# === TAB 1: GENERATE IMAGE ===
+with tab1:
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        st.subheader("1. Upload Reference")
+        files = st.file_uploader("Upload Images for Gen", accept_multiple_files=True, type=["jpg", "png", "jpeg"], key="gen_upload")
+        images_to_send = [Image.open(f) for f in files] if files else []
+        if images_to_send:
+            st.caption(f"Selected {len(images_to_send)} images:")
+            cols = st.columns(4)
+            for i, img in enumerate(images_to_send): cols[i%4].image(img, use_column_width=True)
+
+    with c2:
+        st.subheader("2. Settings")
+        lib = st.session_state.library
+        cats = list(set(p.get('category', 'Other') for p in lib)) if lib else []
+        sel_cat = st.selectbox("Category", cats) if cats else None
+        
+        filtered = [p for p in lib if p.get('category') == sel_cat]
+        if filtered:
+            sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name', 'Unknown'))
+            if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=100)
+            
+            vars_list = [v.strip() for v in sel_style.get('variables', '').split(",") if v.strip()]
+            user_vals = {v: st.text_input(v, placeholder="e.g. Gold") for v in vars_list}
+            
+            final_prompt = sel_style.get('template', '')
+            for k, v in user_vals.items(): final_prompt = final_prompt.replace(f"{{{k}}}", v)
+            
+            st.write("✏️ **Edit Prompt:**")
+            prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
+            
+            if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
+                if not api_key or not images_to_send:
+                    st.error("Check Key & Images")
+                    st.session_state.image_generated_success = False
+                    st.session_state.current_generated_image = None
+                else:
+                    with st.spinner(f"Generating Image ({MODEL_IMAGE_GEN})..."):
+                        d, e = generate_image(api_key, images_to_send, prompt_edit)
+                        if d:
+                            st.session_state.current_generated_image = d
+                            st.session_state.image_generated_success = True
+                            st.rerun()
+                        else: st.error(e)
+
+            if st.session_state.image_generated_success and st.session_state.current_generated_image:
+                st.divider()
+                st.subheader("🎉 Result")
+                st.image(st.session_state.current_generated_image, use_column_width=True)
+                st.download_button("Download", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="primary")
+                
+                st.divider()
+                st.subheader("🌍 Post-Generation SEO")
+                url_input = st.text_input("Product URL:", key="post_gen_url")
+                if st.button("✨ Gen Tags"):
+                    if not url_input: st.warning("Enter URL")
+                    else:
+                        with st.spinner("Thinking..."):
+                            seo_json, err = generate_seo_tags_post_gen(api_key, url_input)
+                            if seo_json:
+                                data = parse_json_response(seo_json)
+                                if data:
+                                    with st.expander("✅ Results", expanded=True):
+                                        st.write("**File Name:**"); st.code(data.get('file_name'), language="text")
+                                        st.write("**Alt Tag:**"); st.code(data.get('alt_tag'), language="text")
+                                else: st.code(seo_json)
+                            else: st.error(err)
+        else: st.warning("Library empty.")
+
+# === TAB 2: BULK SEO ===
+with tab2:
+    st.header("🏷️ Bulk SEO Tags")
+    bc1, bc2 = st.columns([1, 1.5])
+    with bc1:
+        files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png", "jpeg"], key="bulk_upload")
+        imgs = [Image.open(f) for f in files] if files else []
+        if imgs:
+            st.success(f"{len(imgs)} selected")
+            cols = st.columns(4)
+            for i, img in enumerate(imgs): cols[i%4].image(img, use_column_width=True, caption=f"#{i+1}")
+    with bc2:
+        url = st.text_input("Product URL:", key="bulk_url")
+        run_btn = st.button("🚀 Run Batch", type="primary", disabled=(not imgs))
+
+    if run_btn:
+        if not api_key or not url: st.error("Check Key & URL")
+        else:
+            pbar = st.progress(0); res_area = st.container()
+            for i, img in enumerate(imgs):
+                with st.spinner(f"Processing #{i+1}..."):
+                    json_txt, err = generate_seo_for_existing_image(api_key, img, url)
+                    pbar.progress((i+1)/len(imgs))
+                    with res_area:
+                        c1, c2 = st.columns([1, 4])
+                        c1.image(img, width=80, caption=f"#{i+1}")
+                        if json_txt:
+                            d = parse_json_response(json_txt)
+                            if d:
+                                with c2.expander(f"✅ #{i+1} Tags", expanded=True):
+                                    st.write("**File:**"); st.code(d.get('file_name'), language="text")
+                                    st.write("**Alt:**"); st.code(d.get('alt_tag'), language="text")
+                            else: c2.code(json_txt)
+                        else: c2.error(err)
+                    time.sleep(0.5)
+            st.success("Done!")
+
+# === TAB 3: WRITER ===
+with tab3:
+    st.header("📝 AI Product Writer")
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        f = st.file_uploader("Product Image (Optional)", type=["jpg", "png"], key="w_img")
+        img = Image.open(f) if f else None
+        if img: st.image(img, width=200)
+        raw = st.text_area("Paste Raw Details:", height=300, key="raw_in")
+        btn = st.button("🚀 Generate Content", type="primary")
+    with c2:
+        if btn:
+            if not api_key or not raw: st.error("Missing Info")
+            else:
+                with st.spinner("Writing..."):
+                    json_txt, err = generate_full_product_content(api_key, img, raw)
+                    if json_txt:
+                        d = parse_json_response(json_txt)
+                        if d:
+                            st.write("🔗 **Slug:**"); st.code(d.get('url_slug'), language="text")
+                            st.write("🪪 **Title:**"); st.code(d.get('meta_title'), language="text")
+                            st.write("📝 **Desc:**"); st.code(d.get('meta_description'), language="text")
+                            st.write("📌 **H1:**"); st.code(d.get('product_title_h1'), language="text")
+                            
+                            st.write("📄 **HTML:**"); st.code(d.get('html_content'), language="html")
+                            with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
+                            st.divider()
+                            for i, item in enumerate(d.get('image_seo', [])):
+                                with st.container():
+                                    cols = st.columns([0.5, 2, 2])
+                                    if i==0 and img: cols[0].image(img, width=50)
+                                    else: cols[0].write(f"#{i+1}")
+                                    cols[1].code(item.get('file_name'), language="text")
+                                    cols[2].code(item.get('alt_tag'), language="text")
+                        else: st.code(json_txt)
+                    else: st.error(err)
+
+# === TAB 4: LIBRARY ===
+with tab4:
+    st.subheader("🛠️ Library Manager")
+    target = st.session_state.edit_target
+    title = f"✏️ Edit: {target['name']}" if target else "➕ Add New"
+    with st.form("lib_form"):
+        st.write(f"**{title}**")
+        c1, c2 = st.columns(2)
+        n = c1.text_input("Name", value=target['name'] if target else "")
+        c = c2.text_input("Category", value=target['category'] if target else "")
+        t = st.text_area("Template", value=target['template'] if target else "")
+        v = st.text_input("Vars", value=target['variables'] if target else "")
+        u = st.text_input("Img URL", value=target['sample_url'] if target else "")
+        cols = st.columns([1, 4])
+        save = cols[0].form_submit_button("💾 Save")
+        if target and cols[1].form_submit_button("❌ Cancel"):
+            st.session_state.edit_target = None; st.rerun()
+        if save:
+            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
+            if target:
+                for i, item in enumerate(st.session_state.library):
+                    if item['id'] == target['id']: st.session_state.library[i] = new; break
+            else: st.session_state.library.append(new)
+            save_prompts(st.session_state.library)
+            st.session_state.edit_target = None
+            st.rerun()
+            
+    st.divider()
+    for i, p in enumerate(st.session_state.library):
+        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+        if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
+        c2.write(f"**{p.get('name')}**")
+        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
+        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
+
+# === TAB 5: MODELS ===
+with tab5:
+    st.header("🔍 Check Gemini Model Availability")
+    if st.button("📡 Scan Models"):
+        if not api_key: st.error("No Key")
+        else:
+            with st.spinner("Scanning..."):
+                m, err = list_available_models(api_key) # รับค่า Error ด้วย
+                if m:
+                    gem = [{"ID": x['name']} for x in m if "gemini" in x['name']]
+                    st.success(f"Found {len(gem)} Gemini models")
+                    st.dataframe(gem)
+                else: 
+                    st.error("Scan failed.")
+                    if err: st.error(err) # แสดง Error ที่แท้จริง
