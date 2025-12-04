@@ -89,19 +89,26 @@ DEFAULT_PROMPTS = [
     }
 ]
 
-# --- 2. CLOUD DATABASE FUNCTIONS ---
-def clean_key(key):
-    """ฟังก์ชันทำความสะอาด API Key (ลบช่องว่าง, ลบ quotes)"""
-    if not key: return ""
-    return str(key).strip().strip('"').strip("'")
+# --- 2. SUPER CLEAN KEY FUNCTION ---
+def get_clean_secret(key_name):
+    """ดึง Secret และล้างอักขระพิเศษ (Newline, Space, Quotes) ออกให้หมด"""
+    try:
+        if key_name in st.secrets:
+            val = str(st.secrets[key_name])
+            # ลบ space หัวท้าย, ลบ \n, ลบ " และ '
+            return val.strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
+        return None
+    except:
+        return None
 
+# --- 3. CLOUD DATABASE FUNCTIONS ---
 def get_prompts():
-    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
+    # ใช้ get_clean_secret แทนการเรียกตรงๆ
+    API_KEY = get_clean_secret("JSONBIN_API_KEY")
+    BIN_ID = get_clean_secret("JSONBIN_BIN_ID")
+
+    if API_KEY and BIN_ID:
         try:
-            # Clean Keys ก่อนใช้เสมอ
-            API_KEY = clean_key(st.secrets["JSONBIN_API_KEY"])
-            BIN_ID = clean_key(st.secrets["JSONBIN_BIN_ID"])
-            
             url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
             
@@ -109,26 +116,34 @@ def get_prompts():
             
             if response.status_code == 200:
                 data = response.json()
-                if isinstance(data, list): return data
-                elif isinstance(data, dict) and "record" in data: return data["record"]
-                else: return DEFAULT_PROMPTS
+                # Logic: ถ้าเป็น Dict และมี record ให้เอาข้างใน, ถ้าเป็น List ให้เอาเลย
+                if isinstance(data, dict) and "record" in data:
+                    return data["record"]
+                elif isinstance(data, list):
+                    return data
+                return DEFAULT_PROMPTS
             else:
                 return DEFAULT_PROMPTS
-        except: return DEFAULT_PROMPTS
-    else: return DEFAULT_PROMPTS
+        except:
+            return DEFAULT_PROMPTS
+    else:
+        return DEFAULT_PROMPTS
 
 def save_prompts(data):
-    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
+    API_KEY = get_clean_secret("JSONBIN_API_KEY")
+    BIN_ID = get_clean_secret("JSONBIN_BIN_ID")
+
+    if API_KEY and BIN_ID:
         try:
-            API_KEY = clean_key(st.secrets["JSONBIN_API_KEY"])
-            BIN_ID = clean_key(st.secrets["JSONBIN_BIN_ID"])
             url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
             headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
             requests.put(url, json=data, headers=headers)
-        except Exception as e: st.error(f"Save Error: {e}")
-    else: st.warning("No DB Credentials.")
+        except Exception as e:
+            st.error(f"Save Error: {e}")
+    else:
+        st.warning("No DB Credentials found.")
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 4. HELPER FUNCTIONS ---
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
@@ -142,7 +157,8 @@ def parse_json_response(text):
         text = re.sub(r"```", "", text)
         text = text.strip()
         return json.loads(text)
-    except: return None
+    except:
+        return None
 
 def safe_st_image(url, width=None):
     if not url: return
@@ -152,7 +168,6 @@ def safe_st_image(url, width=None):
 
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
-    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list:
@@ -167,7 +182,6 @@ def generate_image(api_key, image_list, prompt):
     except Exception as e: return None, str(e)
 
 def generate_seo_tags_post_gen(api_key, product_url):
-    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": final_seo_prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
@@ -184,7 +198,6 @@ def generate_seo_tags_post_gen(api_key, product_url):
     return None, "Failed after retries"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": final_prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "responseMimeType": "application/json"}}
@@ -201,7 +214,6 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
     return None, "Failed after retries"
 
 def generate_full_product_content(api_key, img_pil, raw_input):
-    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     parts = [{"text": final_prompt}]
@@ -220,17 +232,15 @@ def generate_full_product_content(api_key, img_pil, raw_input):
     return None, "Failed after retries"
 
 def list_available_models(api_key):
-    api_key = clean_key(api_key) # Clean Key Here
+    # ไม่ต้องใส่ key=... ในนี้ เพราะ requests.get จะรับ params แยก หรือใส่ก็ได้ถ้า URL clean แล้ว
+    # แต่ปัญหาเดิมคือ key มี \n ติดมา เรา clean แล้วใช้ได้เลย
     url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){api_key}"
     try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json().get("models", []), None
-        else:
-            return None, f"Error {response.status_code}: {response.text}"
+        res = requests.get(url)
+        return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
     except Exception as e: return None, str(e)
 
-# --- 4. UI LOGIC ---
+# --- 5. UI LOGIC ---
 if "library" not in st.session_state: st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
@@ -238,16 +248,25 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 
 with st.sidebar:
     st.title("⚙️ Config")
-    try:
-        # Load and CLEAN the key from secrets
-        api_key = clean_key(st.secrets["GEMINI_API_KEY"])
-        st.success("API Key Ready")
-    except:
-        api_key_input = st.text_input("Gemini API Key", type="password")
-        api_key = clean_key(api_key_input) # Clean input key
     
-    if "JSONBIN_API_KEY" in st.secrets:
+    # 1. ดึง Key และ Clean ทันที
+    api_key_secret = get_clean_secret("GEMINI_API_KEY")
+    
+    if api_key_secret:
+        api_key = api_key_secret
+        st.success("API Key Ready")
+    else:
+        # ถ้าไม่มีใน Secret ให้กรอกเอง
+        api_key_input = st.text_input("Gemini API Key", type="password")
+        api_key = api_key_input.strip() # Clean input ด้วย
+    
+    # เช็คสถานะ DB
+    db_key = get_clean_secret("JSONBIN_API_KEY")
+    if db_key:
         st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
+        if st.button("🔄 Reload DB"):
+            st.session_state.library = get_prompts()
+            st.rerun()
     else:
         st.warning("⚠️ Local Mode")
 
