@@ -89,12 +89,19 @@ DEFAULT_PROMPTS = [
     }
 ]
 
-# --- 2. CLOUD DATABASE FUNCTIONS (Working Version) ---
+# --- 2. CLOUD DATABASE FUNCTIONS ---
+def clean_key(key):
+    """ฟังก์ชันทำความสะอาด API Key (ลบช่องว่าง, ลบ quotes)"""
+    if not key: return ""
+    return str(key).strip().strip('"').strip("'")
+
 def get_prompts():
     if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
         try:
-            API_KEY = st.secrets["JSONBIN_API_KEY"]
-            BIN_ID = st.secrets["JSONBIN_BIN_ID"]
+            # Clean Keys ก่อนใช้เสมอ
+            API_KEY = clean_key(st.secrets["JSONBIN_API_KEY"])
+            BIN_ID = clean_key(st.secrets["JSONBIN_BIN_ID"])
+            
             url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
             
@@ -102,31 +109,24 @@ def get_prompts():
             
             if response.status_code == 200:
                 data = response.json()
-                if isinstance(data, list):
-                    return data
-                elif isinstance(data, dict) and "record" in data:
-                    return data["record"]
-                else:
-                    return DEFAULT_PROMPTS
+                if isinstance(data, list): return data
+                elif isinstance(data, dict) and "record" in data: return data["record"]
+                else: return DEFAULT_PROMPTS
             else:
                 return DEFAULT_PROMPTS
-        except:
-            return DEFAULT_PROMPTS
-    else:
-        return DEFAULT_PROMPTS
+        except: return DEFAULT_PROMPTS
+    else: return DEFAULT_PROMPTS
 
 def save_prompts(data):
     if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
         try:
-            API_KEY = st.secrets["JSONBIN_API_KEY"]
-            BIN_ID = st.secrets["JSONBIN_BIN_ID"]
+            API_KEY = clean_key(st.secrets["JSONBIN_API_KEY"])
+            BIN_ID = clean_key(st.secrets["JSONBIN_BIN_ID"])
             url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
             headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
             requests.put(url, json=data, headers=headers)
-        except Exception as e:
-            st.error(f"Save Error: {e}")
-    else:
-        st.warning("No DB Credentials.")
+        except Exception as e: st.error(f"Save Error: {e}")
+    else: st.warning("No DB Credentials.")
 
 # --- 3. HELPER FUNCTIONS ---
 def img_to_base64(img):
@@ -142,8 +142,7 @@ def parse_json_response(text):
         text = re.sub(r"```", "", text)
         text = text.strip()
         return json.loads(text)
-    except:
-        return None
+    except: return None
 
 def safe_st_image(url, width=None):
     if not url: return
@@ -153,6 +152,7 @@ def safe_st_image(url, width=None):
 
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
+    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={api_key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list:
@@ -167,6 +167,7 @@ def generate_image(api_key, image_list, prompt):
     except Exception as e: return None, str(e)
 
 def generate_seo_tags_post_gen(api_key, product_url):
+    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": final_seo_prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
@@ -183,9 +184,10 @@ def generate_seo_tags_post_gen(api_key, product_url):
     return None, "Failed after retries"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
+    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    payload = {"contents": [{"parts": [{"text": final_prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
+    payload = {"contents": [{"parts": [{"text": final_prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "responseMimeType": "application/json"}}
     
     for _ in range(3):
         try:
@@ -199,6 +201,7 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
     return None, "Failed after retries"
 
 def generate_full_product_content(api_key, img_pil, raw_input):
+    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={api_key}"
     final_prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     parts = [{"text": final_prompt}]
@@ -216,18 +219,16 @@ def generate_full_product_content(api_key, img_pil, raw_input):
         except: time.sleep(2)
     return None, "Failed after retries"
 
-# --- NEW FUNCTION: List Models (Debug Version) ---
 def list_available_models(api_key):
+    api_key = clean_key(api_key) # Clean Key Here
     url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){api_key}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
             return response.json().get("models", []), None
         else:
-            # Return None Data + Error Message
             return None, f"Error {response.status_code}: {response.text}"
-    except Exception as e:
-        return None, str(e)
+    except Exception as e: return None, str(e)
 
 # --- 4. UI LOGIC ---
 if "library" not in st.session_state: st.session_state.library = get_prompts()
@@ -238,10 +239,12 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 with st.sidebar:
     st.title("⚙️ Config")
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        # Load and CLEAN the key from secrets
+        api_key = clean_key(st.secrets["GEMINI_API_KEY"])
         st.success("API Key Ready")
     except:
-        api_key = st.text_input("Gemini API Key", type="password")
+        api_key_input = st.text_input("Gemini API Key", type="password")
+        api_key = clean_key(api_key_input) # Clean input key
     
     if "JSONBIN_API_KEY" in st.secrets:
         st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
@@ -382,67 +385,9 @@ with tab3:
                             st.write("🪪 **Title:**"); st.code(d.get('meta_title'), language="text")
                             st.write("📝 **Desc:**"); st.code(d.get('meta_description'), language="text")
                             st.write("📌 **H1:**"); st.code(d.get('product_title_h1'), language="text")
-                            
                             st.write("📄 **HTML:**"); st.code(d.get('html_content'), language="html")
                             with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             st.divider()
                             for i, item in enumerate(d.get('image_seo', [])):
                                 with st.container():
-                                    cols = st.columns([0.5, 2, 2])
-                                    if i==0 and img: cols[0].image(img, width=50)
-                                    else: cols[0].write(f"#{i+1}")
-                                    cols[1].code(item.get('file_name'), language="text")
-                                    cols[2].code(item.get('alt_tag'), language="text")
-                        else: st.code(json_txt)
-                    else: st.error(err)
-
-# === TAB 4: LIBRARY ===
-with tab4:
-    st.subheader("🛠️ Library Manager")
-    target = st.session_state.edit_target
-    title = f"✏️ Edit: {target['name']}" if target else "➕ Add New"
-    with st.form("lib_form"):
-        st.write(f"**{title}**")
-        c1, c2 = st.columns(2)
-        n = c1.text_input("Name", value=target['name'] if target else "")
-        c = c2.text_input("Category", value=target['category'] if target else "")
-        t = st.text_area("Template", value=target['template'] if target else "")
-        v = st.text_input("Vars", value=target['variables'] if target else "")
-        u = st.text_input("Img URL", value=target['sample_url'] if target else "")
-        cols = st.columns([1, 4])
-        save = cols[0].form_submit_button("💾 Save")
-        if target and cols[1].form_submit_button("❌ Cancel"):
-            st.session_state.edit_target = None; st.rerun()
-        if save:
-            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
-            if target:
-                for i, item in enumerate(st.session_state.library):
-                    if item['id'] == target['id']: st.session_state.library[i] = new; break
-            else: st.session_state.library.append(new)
-            save_prompts(st.session_state.library)
-            st.session_state.edit_target = None
-            st.rerun()
-            
-    st.divider()
-    for i, p in enumerate(st.session_state.library):
-        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
-        if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
-        c2.write(f"**{p.get('name')}**")
-        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
-        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
-
-# === TAB 5: MODELS ===
-with tab5:
-    st.header("🔍 Check Gemini Model Availability")
-    if st.button("📡 Scan Models"):
-        if not api_key: st.error("No Key")
-        else:
-            with st.spinner("Scanning..."):
-                m, err = list_available_models(api_key) # รับค่า Error ด้วย
-                if m:
-                    gem = [{"ID": x['name']} for x in m if "gemini" in x['name']]
-                    st.success(f"Found {len(gem)} Gemini models")
-                    st.dataframe(gem)
-                else: 
-                    st.error("Scan failed.")
-                    if err: st.error(err) # แสดง Error ที่แท้จริง
+                                    cols = st
