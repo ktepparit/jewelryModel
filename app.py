@@ -8,75 +8,44 @@ import time
 import pandas as pd
 import re
 
-# --- 1. CONFIGURATION & CONSTANTS ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
+# --- HELPER: FORCE CLEAN KEY (หัวใจสำคัญของการแก้นี้) ---
+def force_clean(value):
+    """
+    ล้างค่าตัวแปรให้สะอาดที่สุด ตัด Space, Enter, Quotes ออกหมด
+    ป้องกัน Error 'No connection adapters' 100%
+    """
+    if not value: return ""
+    # แปลงเป็น String -> ลบช่องว่างหัวท้าย -> ลบ Enter -> ลบ Quotes
+    cleaned = str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
+    return cleaned
+
 # --- PROMPTS ---
 SEO_PROMPT_POST_GEN = """
-You are an SEO specialist with 15-20 years of experience. 
-Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
-To rank well on organic search engines by customer groups interested in this type of product.
-
+You are an SEO specialist. Write SEO-optimized image file name and alt tags in English based on this url: {product_url}.
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
-Structure:
-{
-  "file_name": "your-optimized-filename.jpg",
-  "alt_tag": "Your optimized descriptive alt tag"
-}
+Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PROMPT_BULK_EXISTING = """
-คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
-
+You are an SEO specialist. Write SEO-optimized image file name and alt tags in English based on this url: {product_url}.
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
-Structure:
-{
-  "file_name": "your-optimized-filename.jpg",
-  "alt_tag": "Your optimized descriptive alt tag"
-}
+Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PRODUCT_WRITER_PROMPT = """
-คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน e-commerce ของฉันที่สร้างโดย Shopify
-
-**INPUT DATA (ข้อมูลสินค้า):**
-{raw_input}
-
-**คำสั่งการเขียน:**
-จากข้อมูล Input Data ด้านบน ให้คุณวิเคราะห์หา URL, Primary Keyword, Secondary Keywords, Category และรายละเอียดสินค้า แล้วเขียนบทความตามโครงสร้างนี้:
-
-1. **Product Title (H1):** น่าสนใจและมีคีย์เวิร์ด
-2. **Opening Paragraph:** บอก Google และผู้ใช้ให้ชัดเจนว่าหน้านี้คืออะไร (เน้น Primary Keyword + Semantic 1-2 คำ)
-3. **Body Content:** เล่าเรื่องราว, ดีไซน์, สัญลักษณ์ (กระจาย Semantic Keywords อย่างเป็นธรรมชาติ)
-4. **Specifications:** ใช้ Bullet Points (<ul><li>) เน้นวัสดุ และ **ต้องระบุ Dimension (ขนาด) และ Weight (น้ำหนัก)** ถ้ามีข้อมูล
-5. **FAQ Section:** ตอบข้อสงสัย (ใช้ Long-tail keywords)
-
-Tone: Human-written style, Fact-driven, อ่านง่าย, ดึงดูดลูกค้า, ต้องผ่าน AI Content detector (Undetectable.ai)
-
-**IMPORTANT OUTPUT FORMAT:**
-You MUST return the result in **RAW JSON** format ONLY. Do not include markdown backticks (```json).
-The JSON structure must be exactly like this:
-{
-  "url_slug": "url-slug-example",
-  "meta_title": "Meta Title Example (Max 60 chars)",
-  "meta_description": "Meta Description Example (Max 160 chars)",
-  "product_title_h1": "Product Title Example",
-  "html_content": "<p>Your full HTML product description here...</p>",
-  "image_seo": [
-    { "file_name": "img1.jpg", "alt_tag": "alt tag 1" },
-    { "file_name": "img2.jpg", "alt_tag": "alt tag 2" },
-    { "file_name": "img3.jpg", "alt_tag": "alt tag 3" },
-    { "file_name": "img4.jpg", "alt_tag": "alt tag 4" },
-    { "file_name": "img5.jpg", "alt_tag": "alt tag 5" },
-    { "file_name": "img6.jpg", "alt_tag": "alt tag 6" },
-    { "file_name": "img7.jpg", "alt_tag": "alt tag 7" },
-    { "file_name": "img8.jpg", "alt_tag": "alt tag 8" }
-  ]
-}
+You are an SEO product content writer for Shopify.
+Input Data: {raw_input}
+Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
+Tone: Human-like.
+IMPORTANT: Return RAW JSON ONLY.
+Structure: {"url_slug": "...", "meta_title": "...", "meta_description": "...", "product_title_h1": "...", "html_content": "...", "image_seo": [...]}
 """
 
 # Default Data
@@ -85,74 +54,59 @@ DEFAULT_PROMPTS = [
         "id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
         "template": "A realistic close-up of a female hand model wearing a ring with {face_size} face size, soft studio lighting, elegant jewelry photography.",
         "variables": "face_size",
-        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg)"
+        "sample_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg"
     }
 ]
 
-# --- 2. SUPER CLEANER (The Fix) ---
-def sanitize_key(key):
-    """
-    ล้างทุกอย่างที่ไม่ใช่ตัวอักษร A-Z, a-z, 0-9, - และ _ ออกให้หมด
-    แก้ปัญหาเรื่อง Space, Newline, Quotes ได้ 100%
-    """
-    if not key: return ""
-    # ใช้ Regex เก็บเฉพาะตัวอักษรที่ถูกต้องสำหรับ API Key
-    clean_val = re.sub(r'[^A-Za-z0-9\-\_]', '', str(key))
-    return clean_val
-
-# --- 3. CLOUD DATABASE FUNCTIONS ---
+# --- 2. DATABASE FUNCTIONS ---
 def get_prompts():
-    # 1. ดึงและล้าง Key ทันที
+    # 1. ดึงและล้างค่าทันที
     raw_key = st.secrets.get("JSONBIN_API_KEY", "")
     raw_bin = st.secrets.get("JSONBIN_BIN_ID", "")
     
-    API_KEY = sanitize_key(raw_key)
-    BIN_ID = sanitize_key(raw_bin)
+    API_KEY = force_clean(raw_key)
+    BIN_ID = force_clean(raw_bin)
 
     if API_KEY and BIN_ID:
         try:
-            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
+            # สร้าง URL
+            url = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
             
             response = requests.get(url, headers=headers)
             
             if response.status_code == 200:
                 data = response.json()
-                if isinstance(data, list):
-                    return data
-                elif isinstance(data, dict) and "record" in data:
-                    return data["record"]
+                if isinstance(data, list): return data
+                elif isinstance(data, dict) and "record" in data: return data["record"]
                 return DEFAULT_PROMPTS
             else:
-                # บันทึก Error ลง Session เพื่อไปแสดงที่ Sidebar
-                st.session_state.db_error_msg = f"DB Error {response.status_code}: {response.reason}"
+                # บันทึก Error เพื่อ Debug (แต่ไม่ทำให้แอพพัง)
+                st.session_state.db_error = f"HTTP {response.status_code}"
                 return DEFAULT_PROMPTS
         except Exception as e:
-            st.session_state.db_error_msg = str(e)
+            st.session_state.db_error = str(e)
             return DEFAULT_PROMPTS
     else:
-        st.session_state.db_error_msg = "Missing Keys in Secrets"
         return DEFAULT_PROMPTS
 
 def save_prompts(data):
-    API_KEY = sanitize_key(st.secrets.get("JSONBIN_API_KEY", ""))
-    BIN_ID = sanitize_key(st.secrets.get("JSONBIN_BIN_ID", ""))
+    API_KEY = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
+    BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
 
     if API_KEY and BIN_ID:
         try:
-            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
+            url = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
             headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
             requests.put(url, json=data, headers=headers)
-        except Exception as e:
-            st.error(f"Save Error: {e}")
-    else:
-        st.warning("No DB Credentials.")
+        except Exception as e: st.error(f"Save Error: {e}")
+    else: st.warning("No Credentials")
 
-# --- 4. HELPER FUNCTIONS ---
+# --- 3. HELPER FUNCTIONS ---
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
-    img.thumbnail((1024, 1024)) 
+    img.thumbnail((1024, 1024))
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
@@ -170,122 +124,100 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS (ใช้ sanitize_key ทุกจุด) ---
+# --- AI FUNCTIONS (ใช้ force_clean ทุกจุด) ---
 def generate_image(api_key, image_list, prompt):
-    clean_api_key = sanitize_key(api_key) # Clean Key
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={clean_api_key}"
-    parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
-    for img in image_list:
-        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
+    key = force_clean(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
+    parts = [{"text": f"Instruction: {prompt}"}]
+    for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     try:
         res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
         if res.status_code != 200: return None, f"API Error: {res.text}"
         content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
         if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
         if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
-        if "text" in content: return None, f"Model returned text: {content['text']}"
-        return None, "Unknown response format."
+        return None, "No image returned."
     except Exception as e: return None, str(e)
 
 def generate_seo_tags_post_gen(api_key, product_url):
-    clean_api_key = sanitize_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={clean_api_key}"
-    final_seo_prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
-    payload = {"contents": [{"parts": [{"text": final_seo_prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
-    
-    for _ in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200:
-                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-                return content.get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
-
-def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    clean_api_key = sanitize_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={clean_api_key}"
-    final_prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    payload = {"contents": [{"parts": [{"text": final_prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "maxOutputTokens": 2048, "responseMimeType": "application/json"}}
-    
-    for _ in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200:
-                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-                return content.get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
-
-def generate_full_product_content(api_key, img_pil, raw_input):
-    clean_api_key = sanitize_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={clean_api_key}"
-    final_prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
-    parts = [{"text": final_prompt}]
-    if img_pil: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}})
-    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
-    
-    for _ in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200:
-                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-                return content.get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
-
-def list_available_models(api_key):
-    clean_api_key = sanitize_key(api_key)
-    # Sanitize Key ก่อนใส่ใน URL เพื่อแก้ปัญหา No connection adapters
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){clean_api_key}"
+    key = force_clean(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json().get("models", []), None
-        else:
-            return None, f"Error {response.status_code}: {response.text}"
+        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
+        if res.status_code == 200:
+            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+        return None, res.text
     except Exception as e: return None, str(e)
 
-# --- 5. UI LOGIC ---
-if "db_error_msg" not in st.session_state: st.session_state.db_error_msg = None
+def generate_seo_for_existing_image(api_key, img_pil, product_url):
+    key = force_clean(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
+    try:
+        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}, headers={"Content-Type": "application/json"})
+        if res.status_code == 200:
+            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+        return None, res.text
+    except Exception as e: return None, str(e)
+
+def generate_full_product_content(api_key, img_pil, raw_input):
+    key = force_clean(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
+    parts = [{"text": prompt}]
+    if img_pil: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}})
+    try:
+        res = requests.post(url, json={"contents": [{"parts": parts}]}, headers={"Content-Type": "application/json"})
+        if res.status_code == 200:
+            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+        return None, res.text
+    except Exception as e: return None, str(e)
+
+def list_available_models(api_key):
+    key = force_clean(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+    try:
+        res = requests.get(url)
+        return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
+    except Exception as e: return None, str(e)
+
+# --- 4. UI LOGIC ---
+if "db_error" not in st.session_state: st.session_state.db_error = None
 if "library" not in st.session_state: st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
 if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
 
 with st.sidebar:
-    st.title("⚙️ Config")
+    st.title("💎 Config")
     
-    # ดึง Key และโชว์สถานะ
-    secret_key = st.secrets.get("GEMINI_API_KEY", "")
+    # ดึง Key จาก Secrets แล้วล้างทันที
+    secret_key = force_clean(st.secrets.get("GEMINI_API_KEY", ""))
     if secret_key:
         api_key = secret_key
-        st.success("API Key Loaded")
+        st.success("API Key Ready")
     else:
         api_key = st.text_input("Gemini API Key", type="password")
     
     st.divider()
-    st.write("📊 **System Status**")
     
-    if st.session_state.db_error_msg:
-        st.error(f"DB Error: {st.session_state.db_error_msg}")
-        if st.button("🔄 Retry Connection"):
-            st.session_state.db_error_msg = None
-            st.session_state.library = get_prompts()
-            st.rerun()
-    else:
-        st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
+    # DB Status
+    db_key = st.secrets.get("JSONBIN_API_KEY", "")
+    if db_key:
+        if st.session_state.db_error:
+            st.error(f"DB Error: {st.session_state.db_error}")
+            st.caption("Check your Bin ID in secrets.")
+        else:
+            st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
+            
         if st.button("🔄 Reload Data"):
             st.session_state.library = get_prompts()
             st.rerun()
+    else:
+        st.warning("⚠️ Local Mode")
 
-st.title("💎 Jewelry AI Studio")
+st.title("Jewelry AI Studio")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
 
@@ -327,15 +259,13 @@ with tab1:
                     st.session_state.image_generated_success = False
                     st.session_state.current_generated_image = None
                 else:
-                    with st.spinner(f"Generating Image ({MODEL_IMAGE_GEN})..."):
+                    with st.spinner(f"Generating..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.session_state.current_generated_image = d
                             st.session_state.image_generated_success = True
                             st.rerun()
-                        else:
-                            st.error(e)
-                            st.session_state.image_generated_success = False
+                        else: st.error(e)
 
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider()
