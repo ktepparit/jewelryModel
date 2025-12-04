@@ -43,11 +43,11 @@ Structure:
 }
 """
 
-# Prompt C: Product Content Writer (Tab 3)
+# Prompt C: Product Content Writer (Tab 3 - UPDATED!)
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน e-commerce ของฉันที่สร้างโดย Shopify
 
-**INPUT DATA (รายละเอียดสินค้า):**
+**INPUT DATA (รายละเอียดสินค้าจากผู้ใช้):**
 {raw_input}
 
 **คำสั่งการเขียน:**
@@ -85,45 +85,63 @@ The JSON structure must be exactly like this:
 }
 """
 
-# Default Data (เปลี่ยน URL รูปภาพเป็นตัวที่เสถียรกว่า หรือ Error handling จะจัดการให้)
+# Default Data
 DEFAULT_PROMPTS = [
     {
         "id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
         "template": "A realistic close-up of a female hand model wearing a ring with {face_size} face size, soft studio lighting, elegant jewelry photography.",
         "variables": "face_size",
-        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg)" # URL ที่เสถียรกว่า
+        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg)"
     },
     {
         "id": "p2", "name": "Streetwear Necklace", "category": "Necklace",
         "template": "A fashion portrait of a model wearing a {length} necklace, streetwear outfit, urban background, high detailed texture.",
         "variables": "length",
-        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Necklace_1.jpg/320px-Necklace_1.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Necklace_1.jpg/320px-Necklace_1.jpg)" # URL ที่เสถียรกว่า
+        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Necklace_1.jpg/320px-Necklace_1.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Necklace_1.jpg/320px-Necklace_1.jpg)"
     }
 ]
 
 # --- 2. CLOUD DATABASE FUNCTIONS (JsonBin.io) ---
 def get_prompts():
-    try:
-        API_KEY = st.secrets["JSONBIN_API_KEY"]
-        BIN_ID = st.secrets["JSONBIN_BIN_ID"]
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
-        headers = {"X-Master-Key": API_KEY}
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("record", DEFAULT_PROMPTS)
-        return DEFAULT_PROMPTS
-    except:
+    # ตรวจสอบว่ามี Key ครบไหม
+    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
+        try:
+            API_KEY = st.secrets["JSONBIN_API_KEY"]
+            BIN_ID = st.secrets["JSONBIN_BIN_ID"]
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
+            headers = {"X-Master-Key": API_KEY}
+            
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # JsonBin v3 บางทีจะซ้อนข้อมูลไว้ใน key ชื่อ 'record'
+                return data.get("record", DEFAULT_PROMPTS)
+            else:
+                # ถ้า Error ให้ Return default แต่เก็บ Error ไว้แจ้งเตือน
+                st.session_state.db_error = f"Error {response.status_code}: {response.text}"
+                return DEFAULT_PROMPTS
+        except Exception as e:
+            st.session_state.db_error = str(e)
+            return DEFAULT_PROMPTS
+    else:
         return DEFAULT_PROMPTS
 
 def save_prompts(data):
-    try:
-        API_KEY = st.secrets["JSONBIN_API_KEY"]
-        BIN_ID = st.secrets["JSONBIN_BIN_ID"]
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
-        headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
-        requests.put(url, json=data, headers=headers)
-    except Exception as e:
-        st.error(f"Save failed: {e}")
+    if "JSONBIN_API_KEY" in st.secrets and "JSONBIN_BIN_ID" in st.secrets:
+        try:
+            API_KEY = st.secrets["JSONBIN_API_KEY"]
+            BIN_ID = st.secrets["JSONBIN_BIN_ID"]
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
+            headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
+            
+            response = requests.put(url, json=data, headers=headers)
+            if response.status_code != 200:
+                st.error(f"Save failed: {response.text}")
+        except Exception as e:
+            st.error(f"Save failed: {e}")
+    else:
+        st.warning("Cannot save: No Database credentials found.")
 
 # --- 3. HELPER FUNCTIONS ---
 def img_to_base64(img):
@@ -142,13 +160,12 @@ def parse_json_response(text):
     except:
         return None
 
-# Function: Safe Image Loader (ป้องกัน Error 503/MediaFileStorageError)
 def safe_st_image(url, width=None):
     try:
-        if url:
+        if url and url.startswith("http"):
             st.image(url, width=width)
-    except Exception:
-        st.warning("⚠️ Could not load preview image.")
+    except:
+        st.caption("⚠️ Img Error")
 
 # Function 1: Gen Image
 def generate_image(api_key, image_list, prompt):
@@ -227,6 +244,7 @@ def list_available_models(api_key):
     except: return None
 
 # --- 4. UI LOGIC ---
+if "db_error" not in st.session_state: st.session_state.db_error = None
 if "library" not in st.session_state: st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
@@ -240,10 +258,17 @@ with st.sidebar:
     except:
         api_key = st.text_input("Gemini API Key", type="password")
     
+    # --- DEBUG STATUS ---
+    st.divider()
+    st.write("📊 **System Status**")
     if "JSONBIN_API_KEY" in st.secrets:
-        st.caption("✅ Database Connected")
+        st.caption("✅ Cloud DB Configured")
+        if st.session_state.db_error:
+            st.error(f"DB Error: {st.session_state.db_error}")
+        else:
+            st.caption(f"📚 Prompts Loaded: {len(st.session_state.library)}")
     else:
-        st.warning("⚠️ Local Mode")
+        st.warning("⚠️ Local Mode (No DB)")
 
 st.title("💎 Jewelry AI Studio")
 
@@ -277,7 +302,6 @@ with tab1:
         filtered = [p for p in lib if p['category'] == sel_cat]
         if filtered:
             sel_style = st.selectbox("Style", filtered, format_func=lambda x: x['name'])
-            # --- FIX: ใช้ safe_st_image แทน st.image ---
             if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=100)
             
             vars_list = [v.strip() for v in sel_style['variables'].split(",") if v.strip()]
@@ -292,6 +316,7 @@ with tab1:
             if st.button("🚀 GENERATE IMAGE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send:
                     st.error("Check Key & Images")
+                    st.session_state.image_generated_success = False
                 else:
                     with st.spinner(f"Generating Image ({MODEL_IMAGE_GEN})..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
@@ -344,7 +369,7 @@ with tab2:
         if bulk_images:
             st.success(f"✅ {len(bulk_images)} images selected.")
             cols_preview = st.columns(4)
-            for i, img_pil in enumerate(bulk_images): cols_preview[i % 4].image(img_pil, use_column_width=True, caption=f"#{i+1}")
+            for i, img in enumerate(bulk_images): cols_preview[i % 4].image(img, use_column_width=True, caption=f"#{i+1}")
         
     with bc2:
         st.subheader("2. Product Details")
@@ -377,9 +402,11 @@ with tab2:
                     time.sleep(0.5)
             st.success("🎉 Done!")
 
-# === TAB 3: AI PRODUCT WRITER ===
+# === TAB 3: AI PRODUCT WRITER (SINGLE INPUT) ===
 with tab3:
     st.header("📝 AI SEO Product Content Writer")
+    st.caption(f"Powered by {MODEL_TEXT_SEO} - Writes human-like, undetectable content.")
+    
     col_w1, col_w2 = st.columns([1, 1.2])
     
     with col_w1:
@@ -388,10 +415,11 @@ with tab3:
         writer_img = Image.open(writer_img_file) if writer_img_file else None
         if writer_img: st.image(writer_img, width=200, caption="Context")
         
-        st.markdown("👇 **Paste your Product Brief / Raw Data here:**")
+        st.markdown("👇 **Paste ALL Product Details here (Multi-line):**")
         raw_input_data = st.text_area(
-            "Example: product url, keywords, category, dimension, weight, story...", 
+            "Copy & Paste your raw product data here:", 
             height=300,
+            placeholder="URL: ...\nKeyword: ...\nDetail: ...\nDimension: ...",
             key="raw_input_box"
         )
         generate_content_btn = st.button("🚀 Generate Product Content", type="primary", use_container_width=True)
@@ -465,7 +493,7 @@ with tab4:
     st.divider()
     for i, p in enumerate(st.session_state.library):
         c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
-        # --- FIX: ใช้ safe_st_image แทน st.image ---
+        # Safe Image
         if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
         c2.write(f"**{p['name']}** ({p['category']})")
         if c3.button("✏️ Edit", key=f"edit_{i}"): st.session_state.edit_target = p; st.rerun()
