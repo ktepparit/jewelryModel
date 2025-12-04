@@ -390,4 +390,61 @@ with tab3:
                             st.divider()
                             for i, item in enumerate(d.get('image_seo', [])):
                                 with st.container():
-                                    cols = st
+                                    cols = st.columns([0.5, 2, 2])
+                                    if i==0 and img: cols[0].image(img, width=50)
+                                    else: cols[0].write(f"#{i+1}")
+                                    cols[1].code(item.get('file_name'), language="text")
+                                    cols[2].code(item.get('alt_tag'), language="text")
+                        else: st.code(json_txt)
+                    else: st.error(err)
+
+# === TAB 4: LIBRARY ===
+with tab4:
+    st.subheader("🛠️ Library Manager")
+    target = st.session_state.edit_target
+    title = f"✏️ Edit: {target['name']}" if target else "➕ Add New"
+    with st.form("lib_form"):
+        st.write(f"**{title}**")
+        c1, c2 = st.columns(2)
+        n = c1.text_input("Name", value=target['name'] if target else "")
+        c = c2.text_input("Category", value=target['category'] if target else "")
+        t = st.text_area("Template", value=target['template'] if target else "")
+        v = st.text_input("Vars", value=target['variables'] if target else "")
+        u = st.text_input("Img URL", value=target['sample_url'] if target else "")
+        cols = st.columns([1, 4])
+        save = cols[0].form_submit_button("💾 Save")
+        if target and cols[1].form_submit_button("❌ Cancel"):
+            st.session_state.edit_target = None; st.rerun()
+        if save:
+            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
+            if target:
+                for i, item in enumerate(st.session_state.library):
+                    if item['id'] == target['id']: st.session_state.library[i] = new; break
+            else: st.session_state.library.append(new)
+            save_prompts(st.session_state.library)
+            st.session_state.edit_target = None
+            st.rerun()
+            
+    st.divider()
+    for i, p in enumerate(st.session_state.library):
+        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+        if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
+        c2.write(f"**{p.get('name')}**")
+        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
+        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
+
+# === TAB 5: MODELS ===
+with tab5:
+    st.header("🔍 Check Gemini Model Availability")
+    if st.button("📡 Scan Models"):
+        if not api_key: st.error("No Key")
+        else:
+            with st.spinner("Scanning..."):
+                m, err = list_available_models(api_key)
+                if m:
+                    gem = [{"ID": x['name']} for x in m if "gemini" in x['name']]
+                    st.success(f"Found {len(gem)} Gemini models")
+                    st.dataframe(gem)
+                else: 
+                    st.error("Scan failed.")
+                    if err: st.error(err)
