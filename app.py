@@ -12,18 +12,20 @@ import re
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
+# หมายเหตุ: gemini-3-pro-preview มักจะ error 503 บ่อย ถ้าเร่งด่วนแนะนำให้ใช้ gemini-1.5-flash
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
-MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview" # เปลี่ยนเป็น Flash เพื่อความเสถียร (แก้เป็น 3-pro-preview ได้ถ้าต้องการ)
 
 # --- HELPER: FORCE CLEAN KEY ---
 def force_clean(value):
     if not value: return ""
     return str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
 
-# --- HELPER: REMOVE EXTENSION ---
+# --- HELPER: CLEAN FILENAME ---
 def clean_filename(name):
     """ลบนามสกุลไฟล์ออกจากชื่อ"""
     if not name: return "N/A"
+    # ลบ extension เช่น .jpg, .png
     return str(name).rsplit('.', 1)[0]
 
 # --- PROMPTS ---
@@ -112,8 +114,9 @@ def save_prompts(data):
 def img_to_base64(img):
     buf = BytesIO()
     if img.mode == 'RGBA': img = img.convert('RGB')
-    img.thumbnail((1024, 1024))
-    img.save(buf, format="JPEG", quality=90)
+    # Resize down to prevent timeout/payload too large
+    img.thumbnail((800, 800)) 
+    img.save(buf, format="JPEG", quality=85)
     return base64.b64encode(buf.getvalue()).decode()
 
 def parse_json_response(text):
@@ -130,14 +133,14 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS (IMPROVED RETRY) ---
+# --- AI FUNCTIONS (Robust Error Handling) ---
 def generate_image(api_key, image_list, prompt):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     
-    # Retry 3 times
+    last_error = ""
     for attempt in range(3):
         try:
             res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
@@ -147,21 +150,23 @@ def generate_image(api_key, image_list, prompt):
                 if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
                 return None, "No image returned."
             elif res.status_code == 503:
-                time.sleep((attempt + 1) * 3) # Wait 3s, 6s, 9s
+                time.sleep((attempt + 1) * 3)
+                last_error = "503 Server Overloaded"
                 continue
             else:
                 return None, f"API Error: {res.text}"
         except Exception as e:
+            last_error = str(e)
             time.sleep(2)
-            if attempt == 2: return None, str(e)
             
-    return None, "Failed after retries (Model Overloaded)"
+    return None, f"Failed: {last_error}"
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     
+    last_error = ""
     for attempt in range(3):
         try:
             res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
@@ -169,28 +174,36 @@ def generate_seo_tags_post_gen(api_key, product_url):
                 return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
             elif res.status_code == 503: 
                 time.sleep((attempt + 1) * 3)
+                last_error = "503 Overloaded"
                 continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
+            else: return None, f"Error {res.status_code}: {res.text}"
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(2)
+            
+    return None, f"Failed: {last_error}"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}
     
+    last_error = ""
     for attempt in range(3):
         try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}, headers={"Content-Type": "application/json"})
             if res.status_code == 200:
                 return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
             elif res.status_code == 503: 
                 time.sleep((attempt + 1) * 3)
+                last_error = "503 Overloaded"
                 continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
+            else: return None, f"Error {res.status_code}: {res.text}"
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(2)
+            
+    return None, f"Failed: {last_error}"
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
@@ -204,18 +217,25 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
             
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     
+    last_error = ""
+    # เพิ่ม Retry ให้นานขึ้นสำหรับ Writer เพราะ Payload ใหญ่
     for attempt in range(3):
         try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            # เพิ่ม timeout 60 วินาที ป้องกัน requests ค้าง
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
             if res.status_code == 200:
                 content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
                 return content.get("text"), None
             elif res.status_code == 503: 
-                time.sleep((attempt + 1) * 5) # Writer รอวนานกว่าหน่อย (5s, 10s, 15s)
+                time.sleep((attempt + 1) * 5) # รอ 5s, 10s, 15s
+                last_error = "503 Server Overloaded"
                 continue
-            else: return None, res.text
-        except: time.sleep(2)
-    return None, "Failed after retries"
+            else: return None, f"Error {res.status_code}: {res.text}"
+        except Exception as e:
+            last_error = str(e)
+            time.sleep(2)
+            
+    return None, f"Failed: {last_error}"
 
 def list_available_models(api_key):
     key = force_clean(api_key)
@@ -322,7 +342,7 @@ with tab1:
                                 if data:
                                     with st.expander("✅ Results", expanded=True):
                                         st.write("**File Name:**")
-                                        st.code(clean_filename(data.get('file_name')), language="text") # Clean ext
+                                        st.code(clean_filename(data.get('file_name')), language="text")
                                         st.write("**Alt Tag:**")
                                         st.code(data.get('alt_tag'), language="text")
                                 else: st.code(seo_json)
@@ -360,7 +380,7 @@ with tab2:
                             if d:
                                 with c2.expander(f"✅ #{i+1} Tags", expanded=True):
                                     st.write("**File Name:**")
-                                    st.code(clean_filename(d.get('file_name')), language="text") # Clean ext
+                                    st.code(clean_filename(d.get('file_name')), language="text")
                                     st.write("**Alt Tag:**")
                                     st.code(d.get('alt_tag'), language="text")
                             else: c2.code(json_txt)
@@ -410,8 +430,9 @@ with tab3:
                                     else:
                                         cols[0].write(f"Tag #{i+1}")
                                     
+                                    # Defensive Check for Dictionary
                                     if isinstance(item, dict):
-                                        fname = clean_filename(item.get('file_name', 'N/A')) # Clean ext
+                                        fname = clean_filename(item.get('file_name', 'N/A'))
                                         atag = item.get('alt_tag', 'N/A')
                                     else:
                                         fname = "N/A"
