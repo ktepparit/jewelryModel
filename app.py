@@ -474,4 +474,37 @@ with tab4:
         cols = st.columns([1, 4])
         save = cols[0].form_submit_button("💾 Save")
         if target and cols[1].form_submit_button("❌ Cancel"):
-            st.session_state
+            st.session_state.edit_target = None; st.rerun()
+        if save:
+            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
+            if target:
+                for i, item in enumerate(st.session_state.library):
+                    if item['id'] == target['id']: st.session_state.library[i] = new; break
+            else: st.session_state.library.append(new)
+            save_prompts_safe(st.session_state.library) # USE SAFE SAVE
+            st.session_state.edit_target = None
+            st.rerun()
+            
+    st.divider()
+    for i, p in enumerate(st.session_state.library):
+        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+        if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
+        c2.write(f"**{p.get('name')}**")
+        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
+        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts_safe(st.session_state.library); st.rerun()
+
+# === TAB 5: MODELS ===
+with tab5:
+    st.header("🔍 Check Gemini Model Availability")
+    if st.button("📡 Scan Models"):
+        if not api_key: st.error("No Key")
+        else:
+            with st.spinner("Scanning..."):
+                m, err = list_available_models(api_key)
+                if m:
+                    gem = [{"ID": x['name']} for x in m if "gemini" in x['name']]
+                    st.success(f"Found {len(gem)} Gemini models")
+                    st.dataframe(gem)
+                else: 
+                    st.error("Scan failed.")
+                    if err: st.error(err)
