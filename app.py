@@ -15,16 +15,10 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
-# --- HELPER: FORCE CLEAN KEY (หัวใจสำคัญของการแก้นี้) ---
+# --- HELPER: FORCE CLEAN KEY ---
 def force_clean(value):
-    """
-    ล้างค่าตัวแปรให้สะอาดที่สุด ตัด Space, Enter, Quotes ออกหมด
-    ป้องกัน Error 'No connection adapters' 100%
-    """
     if not value: return ""
-    # แปลงเป็น String -> ลบช่องว่างหัวท้าย -> ลบ Enter -> ลบ Quotes
-    cleaned = str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
-    return cleaned
+    return str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
 
 # --- PROMPTS ---
 SEO_PROMPT_POST_GEN = """
@@ -60,40 +54,32 @@ DEFAULT_PROMPTS = [
 
 # --- 2. DATABASE FUNCTIONS ---
 def get_prompts():
-    # 1. ดึงและล้างค่าทันที
     raw_key = st.secrets.get("JSONBIN_API_KEY", "")
     raw_bin = st.secrets.get("JSONBIN_BIN_ID", "")
-    
     API_KEY = force_clean(raw_key)
     BIN_ID = force_clean(raw_bin)
 
     if API_KEY and BIN_ID:
         try:
-            # สร้าง URL
             url = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
-            
             response = requests.get(url, headers=headers)
-            
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list): return data
                 elif isinstance(data, dict) and "record" in data: return data["record"]
                 return DEFAULT_PROMPTS
             else:
-                # บันทึก Error เพื่อ Debug (แต่ไม่ทำให้แอพพัง)
                 st.session_state.db_error = f"HTTP {response.status_code}"
                 return DEFAULT_PROMPTS
         except Exception as e:
             st.session_state.db_error = str(e)
             return DEFAULT_PROMPTS
-    else:
-        return DEFAULT_PROMPTS
+    else: return DEFAULT_PROMPTS
 
 def save_prompts(data):
     API_KEY = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
     BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
-
     if API_KEY and BIN_ID:
         try:
             url = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
@@ -124,7 +110,7 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS (ใช้ force_clean ทุกจุด) ---
+# --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
     key = force_clean(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
@@ -161,18 +147,31 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         return None, res.text
     except Exception as e: return None, str(e)
 
-def generate_full_product_content(api_key, img_pil, raw_input):
+# --- UPDATED FUNCTION: Support Multiple Images ---
+def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
+    
     parts = [{"text": prompt}]
-    if img_pil: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}})
-    try:
-        res = requests.post(url, json={"contents": [{"parts": parts}]}, headers={"Content-Type": "application/json"})
-        if res.status_code == 200:
-            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-        return None, res.text
-    except Exception as e: return None, str(e)
+    
+    # วนลูปเพิ่มรูปภาพทั้งหมดลงใน Payload
+    if img_pil_list:
+        for img in img_pil_list:
+            parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
+            
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
+    
+    for _ in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                return content.get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
 
 def list_available_models(api_key):
     key = force_clean(api_key)
@@ -191,8 +190,6 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 
 with st.sidebar:
     st.title("💎 Config")
-    
-    # ดึง Key จาก Secrets แล้วล้างทันที
     secret_key = force_clean(st.secrets.get("GEMINI_API_KEY", ""))
     if secret_key:
         api_key = secret_key
@@ -201,21 +198,16 @@ with st.sidebar:
         api_key = st.text_input("Gemini API Key", type="password")
     
     st.divider()
-    
-    # DB Status
     db_key = st.secrets.get("JSONBIN_API_KEY", "")
     if db_key:
         if st.session_state.db_error:
             st.error(f"DB Error: {st.session_state.db_error}")
-            st.caption("Check your Bin ID in secrets.")
         else:
             st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
-            
         if st.button("🔄 Reload Data"):
             st.session_state.library = get_prompts()
             st.rerun()
-    else:
-        st.warning("⚠️ Local Mode")
+    else: st.warning("⚠️ Local Mode")
 
 st.title("Jewelry AI Studio")
 
@@ -333,9 +325,15 @@ with tab3:
     st.header("📝 AI Product Writer")
     c1, c2 = st.columns([1, 1.2])
     with c1:
-        f = st.file_uploader("Product Image (Optional)", type=["jpg", "png"], key="w_img")
-        img = Image.open(f) if f else None
-        if img: st.image(img, width=200)
+        # --- UPDATE: Multiple Files ---
+        files = st.file_uploader("Product Images (Optional)", type=["jpg", "png"], accept_multiple_files=True, key="w_img")
+        writer_imgs = [Image.open(f) for f in files] if files else []
+        
+        if writer_imgs:
+            st.caption(f"{len(writer_imgs)} images selected")
+            cols = st.columns(4)
+            for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
+            
         raw = st.text_area("Paste Raw Details:", height=300, key="raw_in")
         btn = st.button("🚀 Generate Content", type="primary")
     with c2:
@@ -343,7 +341,8 @@ with tab3:
             if not api_key or not raw: st.error("Missing Info")
             else:
                 with st.spinner("Writing..."):
-                    json_txt, err = generate_full_product_content(api_key, img, raw)
+                    # ส่ง List รูปภาพไปแทนรูปเดียว
+                    json_txt, err = generate_full_product_content(api_key, writer_imgs, raw)
                     if json_txt:
                         d = parse_json_response(json_txt)
                         if d:
@@ -354,11 +353,21 @@ with tab3:
                             st.write("📄 **HTML:**"); st.code(d.get('html_content'), language="html")
                             with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             st.divider()
-                            for i, item in enumerate(d.get('image_seo', [])):
+                            
+                            # --- Matching Images to SEO Tags ---
+                            img_tags = d.get('image_seo', [])
+                            st.subheader(f"🖼️ Image SEO ({len(img_tags)} tags generated)")
+                            
+                            for i, item in enumerate(img_tags):
                                 with st.container():
-                                    cols = st.columns([0.5, 2, 2])
-                                    if i==0 and img: cols[0].image(img, width=50)
-                                    else: cols[0].write(f"#{i+1}")
+                                    cols = st.columns([0.6, 2, 2])
+                                    
+                                    # พยายามจับคู่รูปที่อัพโหลดกับ Tag (ถ้ามีรูปพอ)
+                                    if writer_imgs and i < len(writer_imgs):
+                                        cols[0].image(writer_imgs[i], width=60, caption=f"Img #{i+1}")
+                                    else:
+                                        cols[0].write(f"Tag #{i+1}")
+                                        
                                     cols[1].code(item.get('file_name'), language="text")
                                     cols[2].code(item.get('alt_tag'), language="text")
                         else: st.code(json_txt)
