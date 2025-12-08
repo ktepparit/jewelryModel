@@ -20,6 +20,12 @@ def force_clean(value):
     if not value: return ""
     return str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
 
+# --- HELPER: REMOVE EXTENSION ---
+def clean_filename(name):
+    """ลบนามสกุลไฟล์ออกจากชื่อ"""
+    if not name: return "N/A"
+    return str(name).rsplit('.', 1)[0]
+
 # --- PROMPTS ---
 SEO_PROMPT_POST_GEN = """
 You are an SEO specialist. Write SEO-optimized image file name and alt tags in English based on this url: {product_url}.
@@ -33,7 +39,6 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
-# Update Prompt ให้ชัดเจนเรื่อง Image SEO Keys
 SEO_PRODUCT_WRITER_PROMPT = """
 You are an SEO product content writer for Shopify.
 Input Data: {raw_input}
@@ -125,42 +130,67 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS ---
+# --- AI FUNCTIONS (IMPROVED RETRY) ---
 def generate_image(api_key, image_list, prompt):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
-    try:
-        res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
-        if res.status_code != 200: return None, f"API Error: {res.text}"
-        content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
-        if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
-        if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
-        return None, "No image returned."
-    except Exception as e: return None, str(e)
+    
+    # Retry 3 times
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                if "inline_data" in content: return base64.b64decode(content["inline_data"]["data"]), None
+                if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
+                return None, "No image returned."
+            elif res.status_code == 503:
+                time.sleep((attempt + 1) * 3) # Wait 3s, 6s, 9s
+                continue
+            else:
+                return None, f"API Error: {res.text}"
+        except Exception as e:
+            time.sleep(2)
+            if attempt == 2: return None, str(e)
+            
+    return None, "Failed after retries (Model Overloaded)"
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
-    try:
-        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
-        if res.status_code == 200:
-            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-        return None, res.text
-    except Exception as e: return None, str(e)
+    
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+            elif res.status_code == 503: 
+                time.sleep((attempt + 1) * 3)
+                continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     key = force_clean(api_key)
     url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    try:
-        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}, headers={"Content-Type": "application/json"})
-        if res.status_code == 200:
-            return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-        return None, res.text
-    except Exception as e: return None, str(e)
+    payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}
+    
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+            elif res.status_code == 503: 
+                time.sleep((attempt + 1) * 3)
+                continue
+            else: return None, res.text
+        except: time.sleep(2)
+    return None, "Failed after retries"
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
@@ -174,13 +204,15 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
             
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     
-    for _ in range(3):
+    for attempt in range(3):
         try:
             res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
             if res.status_code == 200:
                 content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
                 return content.get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
+            elif res.status_code == 503: 
+                time.sleep((attempt + 1) * 5) # Writer รอวนานกว่าหน่อย (5s, 10s, 15s)
+                continue
             else: return None, res.text
         except: time.sleep(2)
     return None, "Failed after retries"
@@ -289,8 +321,10 @@ with tab1:
                                 data = parse_json_response(seo_json)
                                 if data:
                                     with st.expander("✅ Results", expanded=True):
-                                        st.write("**File Name:**"); st.code(data.get('file_name'), language="text")
-                                        st.write("**Alt Tag:**"); st.code(data.get('alt_tag'), language="text")
+                                        st.write("**File Name:**")
+                                        st.code(clean_filename(data.get('file_name')), language="text") # Clean ext
+                                        st.write("**Alt Tag:**")
+                                        st.code(data.get('alt_tag'), language="text")
                                 else: st.code(seo_json)
                             else: st.error(err)
         else: st.warning("Library empty.")
@@ -325,8 +359,10 @@ with tab2:
                             d = parse_json_response(json_txt)
                             if d:
                                 with c2.expander(f"✅ #{i+1} Tags", expanded=True):
-                                    st.write("**File:**"); st.code(d.get('file_name'), language="text")
-                                    st.write("**Alt:**"); st.code(d.get('alt_tag'), language="text")
+                                    st.write("**File Name:**")
+                                    st.code(clean_filename(d.get('file_name')), language="text") # Clean ext
+                                    st.write("**Alt Tag:**")
+                                    st.code(d.get('alt_tag'), language="text")
                             else: c2.code(json_txt)
                         else: c2.error(err)
                     time.sleep(0.5)
@@ -363,33 +399,26 @@ with tab3:
                             with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             st.divider()
                             
-                            # --- IMPROVED DISPLAY LOGIC ---
                             img_tags = d.get('image_seo', [])
                             st.subheader(f"🖼️ Image SEO ({len(img_tags)} tags)")
                             
                             for i, item in enumerate(img_tags):
                                 with st.container():
                                     cols = st.columns([0.6, 2, 2])
-                                    # Show Image
                                     if writer_imgs and i < len(writer_imgs):
                                         cols[0].image(writer_imgs[i], width=60, caption=f"Img #{i+1}")
                                     else:
                                         cols[0].write(f"Tag #{i+1}")
                                     
-                                    # Smart Key Fetch (Defense against key hallucination)
                                     if isinstance(item, dict):
-                                        # Try 'file_name', then 'filename', then 'name'
-                                        fname = item.get('file_name') or item.get('filename') or item.get('name') or "N/A"
-                                        # Try 'alt_tag', then 'alt_text', then 'alt'
-                                        atag = item.get('alt_tag') or item.get('alt_text') or item.get('alt') or "N/A"
+                                        fname = clean_filename(item.get('file_name', 'N/A')) # Clean ext
+                                        atag = item.get('alt_tag', 'N/A')
                                     else:
-                                        # Fallback if item is string
                                         fname = "N/A"
                                         atag = str(item)
 
-                                    # Display: File Name FIRST, Alt Tag SECOND
-                                    cols[1].code(fname, language="text") # File Name (Left)
-                                    cols[2].code(atag, language="text")  # Alt Tag (Right)
+                                    cols[1].code(fname, language="text")
+                                    cols[2].code(atag, language="text")
                         else: st.code(json_txt)
                     else: st.error(err)
 
