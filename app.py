@@ -33,13 +33,28 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
+# Update Prompt ให้ชัดเจนเรื่อง Image SEO Keys
 SEO_PRODUCT_WRITER_PROMPT = """
 You are an SEO product content writer for Shopify.
 Input Data: {raw_input}
 Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
 Tone: Human-like.
-IMPORTANT: Return RAW JSON ONLY.
-Structure: {"url_slug": "...", "meta_title": "...", "meta_description": "...", "product_title_h1": "...", "html_content": "...", "image_seo": [...]}
+
+**IMPORTANT OUTPUT FORMAT:**
+You MUST return the result in **RAW JSON** format ONLY. Do not include markdown backticks (```json).
+The JSON structure must be exactly like this:
+{
+  "url_slug": "url-slug-example",
+  "meta_title": "Meta Title Example (Max 60 chars)",
+  "meta_description": "Meta Description Example (Max 160 chars)",
+  "product_title_h1": "Product Title Example",
+  "html_content": "<p>Your full HTML product description here...</p>",
+  "image_seo": [
+    { "file_name": "silver-medusa-ring-mens.jpg", "alt_tag": "Silver Medusa Ring detailed view" },
+    { "file_name": "medusa-ring-side-view.jpg", "alt_tag": "Side view of handcrafted Medusa ring" },
+    { "file_name": "medusa-ring-on-finger.jpg", "alt_tag": "Model wearing silver Medusa ring" }
+  ]
+}
 """
 
 # Default Data
@@ -48,7 +63,7 @@ DEFAULT_PROMPTS = [
         "id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
         "template": "A realistic close-up of a female hand model wearing a ring with {face_size} face size, soft studio lighting, elegant jewelry photography.",
         "variables": "face_size",
-        "sample_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg"
+        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg)"
     }
 ]
 
@@ -61,7 +76,7 @@ def get_prompts():
 
     if API_KEY and BIN_ID:
         try:
-            url = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
@@ -82,7 +97,7 @@ def save_prompts(data):
     BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
     if API_KEY and BIN_ID:
         try:
-            url = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
             headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
             requests.put(url, json=data, headers=headers)
         except Exception as e: st.error(f"Save Error: {e}")
@@ -113,7 +128,7 @@ def safe_st_image(url, width=None):
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
     key = force_clean(api_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     try:
@@ -127,7 +142,7 @@ def generate_image(api_key, image_list, prompt):
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = force_clean(api_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     try:
         res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
@@ -138,7 +153,7 @@ def generate_seo_tags_post_gen(api_key, product_url):
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     key = force_clean(api_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     try:
         res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}, headers={"Content-Type": "application/json"})
@@ -149,7 +164,7 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
     parts = [{"text": prompt}]
@@ -172,7 +187,7 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
 
 def list_available_models(api_key):
     key = force_clean(api_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}"
     try:
         res = requests.get(url)
         return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
@@ -348,28 +363,33 @@ with tab3:
                             with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             st.divider()
                             
-                            # --- FIX ATTRIBUTE ERROR HERE ---
+                            # --- IMPROVED DISPLAY LOGIC ---
                             img_tags = d.get('image_seo', [])
                             st.subheader(f"🖼️ Image SEO ({len(img_tags)} tags)")
                             
                             for i, item in enumerate(img_tags):
                                 with st.container():
                                     cols = st.columns([0.6, 2, 2])
+                                    # Show Image
                                     if writer_imgs and i < len(writer_imgs):
                                         cols[0].image(writer_imgs[i], width=60, caption=f"Img #{i+1}")
                                     else:
                                         cols[0].write(f"Tag #{i+1}")
                                     
-                                    # Defensive check: Ensure item is dict
+                                    # Smart Key Fetch (Defense against key hallucination)
                                     if isinstance(item, dict):
-                                        fname = item.get('file_name', 'N/A')
-                                        atag = item.get('alt_tag', 'N/A')
+                                        # Try 'file_name', then 'filename', then 'name'
+                                        fname = item.get('file_name') or item.get('filename') or item.get('name') or "N/A"
+                                        # Try 'alt_tag', then 'alt_text', then 'alt'
+                                        atag = item.get('alt_tag') or item.get('alt_text') or item.get('alt') or "N/A"
                                     else:
-                                        fname = str(item)
-                                        atag = "-"
+                                        # Fallback if item is string
+                                        fname = "N/A"
+                                        atag = str(item)
 
-                                    cols[1].code(fname, language="text")
-                                    cols[2].code(atag, language="text")
+                                    # Display: File Name FIRST, Alt Tag SECOND
+                                    cols[1].code(fname, language="text") # File Name (Left)
+                                    cols[2].code(atag, language="text")  # Alt Tag (Right)
                         else: st.code(json_txt)
                     else: st.error(err)
 
