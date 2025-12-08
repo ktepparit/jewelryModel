@@ -147,15 +147,12 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
         return None, res.text
     except Exception as e: return None, str(e)
 
-# --- UPDATED FUNCTION: Support Multiple Images ---
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
     parts = [{"text": prompt}]
-    
-    # วนลูปเพิ่มรูปภาพทั้งหมดลงใน Payload
     if img_pil_list:
         for img in img_pil_list:
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
@@ -325,10 +322,8 @@ with tab3:
     st.header("📝 AI Product Writer")
     c1, c2 = st.columns([1, 1.2])
     with c1:
-        # --- UPDATE: Multiple Files ---
         files = st.file_uploader("Product Images (Optional)", type=["jpg", "png"], accept_multiple_files=True, key="w_img")
         writer_imgs = [Image.open(f) for f in files] if files else []
-        
         if writer_imgs:
             st.caption(f"{len(writer_imgs)} images selected")
             cols = st.columns(4)
@@ -341,7 +336,6 @@ with tab3:
             if not api_key or not raw: st.error("Missing Info")
             else:
                 with st.spinner("Writing..."):
-                    # ส่ง List รูปภาพไปแทนรูปเดียว
                     json_txt, err = generate_full_product_content(api_key, writer_imgs, raw)
                     if json_txt:
                         d = parse_json_response(json_txt)
@@ -354,22 +348,28 @@ with tab3:
                             with st.expander("Preview"): st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             st.divider()
                             
-                            # --- Matching Images to SEO Tags ---
+                            # --- FIX ATTRIBUTE ERROR HERE ---
                             img_tags = d.get('image_seo', [])
-                            st.subheader(f"🖼️ Image SEO ({len(img_tags)} tags generated)")
+                            st.subheader(f"🖼️ Image SEO ({len(img_tags)} tags)")
                             
                             for i, item in enumerate(img_tags):
                                 with st.container():
                                     cols = st.columns([0.6, 2, 2])
-                                    
-                                    # พยายามจับคู่รูปที่อัพโหลดกับ Tag (ถ้ามีรูปพอ)
                                     if writer_imgs and i < len(writer_imgs):
                                         cols[0].image(writer_imgs[i], width=60, caption=f"Img #{i+1}")
                                     else:
                                         cols[0].write(f"Tag #{i+1}")
-                                        
-                                    cols[1].code(item.get('file_name'), language="text")
-                                    cols[2].code(item.get('alt_tag'), language="text")
+                                    
+                                    # Defensive check: Ensure item is dict
+                                    if isinstance(item, dict):
+                                        fname = item.get('file_name', 'N/A')
+                                        atag = item.get('alt_tag', 'N/A')
+                                    else:
+                                        fname = str(item)
+                                        atag = "-"
+
+                                    cols[1].code(fname, language="text")
+                                    cols[2].code(atag, language="text")
                         else: st.code(json_txt)
                     else: st.error(err)
 
