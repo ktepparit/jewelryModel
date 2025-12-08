@@ -11,17 +11,15 @@ import re
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Model IDs
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
-MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
+MODEL_IMAGE_GEN = "models/gemini-1.5-flash"
+MODEL_TEXT_SEO = "models/gemini-1.5-flash"
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
-    """ล้างค่า Key/ID ให้สะอาด ป้องกันช่องว่างและฟันหนู"""
     if value is None: return ""
     return str(value).strip().replace(" ", "").replace('"', "").replace("'", "").replace("\n", "")
 
-# --- HELPER: SAFE IMAGE LOADER (ป้องกัน App Crash) ---
+# --- HELPER: SAFE IMAGE LOADER ---
 def safe_st_image(url, width=None, caption=None):
     if not url: return
     try:
@@ -50,8 +48,8 @@ Input Data: {raw_input}
 Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
 Tone: Human-like.
 
-**IMPORTANT OUTPUT FORMAT:**
-You MUST return the result in **RAW JSON** format ONLY. Do not include markdown backticks (```json).
+IMPORTANT OUTPUT FORMAT:
+You MUST return the result in RAW JSON format ONLY. Do not include markdown backticks.
 The JSON structure must be exactly like this:
 {
   "url_slug": "url-slug-example",
@@ -61,8 +59,7 @@ The JSON structure must be exactly like this:
   "html_content": "<p>Your full HTML product description here...</p>",
   "image_seo": [
     { "file_name": "silver-medusa-ring-mens.jpg", "alt_tag": "Silver Medusa Ring detailed view" },
-    { "file_name": "medusa-ring-side-view.jpg", "alt_tag": "Side view of handcrafted Medusa ring" },
-    { "file_name": "medusa-ring-on-finger.jpg", "alt_tag": "Model wearing silver Medusa ring" }
+    { "file_name": "medusa-ring-side-view.jpg", "alt_tag": "Side view of handcrafted Medusa ring" }
   ]
 }
 """
@@ -73,7 +70,7 @@ DEFAULT_PROMPTS = [
         "id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
         "template": "A realistic close-up of a female hand model wearing a ring with {face_size} face size, soft studio lighting, elegant jewelry photography.",
         "variables": "face_size",
-        "sample_url": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg)"
+        "sample_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg"
     }
 ]
 
@@ -87,7 +84,7 @@ def get_prompts():
 
         if not API_KEY or not BIN_ID: return DEFAULT_PROMPTS
 
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
+        url = f"https://api.jsonbin.io/v3/b/{BIN_ID}/latest"
         headers = {"X-Master-Key": API_KEY}
         
         response = requests.get(url, headers=headers, timeout=5)
@@ -104,7 +101,7 @@ def save_prompts(data):
         API_KEY = clean_key(raw_key)
         BIN_ID = clean_key(raw_bin)
         
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
+        url = f"https://api.jsonbin.io/v3/b/{BIN_ID}"
         headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
         requests.put(url, json=data, headers=headers, timeout=10)
     except Exception as e:
@@ -134,7 +131,7 @@ def clean_filename(name):
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
     key = clean_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
     parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     
@@ -150,7 +147,7 @@ def generate_image(api_key, image_list, prompt):
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = clean_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     
@@ -167,7 +164,7 @@ def generate_seo_tags_post_gen(api_key, product_url):
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     key = clean_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     
@@ -184,7 +181,7 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = clean_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     parts = [{"text": prompt}]
     if img_pil_list:
@@ -205,7 +202,7 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
 
 def list_available_models(api_key):
     key = clean_key(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200: return response.json().get("models", [])
@@ -220,16 +217,21 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 
 with st.sidebar:
     st.title("⚙️ Config")
-    secret_key = st.secrets.get("GEMINI_API_KEY", "")
-    if secret_key:
-        api_key = secret_key
-        st.success("API Key Ready")
+    
+    # --- AUTO-LOAD SECRETS LOGIC ---
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        st.success("✅ Gemini Key Loaded from Cloud")
     else:
         api_key = st.text_input("Gemini API Key", type="password")
+    
+    # ล้างค่าเพื่อความชัวร์
     api_key = clean_key(api_key)
     
-    if "JSONBIN_API_KEY" in st.secrets: st.caption("✅ Database Connected")
-    else: st.warning("⚠️ Local Mode")
+    if "JSONBIN_API_KEY" in st.secrets:
+        st.caption("✅ Database Connected")
+    else:
+        st.warning("⚠️ Local Mode (DB Not Connected)")
 
 st.title("💎 Jewelry AI Studio")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
@@ -327,7 +329,7 @@ with tab2:
                             else: rc2.error(err)
                 st.success("Done!")
 
-# === TAB 3: WRITER (เพิ่มกลับมาให้แล้ว) ===
+# === TAB 3: WRITER ===
 with tab3:
     st.header("📝 Product Writer")
     c1, c2 = st.columns([1, 1.2])
@@ -410,4 +412,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
