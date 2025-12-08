@@ -12,15 +12,22 @@ import re
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
-# หมายเหตุ: gemini-3-pro-preview มักจะ 503 (Server ล่ม) บ่อยมาก
-# ผมเปลี่ยนเป็น 1.5-flash ให้ก่อนเพื่อให้งานเดินต่อได้ (ผลลัพธ์ SEO ดีเหมือนกันแต่เร็วกว่ามาก)
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" 
-MODEL_TEXT_SEO = "models/gemini-1.5-flash" 
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
+MODEL_TEXT_SEO = "models/gemini-1.5-flash"
 
-# --- HELPER: FORCE CLEAN KEY ---
-def force_clean(value):
+# --- HELPER: SUPER CLEANER (ล้างทุกอย่างที่ไม่ใช่ตัวอักษร) ---
+def super_clean(value):
+    """
+    ใช้ Regex ลบทุกอักขระที่ไม่ใช่ A-Z, a-z, 0-9, -, _
+    ตัดปัญหา Invisible characters, space, newline, quotes ได้ 100%
+    """
     if not value: return ""
-    return str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
+    # แปลงเป็น String
+    s = str(value)
+    # เก็บเฉพาะตัวอักษรที่อนุญาต (Alphanumeric + dash + underscore)
+    # API Key ของ Google และ JsonBin ID มีแค่ตัวพวกนี้เท่านั้น
+    cleaned = re.sub(r'[^A-Za-z0-9\-\_]', '', s)
+    return cleaned
 
 # --- HELPER: CLEAN FILENAME ---
 def clean_filename(name):
@@ -75,16 +82,25 @@ DEFAULT_PROMPTS = [
 
 # --- 2. DATABASE FUNCTIONS ---
 def get_prompts():
+    # ดึงค่าดิบ
     raw_key = st.secrets.get("JSONBIN_API_KEY", "")
     raw_bin = st.secrets.get("JSONBIN_BIN_ID", "")
-    API_KEY = force_clean(raw_key)
-    BIN_ID = force_clean(raw_bin)
+    
+    # ล้างค่าด้วย Super Clean
+    API_KEY = super_clean(raw_key)
+    BIN_ID = super_clean(raw_bin)
 
     if API_KEY and BIN_ID:
         try:
-            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
+            # สร้าง URL และ .strip() อีกรอบเพื่อความชัวร์
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest".strip()
             headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
+            
+            # บันทึก URL ที่ใช้ยิงจริงลง Session (เพื่อ Debug)
+            st.session_state.last_db_url = url
+            
             response = requests.get(url, headers=headers)
+            
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list): return data
@@ -99,11 +115,11 @@ def get_prompts():
     else: return DEFAULT_PROMPTS
 
 def save_prompts(data):
-    API_KEY = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
-    BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
+    API_KEY = super_clean(st.secrets.get("JSONBIN_API_KEY", ""))
+    BIN_ID = super_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
     if API_KEY and BIN_ID:
         try:
-            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
+            url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}".strip()
             headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
             requests.put(url, json=data, headers=headers)
         except Exception as e: st.error(f"Save Error: {e}")
@@ -131,14 +147,14 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS (SUPER RETRY MODE) ---
+# --- AI FUNCTIONS (Apply super_clean) ---
 def generate_image(api_key, image_list, prompt):
-    key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
+    key = super_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}".strip()
+    
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     
-    # Retry 5 times for images
     for attempt in range(5):
         try:
             res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
@@ -148,23 +164,20 @@ def generate_image(api_key, image_list, prompt):
                 if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
                 return None, "No image returned."
             elif res.status_code == 503:
-                wait = (attempt + 1) * 5 # 5, 10, 15, 20, 25 sec
-                time.sleep(wait)
+                time.sleep((attempt + 1) * 5)
                 continue
             else:
                 return None, f"API Error: {res.text}"
         except Exception as e:
             time.sleep(2)
             if attempt == 4: return None, str(e)
-            
-    return None, "Failed: Server Overloaded (503)"
+    return None, "Failed: 503 Overloaded"
 
 def generate_seo_tags_post_gen(api_key, product_url):
-    key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    key = super_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     
-    # Retry 5 times
     for attempt in range(5):
         try:
             res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
@@ -174,18 +187,15 @@ def generate_seo_tags_post_gen(api_key, product_url):
                 time.sleep((attempt + 1) * 5)
                 continue
             else: return None, f"Error {res.status_code}: {res.text}"
-        except Exception as e:
-            time.sleep(2)
-            
-    return None, "Failed: Server Overloaded (503)"
+        except Exception as e: time.sleep(2)
+    return None, "Failed: 503 Overloaded"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    key = super_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}
     
-    # Retry 5 times
     for attempt in range(5):
         try:
             res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
@@ -195,14 +205,12 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
                 time.sleep((attempt + 1) * 5)
                 continue
             else: return None, f"Error {res.status_code}: {res.text}"
-        except Exception as e:
-            time.sleep(2)
-            
-    return None, "Failed: Server Overloaded (503)"
+        except Exception as e: time.sleep(2)
+    return None, "Failed: 503 Overloaded"
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
-    key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
+    key = super_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
     parts = [{"text": prompt}]
@@ -212,10 +220,9 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
             
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     
-    # Retry 5 times
     for attempt in range(5):
         try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=90)
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
             if res.status_code == 200:
                 content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
                 return content.get("text"), None
@@ -223,14 +230,12 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
                 time.sleep((attempt + 1) * 5)
                 continue
             else: return None, f"Error {res.status_code}: {res.text}"
-        except Exception as e:
-            time.sleep(2)
-            
-    return None, "Failed: Server Overloaded (503)"
+        except Exception as e: time.sleep(2)
+    return None, "Failed: 503 Overloaded"
 
 def list_available_models(api_key):
-    key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}"
+    key = super_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}".strip()
     try:
         res = requests.get(url)
         return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
@@ -238,6 +243,7 @@ def list_available_models(api_key):
 
 # --- 4. UI LOGIC ---
 if "db_error" not in st.session_state: st.session_state.db_error = None
+if "last_db_url" not in st.session_state: st.session_state.last_db_url = ""
 if "library" not in st.session_state: st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
@@ -245,20 +251,30 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 
 with st.sidebar:
     st.title("💎 Config")
-    secret_key = force_clean(st.secrets.get("GEMINI_API_KEY", ""))
+    
+    # ดึง Key และ Clean
+    secret_key = st.secrets.get("GEMINI_API_KEY", "")
     if secret_key:
-        api_key = secret_key
+        api_key = super_clean(secret_key)
         st.success("API Key Ready")
     else:
-        api_key = st.text_input("Gemini API Key", type="password")
+        api_key_input = st.text_input("Gemini API Key", type="password")
+        api_key = super_clean(api_key_input)
     
     st.divider()
+    
+    # DB Status & Debugger
     db_key = st.secrets.get("JSONBIN_API_KEY", "")
     if db_key:
         if st.session_state.db_error:
             st.error(f"DB Error: {st.session_state.db_error}")
+            # --- DEBUG BLOCK (ดูค่าที่อ่านได้จริง) ---
+            with st.expander("🛠️ Debug Connection"):
+                st.write("Cleaned Bin ID:", super_clean(st.secrets.get("JSONBIN_BIN_ID", "")))
+                st.write("Target URL:", st.session_state.last_db_url)
         else:
             st.caption(f"✅ DB Connected ({len(st.session_state.library)} items)")
+            
         if st.button("🔄 Reload Data"):
             st.session_state.library = get_prompts()
             st.rerun()
@@ -425,8 +441,7 @@ with tab3:
                                         fname = clean_filename(item.get('file_name', 'N/A'))
                                         atag = item.get('alt_tag', 'N/A')
                                     else:
-                                        fname = "N/A"
-                                        atag = str(item)
+                                        fname = "N/A"; atag = str(item)
 
                                     cols[1].code(fname, language="text")
                                     cols[2].code(atag, language="text")
