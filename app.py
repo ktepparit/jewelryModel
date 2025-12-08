@@ -12,8 +12,8 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
 # แนะนำให้ใช้ gemini-1.5-flash เพื่อความรวดเร็วและเสถียร
-MODEL_IMAGE_GEN = "models/gemini-1.5-flash" 
-MODEL_TEXT_SEO = "models/gemini-1.5-flash"
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" 
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
 # --- HELPER: ULTRA CLEANER (ตัวแก้ปัญหาหลัก) ---
 def force_clean(value):
@@ -480,3 +480,4 @@ with tab5:
                 else: 
                     st.error("Scan failed")
                     if err: st.error(err)
+
