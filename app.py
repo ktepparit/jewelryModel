@@ -12,15 +12,16 @@ import re
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" 
+MODEL_IMAGE_GEN = "models/gemini-1.5-pro" # แนะนำให้ใช้ 1.5-pro หรือ flash แทน 3-pro ที่ยังไม่เสถียรในบาง region
 MODEL_TEXT_SEO = "models/gemini-1.5-flash"
 
 # --- HELPER: ULTRA CLEANER ---
 def force_clean(value):
-    """ล้างค่าตัวแปรให้สะอาดที่สุด"""
+    """ล้างค่าตัวแปรให้สะอาดที่สุด ป้องกันช่องว่างและอักขระพิเศษ"""
     if value is None: return ""
     # ลบทุกอย่างที่ไม่ใช่ตัวอักษรพิมพ์เล็ก/ใหญ่ ตัวเลข - และ _
-    return re.sub(r'[^a-zA-Z0-9\-\_]', '', str(value))
+    # และที่สำคัญคือ . (จุด) เพราะ API Key บางทีอาจมีจุด (แม้น้อย) แต่ Bin ID ไม่มี
+    return str(value).strip().replace(" ", "").replace('"', "").replace("'", "")
 
 # --- HELPER: CLEAN FILENAME ---
 def clean_filename(name):
@@ -77,11 +78,9 @@ DEFAULT_PROMPTS = [
 def get_prompts_safe():
     """
     ฟังก์ชันดึงข้อมูลแบบปลอดภัยสูงสุด ห้าม Crash เด็ดขาด
-    ถ้ามีปัญหา ให้คืนค่า Default ทันที
     """
     error_log = None
     
-    # 1. ดึงและล้างค่า
     try:
         raw_key = st.secrets.get("JSONBIN_API_KEY", "")
         raw_bin = st.secrets.get("JSONBIN_BIN_ID", "")
@@ -90,14 +89,13 @@ def get_prompts_safe():
         BIN_ID = force_clean(raw_bin)
 
         if not API_KEY or not BIN_ID:
-            return DEFAULT_PROMPTS, "Missing Keys"
+            return DEFAULT_PROMPTS, "Missing Keys (Check .streamlit/secrets.toml)"
 
-        # 2. สร้าง URL แบบระวังพิเศษ
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest".strip()
+        # แก้ไข URL: เอา Markdown syntax ออกให้เหลือแต่ URL เพียวๆ
+        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}/latest"
         headers = {"X-Master-Key": API_KEY, "X-Bin-Meta": "false"}
         
-        # 3. ยิง Request พร้อม Timeout
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -105,21 +103,22 @@ def get_prompts_safe():
             elif isinstance(data, dict) and "record" in data: return data["record"], None
             return DEFAULT_PROMPTS, "Unknown JSON format"
         else:
-            return DEFAULT_PROMPTS, f"HTTP {response.status_code}"
+            return DEFAULT_PROMPTS, f"HTTP {response.status_code}: {response.text}"
             
     except Exception as e:
-        # ดักจับทุก Error ที่นี่ รวมถึง No connection adapters
         return DEFAULT_PROMPTS, str(e)
 
 def save_prompts_safe(data):
     try:
         API_KEY = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
         BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
+        
         if not API_KEY or not BIN_ID:
             st.error("No Database Credentials.")
             return
 
-        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}".strip()
+        # แก้ไข URL Clean
+        url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
         headers = {"Content-Type": "application/json", "X-Master-Key": API_KEY}
         
         res = requests.put(url, json=data, headers=headers, timeout=10)
@@ -148,13 +147,17 @@ def parse_json_response(text):
 def safe_st_image(url, width=None):
     if not url: return
     try:
-        if url.startswith("http"): st.image(url, width=width)
+        # เช็คเบื้องต้นว่า URL ดูถูกต้อง
+        clean_url = url.strip()
+        if clean_url.startswith("http"): 
+            st.image(clean_url, width=width)
     except: pass
 
 # --- AI FUNCTIONS ---
 def generate_image(api_key, image_list, prompt):
     key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}".strip()
+    # แก้ไข URL Clean
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
     
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
@@ -178,7 +181,8 @@ def generate_image(api_key, image_list, prompt):
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
+    # แก้ไข URL Clean
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     
     for attempt in range(5):
@@ -195,7 +199,8 @@ def generate_seo_tags_post_gen(api_key, product_url):
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
     key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
+    # แก้ไข URL Clean
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}
     
@@ -213,7 +218,8 @@ def generate_seo_for_existing_image(api_key, img_pil, product_url):
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
     key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}".strip()
+    # แก้ไข URL Clean
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
     parts = [{"text": prompt}]
@@ -238,10 +244,14 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
 
 def list_available_models(api_key):
     key = force_clean(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}".strip()
+    # แก้ไข URL Clean (ลบช่องว่างหลัง key= ออกแล้ว)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}"
     try:
         res = requests.get(url, timeout=10)
-        return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
+        if res.status_code == 200:
+            return res.json().get("models", []), None
+        else:
+            return None, f"Error: {res.text}"
     except Exception as e: return None, str(e)
 
 # --- 4. UI LOGIC ---
@@ -266,7 +276,8 @@ with st.sidebar:
         api_key = secret_key
         st.success("API Key Ready")
     else:
-        api_key = st.text_input("Gemini API Key", type="password")
+        api_key_input = st.text_input("Gemini API Key", type="password")
+        api_key = force_clean(api_key_input)
     
     st.divider()
     
