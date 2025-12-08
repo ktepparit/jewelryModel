@@ -14,17 +14,11 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 MODEL_IMAGE_GEN = "models/gemini-1.5-flash"
 MODEL_TEXT_SEO = "models/gemini-1.5-flash"
 
-# --- HELPER: SUPER CLEANER (ล้างทุกอย่างรวมถึง Newline) ---
+# --- HELPER: SUPER CLEANER ---
 def force_clean(value):
-    """
-    ล้างค่าตัวแปร: ลบช่องว่าง, ฟันหนู, และอักขระซ่อนเร้น (\n, \r)
-    """
     if value is None: return ""
-    # 1. แปลงเป็น String
     s = str(value)
-    # 2. ลบ Newline/Tab ที่มองไม่เห็น
     s = s.replace("\n", "").replace("\r", "").replace("\t", "")
-    # 3. ลบ Quote และช่องว่าง
     s = s.strip().replace(" ", "").replace('"', "").replace("'", "")
     return s
 
@@ -78,17 +72,13 @@ DEFAULT_PROMPTS = [
     }
 ]
 
-# --- 2. DATABASE FUNCTIONS (WITH DEBUG) ---
+# --- 2. DATABASE FUNCTIONS ---
 def get_prompts_safe(api_key, bin_id):
     try:
         if not api_key or not bin_id:
             return DEFAULT_PROMPTS, "Missing Keys"
-
-        # Construct URL cleanly
         url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){bin_id}/latest"
         headers = {"X-Master-Key": api_key, "X-Bin-Meta": "false"}
-        
-        # Explicit request with timeout
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
@@ -98,7 +88,6 @@ def get_prompts_safe(api_key, bin_id):
             return DEFAULT_PROMPTS, "Unknown JSON format"
         else:
             return DEFAULT_PROMPTS, f"HTTP {response.status_code}: {response.text}"
-            
     except Exception as e:
         return DEFAULT_PROMPTS, str(e)
 
@@ -107,16 +96,11 @@ def save_prompts_safe(data, api_key, bin_id):
         if not api_key or not bin_id:
             st.error("No Database Credentials.")
             return
-
         url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){bin_id}"
         headers = {"Content-Type": "application/json", "X-Master-Key": api_key}
-        
         res = requests.put(url, json=data, headers=headers, timeout=10)
-        if res.status_code != 200:
-            st.error(f"Save Failed: {res.text}")
-            
-    except Exception as e:
-        st.error(f"Save Error: {e}")
+        if res.status_code != 200: st.error(f"Save Failed: {res.text}")
+    except Exception as e: st.error(f"Save Error: {e}")
 
 # --- 3. HELPER FUNCTIONS ---
 def img_to_base64(img):
@@ -201,45 +185,31 @@ def list_available_models(api_key):
     except Exception as e: return None, str(e)
 
 # --- 4. MAIN UI ---
-st.title("Jewelry AI Studio (v2.0 DEBUG)")
+st.title("Jewelry AI Studio (v2.1 Fix State)")
 
 # *** SIDEBAR & KEY MANAGEMENT ***
 with st.sidebar:
     st.title("💎 Config")
     
-    # ดึงค่าจาก Secrets และ Text Input
-    # ใช้ force_clean ทันทีเพื่อความปลอดภัย
     secret_gemini = force_clean(st.secrets.get("GEMINI_API_KEY", ""))
     secret_bin_key = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
     secret_bin_id = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
     
-    # Manual Override (ถ้าใส่ในช่อง Text จะใช้ค่านี้ก่อน)
     user_gemini = st.text_input("Gemini API Key (Manual Override)", type="password")
-    
-    # Logic เลือก Key: ถ้ามี Manual ให้ใช้ Manual, ถ้าไม่มีให้ใช้ Secret
     final_gemini_key = force_clean(user_gemini) if user_gemini else secret_gemini
     
     st.divider()
     
-    # --- DEBUG SECTION (สำคัญมาก: ดูค่าที่นี่) ---
-    with st.expander("🔴 DEBUG DATA (Check Here)", expanded=True):
-        st.write(f"**Gemini Key Loaded:** {'YES' if final_gemini_key else 'NO'}")
-        if final_gemini_key:
-            st.code(f"Key Prefix: {final_gemini_key[:5]}...")
-            st.code(f"Key Length: {len(final_gemini_key)}")
-            
-        st.write(f"**JSONBin Key:** {'YES' if secret_bin_key else 'NO'}")
-        st.write(f"**JSONBin ID:** {'YES' if secret_bin_id else 'NO'}")
-        if secret_bin_id:
-            st.code(f"Bin ID Raw: >{secret_bin_id}<") # เช็คว่ามีช่องว่างไหม
-            
-        # สร้าง URL หลอกๆ เพื่อเช็ค Error
-        test_url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){secret_bin_id}/latest"
-        st.caption(f"Test URL: {test_url}")
-    # -------------------------------------------
-
-    # โหลด Database
-    if "library" not in st.session_state:
+    with st.expander("🔴 DEBUG DATA"):
+        st.write(f"Gemini Key: {'OK' if final_gemini_key else 'Missing'}")
+        if secret_bin_id: st.code(f"Bin ID: >{secret_bin_id}<")
+    
+    # --- FIX 2.1: INITIALIZE DB STATE FIRST ---
+    if "db_error" not in st.session_state: st.session_state.db_error = None
+    if "library" not in st.session_state: st.session_state.library = None
+    
+    # Load Database if empty
+    if st.session_state.library is None:
         if secret_bin_key and secret_bin_id:
             data, error = get_prompts_safe(secret_bin_key, secret_bin_id)
             st.session_state.library = data
@@ -252,7 +222,7 @@ with st.sidebar:
         st.error("DB Status: Error")
         st.caption(st.session_state.db_error)
         if st.button("Reload DB"):
-            del st.session_state.library
+            st.session_state.library = None
             st.rerun()
     else:
         st.success(f"DB Status: OK ({len(st.session_state.library)} items)")
@@ -260,31 +230,146 @@ with st.sidebar:
 # --- TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
 
-# [Tab 1, 2, 3 ตัดออกเพื่อประหยัดพื้นที่ แต่ Logic เดิม]
-# Copy Code ส่วน Tab 1-4 จากด้านบนมาใส่ได้เลยครับ หรือใช้แบบย่อเพื่อทดสอบก่อน
-# ... (ใส่ Logic Gen Image เดิมตรงนี้ โดยใช้ final_gemini_key) ...
-
 # === TAB 1: GENERATE IMAGE ===
 with tab1:
     st.subheader("Generate Image")
-    files = st.file_uploader("Upload", accept_multiple_files=True, key="t1_up")
-    prompt = st.text_area("Prompt", "A gold ring...")
-    if st.button("Generate"):
-        if not final_gemini_key: st.error("No API Key!")
-        else:
-            imgs = [Image.open(f) for f in files] if files else []
-            if not imgs: st.error("No Images")
+    c1, c2 = st.columns([1, 1.5])
+    with c1:
+        files = st.file_uploader("Upload", accept_multiple_files=True, key="t1_up")
+        imgs = [Image.open(f) for f in files] if files else []
+        if imgs: 
+            st.caption(f"{len(imgs)} selected")
+            cols = st.columns(3)
+            for i, im in enumerate(imgs): cols[i%3].image(im, use_column_width=True)
+            
+    with c2:
+        lib = st.session_state.library
+        cats = list(set(p.get('category', 'Other') for p in lib)) if lib else []
+        sel_cat = st.selectbox("Category", cats) if cats else None
+        filtered = [p for p in lib if p.get('category') == sel_cat]
+        
+        prompt_val = "A gold ring..."
+        if filtered:
+            sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name', 'Unknown'))
+            if sel_style:
+                if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=80)
+                vars_list = [v.strip() for v in sel_style.get('variables', '').split(",") if v.strip()]
+                user_vals = {v: st.text_input(v) for v in vars_list}
+                prompt_val = sel_style.get('template', '')
+                for k, v in user_vals.items(): prompt_val = prompt_val.replace(f"{{{k}}}", v)
+        
+        prompt = st.text_area("Prompt", prompt_val, height=100)
+        
+        if st.button("Generate", type="primary"):
+            if not final_gemini_key: st.error("No API Key!")
+            elif not imgs: st.error("No Images")
             else:
-                d, e = generate_image(final_gemini_key, imgs, prompt)
-                if d: st.image(d)
-                else: st.error(e)
+                with st.spinner("Generating..."):
+                    d, e = generate_image(final_gemini_key, imgs, prompt)
+                    if d: 
+                        st.session_state.last_gen = d
+                        st.rerun()
+                    else: st.error(e)
+                    
+        if "last_gen" in st.session_state:
+            st.image(st.session_state.last_gen)
 
-# === TAB 5: MODELS (แก้ปัญหา Scan Failed) ===
+# === TAB 2: BULK SEO ===
+with tab2:
+    st.header("Bulk SEO Tags")
+    bc1, bc2 = st.columns([1, 1.5])
+    with bc1:
+        files = st.file_uploader("Upload Images", accept_multiple_files=True, key="bulk_up")
+        imgs = [Image.open(f) for f in files] if files else []
+    with bc2:
+        url = st.text_input("Product URL:", key="bulk_url")
+        if st.button("Run Batch", type="primary"):
+            if not final_gemini_key or not url: st.error("Check Key & URL")
+            else:
+                pbar = st.progress(0); res_area = st.container()
+                for i, img in enumerate(imgs):
+                    with st.spinner(f"#{i+1}..."):
+                        json_txt, err = generate_seo_for_existing_image(final_gemini_key, img, url)
+                        pbar.progress((i+1)/len(imgs))
+                        with res_area:
+                            c1, c2 = st.columns([1, 4])
+                            c1.image(img, width=80)
+                            if json_txt:
+                                d = parse_json_response(json_txt)
+                                if d:
+                                    with c2.expander(f"✅ #{i+1}", expanded=True):
+                                        st.code(clean_filename(d.get('file_name')), language="text")
+                                        st.code(d.get('alt_tag'), language="text")
+                                else: c2.code(json_txt)
+                            else: c2.error(err)
+
+# === TAB 3: WRITER ===
+with tab3:
+    st.header("Product Writer")
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        files = st.file_uploader("Images", accept_multiple_files=True, key="w_img")
+        writer_imgs = [Image.open(f) for f in files] if files else []
+        raw = st.text_area("Paste Details:", height=300)
+        if st.button("Generate Content", type="primary"):
+            if not final_gemini_key or not raw: st.error("Missing Info")
+            else:
+                with st.spinner("Writing..."):
+                    json_txt, err = generate_full_product_content(final_gemini_key, writer_imgs, raw)
+                    if json_txt:
+                        st.session_state.last_write = json_txt
+                        st.rerun()
+                    else: st.error(err)
+    with c2:
+        if "last_write" in st.session_state:
+            d = parse_json_response(st.session_state.last_write)
+            if d:
+                st.code(d.get('meta_title'), language="text")
+                st.code(d.get('meta_description'), language="text")
+                with st.expander("HTML"): st.code(d.get('html_content'), language="html")
+                st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
+
+# === TAB 4: LIBRARY ===
+with tab4:
+    st.subheader("Library Manager")
+    target = st.session_state.get('edit_target')
+    title = f"Edit: {target['name']}" if target else "Add New"
+    with st.form("lib_form"):
+        st.write(f"**{title}**")
+        c1, c2 = st.columns(2)
+        n = c1.text_input("Name", value=target['name'] if target else "")
+        c = c2.text_input("Category", value=target['category'] if target else "")
+        t = st.text_area("Template", value=target['template'] if target else "")
+        v = st.text_input("Vars", value=target['variables'] if target else "")
+        u = st.text_input("Img URL", value=target['sample_url'] if target else "")
+        cols = st.columns([1, 4])
+        save = cols[0].form_submit_button("💾 Save")
+        if target and cols[1].form_submit_button("❌ Cancel"):
+            st.session_state.edit_target = None; st.rerun()
+        if save:
+            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
+            if target:
+                for i, item in enumerate(st.session_state.library):
+                    if item['id'] == target['id']: st.session_state.library[i] = new; break
+            else: st.session_state.library.append(new)
+            save_prompts_safe(st.session_state.library, secret_bin_key, secret_bin_id)
+            st.session_state.edit_target = None
+            st.rerun()
+            
+    st.divider()
+    for i, p in enumerate(st.session_state.library):
+        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+        if p.get("sample_url"): safe_st_image(p["sample_url"], width=50)
+        c2.write(f"**{p.get('name')}**")
+        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
+        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts_safe(st.session_state.library, secret_bin_key, secret_bin_id); st.rerun()
+
+# === TAB 5: MODELS ===
 with tab5:
     st.header("Check Models")
     if st.button("Scan Models"):
         if not final_gemini_key:
-            st.error("❌ No API Key found. Please enter in Sidebar.")
+            st.error("No API Key")
         else:
             with st.spinner("Scanning..."):
                 m, err = list_available_models(final_gemini_key)
@@ -293,7 +378,4 @@ with tab5:
                     st.dataframe([x['name'] for x in m if 'gemini' in x['name']])
                 else:
                     st.error(f"Scan Failed: {err}")
-                    # Debug URL
-                    st.code(f"Failed URL was: [https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){final_gemini_key}")
-
-# ... (ส่วน Tab 2,3,4 ใช้ Logic เดียวกันคือเปลี่ยนไปใช้ final_gemini_key แทน api_key เดิม)
+                    st.code(f"Key used: {final_gemini_key}")
