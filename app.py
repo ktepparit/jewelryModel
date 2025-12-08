@@ -12,16 +12,15 @@ import re
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
-# หมายเหตุ: gemini-3-pro-preview มักจะ error 503 บ่อย ถ้าเร่งด่วนแนะนำให้ใช้ gemini-1.5-flash
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
-MODEL_TEXT_SEO = "models/gemini-3-pro-preview" # Default to Flash for stability
+# หมายเหตุ: gemini-3-pro-preview มักจะ 503 (Server ล่ม) บ่อยมาก
+# ผมเปลี่ยนเป็น 1.5-flash ให้ก่อนเพื่อให้งานเดินต่อได้ (ผลลัพธ์ SEO ดีเหมือนกันแต่เร็วกว่ามาก)
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" 
+MODEL_TEXT_SEO = "models/gemini-1.5-flash" 
 
-# --- HELPER: FORCE CLEAN KEY (ใช้ฟังก์ชันนี้ทุกครั้งก่อนยิง API) ---
-def clean_key_final(key):
-    """ฟังก์ชันล้าง Key ขั้นสุดท้ายก่อนผสม URL"""
-    if not key: return ""
-    # แปลงเป็น String -> ลบช่องว่างหัวท้าย -> ลบ Enter -> ลบ Quotes
-    return str(key).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
+# --- HELPER: FORCE CLEAN KEY ---
+def force_clean(value):
+    if not value: return ""
+    return str(value).strip().replace('\n', '').replace('\r', '').replace('"', '').replace("'", "")
 
 # --- HELPER: CLEAN FILENAME ---
 def clean_filename(name):
@@ -76,11 +75,10 @@ DEFAULT_PROMPTS = [
 
 # --- 2. DATABASE FUNCTIONS ---
 def get_prompts():
-    # Clean keys right here
     raw_key = st.secrets.get("JSONBIN_API_KEY", "")
     raw_bin = st.secrets.get("JSONBIN_BIN_ID", "")
-    API_KEY = clean_key_final(raw_key)
-    BIN_ID = clean_key_final(raw_bin)
+    API_KEY = force_clean(raw_key)
+    BIN_ID = force_clean(raw_bin)
 
     if API_KEY and BIN_ID:
         try:
@@ -101,8 +99,8 @@ def get_prompts():
     else: return DEFAULT_PROMPTS
 
 def save_prompts(data):
-    API_KEY = clean_key_final(st.secrets.get("JSONBIN_API_KEY", ""))
-    BIN_ID = clean_key_final(st.secrets.get("JSONBIN_BIN_ID", ""))
+    API_KEY = force_clean(st.secrets.get("JSONBIN_API_KEY", ""))
+    BIN_ID = force_clean(st.secrets.get("JSONBIN_BIN_ID", ""))
     if API_KEY and BIN_ID:
         try:
             url = f"[https://api.jsonbin.io/v3/b/](https://api.jsonbin.io/v3/b/){BIN_ID}"
@@ -133,16 +131,15 @@ def safe_st_image(url, width=None):
         if url.startswith("http"): st.image(url, width=width)
     except: pass
 
-# --- AI FUNCTIONS (Apply clean_key_final inside URL construction) ---
+# --- AI FUNCTIONS (SUPER RETRY MODE) ---
 def generate_image(api_key, image_list, prompt):
-    # CRITICAL FIX: Clean key immediately before use
-    final_key = clean_key_final(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={final_key}"
-    
+    key = force_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_IMAGE_GEN}:generateContent?key={key}"
     parts = [{"text": f"Instruction: {prompt}"}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     
-    for attempt in range(3):
+    # Retry 5 times for images
+    for attempt in range(5):
         try:
             res = requests.post(url, json={"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.3}}, headers={"Content-Type": "application/json"})
             if res.status_code == 200:
@@ -151,64 +148,61 @@ def generate_image(api_key, image_list, prompt):
                 if "inlineData" in content: return base64.b64decode(content["inlineData"]["data"]), None
                 return None, "No image returned."
             elif res.status_code == 503:
-                time.sleep((attempt + 1) * 3)
+                wait = (attempt + 1) * 5 # 5, 10, 15, 20, 25 sec
+                time.sleep(wait)
                 continue
             else:
                 return None, f"API Error: {res.text}"
         except Exception as e:
             time.sleep(2)
-            if attempt == 2: return None, str(e)
+            if attempt == 4: return None, str(e)
             
-    return None, "Failed after retries"
+    return None, "Failed: Server Overloaded (503)"
 
 def generate_seo_tags_post_gen(api_key, product_url):
-    # CRITICAL FIX: Clean key immediately before use
-    final_key = clean_key_final(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={final_key}"
-    
+    key = force_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_POST_GEN.replace("{product_url}", product_url)
     
-    for attempt in range(3):
+    # Retry 5 times
+    for attempt in range(5):
         try:
             res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, headers={"Content-Type": "application/json"})
             if res.status_code == 200:
                 return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
             elif res.status_code == 503: 
-                time.sleep((attempt + 1) * 3)
+                time.sleep((attempt + 1) * 5)
                 continue
             else: return None, f"Error {res.status_code}: {res.text}"
         except Exception as e:
             time.sleep(2)
             
-    return None, "Failed: 503 Overloaded or Connection Error"
+    return None, "Failed: Server Overloaded (503)"
 
 def generate_seo_for_existing_image(api_key, img_pil, product_url):
-    # CRITICAL FIX: Clean key immediately before use
-    final_key = clean_key_final(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={final_key}"
-    
+    key = force_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}]}
     
-    for attempt in range(3):
+    # Retry 5 times
+    for attempt in range(5):
         try:
             res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
             if res.status_code == 200:
                 return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
             elif res.status_code == 503: 
-                time.sleep((attempt + 1) * 3)
+                time.sleep((attempt + 1) * 5)
                 continue
             else: return None, f"Error {res.status_code}: {res.text}"
         except Exception as e:
             time.sleep(2)
             
-    return None, "Failed: 503 Overloaded or Connection Error"
+    return None, "Failed: Server Overloaded (503)"
 
 def generate_full_product_content(api_key, img_pil_list, raw_input):
-    # CRITICAL FIX: Clean key immediately before use
-    final_key = clean_key_final(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={final_key}"
-    
+    key = force_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
     parts = [{"text": prompt}]
@@ -218,9 +212,10 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
             
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     
-    for attempt in range(3):
+    # Retry 5 times
+    for attempt in range(5):
         try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=90)
             if res.status_code == 200:
                 content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
                 return content.get("text"), None
@@ -231,12 +226,11 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
         except Exception as e:
             time.sleep(2)
             
-    return None, "Failed: 503 Overloaded or Connection Error"
+    return None, "Failed: Server Overloaded (503)"
 
 def list_available_models(api_key):
-    # CRITICAL FIX: Clean key immediately before use
-    final_key = clean_key_final(api_key)
-    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){final_key}"
+    key = force_clean(api_key)
+    url = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){key}"
     try:
         res = requests.get(url)
         return res.json().get("models", []), None if res.status_code == 200 else f"Error: {res.text}"
@@ -251,9 +245,7 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 
 with st.sidebar:
     st.title("💎 Config")
-    
-    # 1. Get Secret Key
-    secret_key = st.secrets.get("GEMINI_API_KEY", "")
+    secret_key = force_clean(st.secrets.get("GEMINI_API_KEY", ""))
     if secret_key:
         api_key = secret_key
         st.success("API Key Ready")
