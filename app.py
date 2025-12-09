@@ -11,7 +11,7 @@ import re
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
-# Model IDs
+# Model IDs (Updated to Gemini 3 as requested)
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
@@ -220,8 +220,7 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 with st.sidebar:
     st.title("⚙️ Config")
     
-    # --- AUTO-LOAD SECRETS LOGIC (UPDATED) ---
-    # เช็คทั้งชื่อ GEMINI_API_KEY และ GOOGLE_API_KEY เพื่อความยืดหยุ่น
+    # --- AUTO-LOAD SECRETS LOGIC ---
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("✅ API Key Loaded (GEMINI)")
@@ -231,7 +230,6 @@ with st.sidebar:
     else:
         api_key = st.text_input("Gemini API Key", type="password")
     
-    # ล้างค่าเพื่อความชัวร์
     api_key = clean_key(api_key)
     
     if "JSONBIN_API_KEY" in st.secrets:
@@ -311,7 +309,15 @@ with tab2:
     with bc1:
         bfiles = st.file_uploader("Upload Images", accept_multiple_files=True, key="bulk_up")
         bimgs = [Image.open(f) for f in bfiles] if bfiles else []
-        if bimgs: st.success(f"{len(bimgs)} selected")
+        
+        # PREVIEW
+        if bimgs:
+            st.success(f"{len(bimgs)} images selected")
+            with st.expander("📸 Image Preview", expanded=False):
+                cols = st.columns(4)
+                for i, img in enumerate(bimgs):
+                    cols[i%4].image(img, use_column_width=True, caption=f"Img #{i+1}")
+
     with bc2:
         burl = st.text_input("Product URL:", key="bulk_url")
         if st.button("🚀 Run Batch", type="primary", disabled=(not bimgs)):
@@ -319,29 +325,42 @@ with tab2:
             else:
                 pbar = st.progress(0); res = st.container()
                 for i, img in enumerate(bimgs):
-                    with st.spinner(f"#{i+1}..."):
+                    with st.spinner(f"Processing Image #{i+1}..."):
                         txt, err = generate_seo_for_existing_image(api_key, img, burl)
                         pbar.progress((i+1)/len(bimgs))
+                        
                         with res:
-                            rc1, rc2 = st.columns([1, 4])
-                            rc1.image(img, width=80)
-                            if txt:
-                                d = parse_json_response(txt)
-                                if d:
-                                    with rc2.expander(f"✅ #{i+1}", expanded=True):
-                                        st.code(d.get('file_name'), language="text")
-                                        st.code(d.get('alt_tag'), language="text")
-                                else: rc2.code(txt)
-                            else: rc2.error(err)
+                            with st.container():
+                                rc1, rc2 = st.columns([1, 3])
+                                with rc1:
+                                    st.image(img, width=150, caption=f"Img #{i+1}")
+                                with rc2:
+                                    if txt:
+                                        d = parse_json_response(txt)
+                                        if d:
+                                            st.write("**✅ Result:**")
+                                            st.text_input(f"File Name #{i+1}", value=d.get('file_name', ''), key=f"fn_{i}")
+                                            st.text_area(f"Alt Tag #{i+1}", value=d.get('alt_tag', ''), key=f"at_{i}", height=70)
+                                        else: st.code(txt)
+                                    else: st.error(err)
+                                st.divider()
                 st.success("Done!")
 
-# === TAB 3: WRITER ===
+# === TAB 3: WRITER (Updated H1) ===
 with tab3:
     st.header("📝 Product Writer")
     c1, c2 = st.columns([1, 1.2])
     with c1:
         files = st.file_uploader("Images (Optional)", type=["jpg", "png"], accept_multiple_files=True, key="w_img")
         writer_imgs = [Image.open(f) for f in files] if files else []
+        
+        # PREVIEW
+        if writer_imgs:
+            with st.expander("📸 Image Preview", expanded=False):
+                cols = st.columns(4)
+                for i, img in enumerate(writer_imgs):
+                    cols[i%4].image(img, use_column_width=True)
+
         raw = st.text_area("Paste Details:", height=300, key="w_raw")
         btn = st.button("🚀 Generate Content", type="primary")
     with c2:
@@ -353,19 +372,36 @@ with tab3:
                     if json_txt:
                         d = parse_json_response(json_txt)
                         if d:
-                            st.write("Slug:"); st.code(d.get('url_slug'))
-                            st.write("Title:"); st.code(d.get('meta_title'))
-                            st.write("Desc:"); st.code(d.get('meta_description'))
+                            st.subheader("Content Results")
+                            # --- เพิ่ม Product Title (H1) ตรงนี้ครับ ---
+                            st.write("Product Title (H1):"); st.code(d.get('product_title_h1'))
+                            # ----------------------------------------
+                            st.write("Slug Handle:"); st.code(d.get('url_slug'))
+                            st.write("Meta Title:"); st.code(d.get('meta_title'))
+                            st.write("Meta Description:"); st.code(d.get('meta_description'))
                             with st.expander("HTML Content"): st.code(d.get('html_content'), language="html")
                             st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
                             
-                            st.subheader("Image SEO")
+                            st.divider()
+                            st.subheader("🖼️ Image SEO Mapping")
+                            
                             img_tags = d.get('image_seo', [])
                             for i, item in enumerate(img_tags):
-                                fname = clean_filename(item.get('file_name', 'N/A')) if isinstance(item, dict) else "N/A"
-                                atag = item.get('alt_tag', 'N/A') if isinstance(item, dict) else str(item)
-                                st.write(f"**Img #{i+1}:** `{fname}`")
-                                st.caption(atag)
+                                with st.container():
+                                    ic1, ic2 = st.columns([1, 3])
+                                    with ic1:
+                                        if writer_imgs and i < len(writer_imgs):
+                                            st.image(writer_imgs[i], width=120, caption=f"Upload #{i+1}")
+                                        else:
+                                            st.info(f"Image #{i+1}")
+                                    
+                                    with ic2:
+                                        fname = clean_filename(item.get('file_name', 'N/A')) if isinstance(item, dict) else "N/A"
+                                        atag = item.get('alt_tag', 'N/A') if isinstance(item, dict) else str(item)
+                                        
+                                        st.write(f"**File Name:** `{fname}`")
+                                        st.write(f"**Alt Tag:** `{atag}`")
+                                st.divider()
                         else: st.code(json_txt)
                     else: st.error(err)
 
@@ -418,4 +454,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
