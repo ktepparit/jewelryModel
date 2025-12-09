@@ -12,8 +12,8 @@ import re
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
 # Model IDs
-MODEL_IMAGE_GEN = "models/gemini-1.5-flash"
-MODEL_TEXT_SEO = "models/gemini-1.5-flash"
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -418,3 +418,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
