@@ -9,7 +9,7 @@ import pandas as pd
 import re
 
 # --- 1. CONFIGURATION & CONSTANTS ---
-st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
+st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 
 # Model IDs (Updated to Gemini 3 as requested)
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
@@ -457,4 +457,5 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
