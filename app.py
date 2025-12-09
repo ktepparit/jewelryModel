@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 
 # Model IDs (Updated to Gemini 3 as requested)
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" # แนะนำใช้ Flash 2.0 หรือ 1.5 เพราะเสถียรกว่า 3-preview
-MODEL_TEXT_SEO = "models/gemini-pro-latest"   # ถ้า 3 error บ่อย ให้ลองเปลี่ยนเป็น gemini-1.5-pro
+MODEL_TEXT_SEO = "models/gemini-2.5-pro"   # ถ้า 3 error บ่อย ให้ลองเปลี่ยนเป็น gemini-1.5-pro
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -462,6 +462,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
