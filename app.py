@@ -8,6 +8,22 @@ import time
 import pandas as pd
 import re
 
+# --- DEBUG CODE (แปะไว้บนสุดเพื่อเช็คค่า ลบออกเมื่อเสร็จแล้ว) ---
+import streamlit as st
+st.write("🔑 **Secrets Debugger:**")
+try:
+    # โชว์รายชื่อ Key ทั้งหมดที่ระบบมองเห็น (จะไม่โชว์รหัสผ่าน)
+    st.write(list(st.secrets.keys()))
+    
+    # เช็คเฉพาะตัวนี้ว่ามีไหม
+    if "GEMINI_API_KEY" in st.secrets:
+        st.success("✅ System sees 'GEMINI_API_KEY'")
+    else:
+        st.error("❌ System DOES NOT see 'GEMINI_API_KEY'")
+except Exception as e:
+    st.error(f"Error reading secrets: {e}")
+# -----------------------------------------------------------
+
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio")
 
@@ -412,3 +428,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
