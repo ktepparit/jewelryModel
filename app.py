@@ -33,13 +33,16 @@ def safe_st_image(url, width=None, caption=None):
 
 # --- PROMPTS ---
 SEO_PROMPT_POST_GEN = """
-You are an SEO specialist. Write SEO-optimized image file name and alt tags in English based on this url: {product_url}.
+You are an SEO specialist with 15-20 years of experience. 
+Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
+To rank well on organic search engines by customer groups interested in this type of product.
+
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PROMPT_BULK_EXISTING = """
-You are an SEO specialist. Write SEO-optimized image file name and alt tags in English based on this url: {product_url}.
+คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
@@ -454,3 +457,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
