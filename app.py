@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 
 # Model IDs (Updated to Gemini 3 as requested)
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview" # แนะนำใช้ Flash 2.0 หรือ 1.5 เพราะเสถียรกว่า 3-preview
-MODEL_TEXT_SEO = "models/gemini-2.5-pro"   # ถ้า 3 error บ่อย ให้ลองเปลี่ยนเป็น gemini-1.5-pro
+MODEL_TEXT_SEO = "models/gemini-3-pro-preview"   # ถ้า 3 error บ่อย ให้ลองเปลี่ยนเป็น gemini-1.5-pro
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -42,7 +42,7 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PROMPT_BULK_EXISTING = """
-คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ โดยมีรายละเอียดของสินค้าตาม url นี้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
+คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
@@ -462,6 +462,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
