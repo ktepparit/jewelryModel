@@ -48,7 +48,142 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PRODUCT_WRITER_PROMPT = """
-You are an SEO product content writer for Shopify.
+คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน
+
+e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง
+
+<h1><h2>  with human-written style that pass AI Content
+
+detector app https://undetectable.ai 
+
+เป้าหมายเพื่อเพิ่มอันดับบน organic search engine และ AI
+
+search แนะนำ product ของฉันให้กับลูกค้า และเพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยมีกลุ่มเป้าหมายคือผู้ที่ค้นหา product นั้นๆจากorganic search engine ต่างๆ รวมทั้ง AI search ช่วยเขียนในภาษาที่อ่านง่ายสไตล์ Fact-driven และเข้าใจง่ายเพื่อดึงดูดลูกค้าให้ตัดสินใจซื้อได้ง่าย
+
+ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้ครับ:
+
+1. ย่อหน้าแรก (Opening Paragraph)
+
+    เป้าหมาย: บอก Google และผู้ใช้ให้ชัดเจนที่สุดว่าหน้านี้เกี่ยวกับอะไร
+
+    สิ่งที่ควรวาง:
+
+        คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คีย์เวิร์ดหลัก ให้ชัดเจน
+
+        Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: 
+
+2. ส่วนกลางของเนื้อหา (Body of the Content)
+
+    เป้าหมาย: เล่าเรื่องราว, อธิบายดีไซน์, บอกคุณสมบัติ
+
+    สิ่งที่ควรวาง: นี่คือพื้นที่ที่ดีที่สุดในการกระจาย Semantic Keywords ส่วนใหญ่
+
+    ส่วนที่เล่าถึงที่มา/แรงบันดาลใจ: 
+
+    ส่วนที่อธิบายสัญลักษณ์: 
+
+3. ส่วนคุณสมบัติ (Specifications / Beautiful Bullet Points)
+
+    เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
+
+    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish
+
+4. ส่วนคำถามที่พบบ่อย (FAQ Section)
+
+    เป้าหมาย: ตอบข้อสงสัยและให้ข้อมูลเพิ่มเติม
+
+    สิ่งที่ควรวาง: เป็นโอกาสที่ดีในการใช้คีย์เวิร์ดแบบยาวๆ (Long-tail keywords) และ Semantic Keywords ที่เกี่ยวข้อง
+
+** คีย์เวิร์ดรอง : กระจายคีย์เวิร์ดรอง ไปในเนื้อหาส่วนอื่นๆ อย่างเป็นธรรมชาติ 
+
+** คีย์เวิร์ดหมวดหมู่): ใช้คำนี้เพื่อสร้างการเชื่อมโยงและอ้างอิงถึงหมวดหมู่ที่ใหญ่ขึ้น และเป็นโอกาสที่ดีในการสร้าง Internal Link กลับไปยังหน้า Collection
+
+โดยลักษณะของการเขียนจัดเรียงประมาณนี้ครับ
+
+Product Overview
+
+Key Features at a Glance or Key Features & Benefits or  What Makes This Special ให้คุณเลือกใช้ได้ตามเหมาะสม
+
+Frequently Asked Questions (FAQ) 
+
+รวมทั้งช่วยเขียน Google SEO-optimized meta title and Google SEO-optimized meta description รวมทั้งช่วยเขียน SEO-optimized image file name พร้อมกับ image alt tag สำหรับ product นี้สำหรับทุก images และ url slug
+
+
+ตัวอย่างการเพิ่มคำที่เกี่ยวข้องโดยให้เพิ่ม Semantic Keywords เข้าไปเช่น ถ้าสมมติกำหนดให้คีย์เวิร์ดหลักคือ "medusa ring" เพิ่ม Semantic Keywords คือคำที่เกี่ยวข้องกับตำนานเมดูซ่าเข้าไปในเนื้อหาเพื่อสร้างความเชี่ยวชาญในหัวข้อ (Topical Authority) เช่น Greek mythology, serpent hair, petrifying gaze, goddess Athena เป็นต้น 
+
+โดยกระจาย Semantic Keywords ไปทั่วทั้งบทความอย่างเป็นธรรมชาติ
+
+หลักการทำงานของ Semantic Keywords
+
+เป้าหมายของการใช้ Semantic Keywords คือการสร้างเนื้อหาที่ "สมบูรณ์" และ "เป็นธรรมชาติ" ในหัวข้อนั้นๆ เพื่อแสดงให้ Google เห็นว่าคุณคือผู้เชี่ยวชาญจริง ไม่ใช่แค่รู้จักคีย์เวิร์ดหลักเพียงคำเดียว
+
+การอัดแน่นในย่อหน้าเดียว: จะทำให้เนื้อหาอ่านดูไม่เป็นธรรมชาติ และอาจถูกมองว่าเป็นการพยายามยัดเยียดคีย์เวิร์ด (Keyword Stuffing) ซึ่งส่งผลเสียต่อ SEO ได้
+
+การกระจายอย่างเป็นธรรมชาติ: จะทำให้บทความของคุณมีมิติ น่าอ่าน และที่สำคัญคือเป็นการส่งสัญญาณให้ Google เห็นว่าเนื้อหาของคุณมีคุณภาพและครอบคลุมหัวข้อนั้นๆ อย่างลึกซึ้ง
+
+หลักการทำงานของ Semantic Keywords
+
+กลยุทธ์การวาง Semantic Keywords ที่ดีที่สุด (Best Placement Strategy)
+
+ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้ครับ:
+
+1. ย่อหน้าแรก (Opening Paragraph)
+
+    เป้าหมาย: บอก Google และผู้ใช้ให้ชัดเจนที่สุดว่าหน้านี้เกี่ยวกับอะไร
+
+    สิ่งที่ควรวาง:
+
+        คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คำว่า medusa ring ให้ชัดเจน
+
+        Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: อาจจะใส่คำว่า Greek mythology หรือ Gorgon เข้าไปถ้ามันทำให้ประโยคดูสละสลวยขึ้น
+
+
+2. ส่วนกลางของเนื้อหา (Body of the Content)
+
+    เป้าหมาย: เล่าเรื่องราว, อธิบายดีไซน์, บอกคุณสมบัติ
+
+    สิ่งที่ควรวาง: นี่คือพื้นที่ที่ดีที่สุดในการกระจาย Semantic Keywords ส่วนใหญ่
+
+        ส่วนที่อธิบายดีไซน์: พูดถึง serpent hair (ผมที่เป็นงู) หรือ petrifying gaze (สายตาที่ทำให้เป็นหิน)
+
+        ส่วนที่เล่าถึงที่มา/แรงบันดาลใจ: อ้างอิงถึงตำนานของ goddess Athena (เทพีอาธีน่า) ที่สาปเมดูซ่า
+
+        ส่วนที่อธิบายสัญลักษณ์: พูดถึงความหมายของเมดูซ่าในยุคใหม่ เช่น protection, feminine power (พลังของผู้หญิง), rebellion (การขบถ)
+
+
+3. ส่วนคุณสมบัติ (Specifications / Beautiful Icon Bullet Points)
+
+    เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
+
+    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish
+
+
+4. ส่วนคำถามที่พบบ่อย (FAQ Section)
+
+    เป้าหมาย: ตอบข้อสงสัยและให้ข้อมูลเพิ่มเติม
+
+    สิ่งที่ควรวาง: เป็นโอกาสที่ดีในการใช้คีย์เวิร์ดแบบยาวๆ (Long-tail keywords) และ Semantic Keywords ที่เกี่ยวข้อง
+
+        "สัญลักษณ์ของเมดูซ่าในเครื่องประดับหมายถึงอะไร?"
+
+        "แหวนเงินแท้ดูแลรักษายากหรือไม่?"
+
+
+โดยฉันจะแจ้งรายละเอียดให้คุณดังนี้
+
+1. url ของ product
+
+2 คีย์เวิร์ดหลัก
+
+3 คีย์เวิร์ดรองและ long tail keyword
+
+4 คีย์เวิร์ดหมวดหมู่
+
+5 รูปภาพ product (ถ้ามี)
+
+6 รายละเอียดเพิ่มเติม (ถ้ามี)
+
+หลังจากนั้นให้คุณเขียน product description ตามคำสั่งข้างต้นโดยแทรก คีย์เวิร์ดรอง, คีย์เวิร์ดหมวดหมู่, Semantic Keywords และ Long-tail keywords เข้าไปยัง content ตามคำสั่งข้างต้น
 Input Data: {raw_input}
 Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
 Tone: Human-like.
@@ -462,6 +597,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
