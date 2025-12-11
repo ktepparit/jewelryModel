@@ -187,7 +187,6 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     
-    # --- IMPORTANT: Inject instruction to match image count ---
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
         prompt += f"\n\nCRITICAL INSTRUCTION: You received {num_images} images. You MUST return exactly {num_images} objects in the 'image_seo' array, strictly corresponding to the order of images provided (Index 0 to {num_images-1}). Do not skip any image."
@@ -224,9 +223,13 @@ if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
 if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
 
-# Store results in Session State
+# Store results
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
+
+# --- FIX: Key Counters for Resetting Widgets ---
+if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
+if "writer_key_counter" not in st.session_state: st.session_state.writer_key_counter = 0
 
 with st.sidebar:
     st.title("⚙️ Config")
@@ -308,12 +311,17 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 2: BULK SEO (Fixed Start Over) ===
+# === TAB 2: BULK SEO (Fixed Reset) ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
+    
+    # ใช้ Dynamic Key เพื่อให้ Reset ได้จริง
+    bulk_key_id = st.session_state.bulk_key_counter
+    
     bc1, bc2 = st.columns([1, 1.5])
     with bc1:
-        bfiles = st.file_uploader("Upload Images", accept_multiple_files=True, key="bulk_up")
+        # Key จะเปลี่ยนไปเมื่อกด Reset ทำให้ Widget ถูกสร้างใหม่ (ค่าว่าง)
+        bfiles = st.file_uploader("Upload Images", accept_multiple_files=True, key=f"bulk_up_{bulk_key_id}")
         bimgs = [Image.open(f) for f in bfiles] if bfiles else []
         if bimgs:
             st.success(f"{len(bimgs)} images selected")
@@ -323,16 +331,17 @@ with tab2:
                     cols[i%4].image(img, use_column_width=True, caption=f"Img #{i+1}")
 
     with bc2:
-        burl = st.text_input("Product URL:", key="bulk_url")
+        # URL Input ก็ต้อง Reset ด้วย
+        burl = st.text_input("Product URL:", key=f"bulk_url_{bulk_key_id}")
+        
         c_btn1, c_btn2 = st.columns([1, 1])
         run_batch = c_btn1.button("🚀 Run Batch", type="primary", disabled=(not bimgs))
         clear_batch = c_btn2.button("🔄 Start Over", key="clear_bulk")
 
         if clear_batch:
             st.session_state.bulk_results = None
-            # --- FIX: Clear inputs explicitly ---
-            st.session_state["bulk_up"] = [] # Clear file uploader
-            st.session_state["bulk_url"] = "" # Clear text input
+            # วิธีแก้: เพิ่ม Counter เพื่อเปลี่ยน Key ของ Widget ในรอบถัดไป
+            st.session_state.bulk_key_counter += 1
             st.rerun()
 
         if run_batch:
@@ -377,12 +386,16 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (Fixed Start Over) ===
+# === TAB 3: WRITER (Fixed Reset) ===
 with tab3:
     st.header("📝 Product Writer")
+    
+    # ใช้ Dynamic Key เช่นกัน
+    writer_key_id = st.session_state.writer_key_counter
+    
     c1, c2 = st.columns([1, 1.2])
     with c1:
-        files = st.file_uploader("Images (Optional)", type=["jpg", "png"], accept_multiple_files=True, key="w_img")
+        files = st.file_uploader("Images (Optional)", type=["jpg", "png"], accept_multiple_files=True, key=f"w_img_{writer_key_id}")
         writer_imgs = [Image.open(f) for f in files] if files else []
         
         if writer_imgs:
@@ -391,7 +404,7 @@ with tab3:
                 for i, img in enumerate(writer_imgs):
                     cols[i%4].image(img, use_column_width=True, caption=f"#{i+1}")
 
-        raw = st.text_area("Paste Details:", height=300, key="w_raw")
+        raw = st.text_area("Paste Details:", height=300, key=f"w_raw_{writer_key_id}")
         
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate Content", type="primary")
@@ -399,9 +412,8 @@ with tab3:
         
         if clear_write:
             st.session_state.writer_result = None
-            # --- FIX: Clear inputs explicitly ---
-            st.session_state["w_img"] = []
-            st.session_state["w_raw"] = ""
+            # วิธีแก้: เพิ่ม Counter เพื่อเปลี่ยน Key
+            st.session_state.writer_key_counter += 1
             st.rerun()
 
     with c2:
