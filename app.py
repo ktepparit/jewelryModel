@@ -17,7 +17,6 @@ MODEL_TEXT_SEO = "models/gemini-3-pro-preview"
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
-    """ล้างค่า Key/ID ให้สะอาด"""
     if value is None: return ""
     return str(value).strip().replace(" ", "").replace('"', "").replace("'", "").replace("\n", "")
 
@@ -31,7 +30,7 @@ def safe_st_image(url, width=None, caption=None):
     except Exception:
         st.warning("⚠️ Image unavailable")
 
-# --- PROMPTS (คงเดิม) ---
+# --- PROMPTS ---
 SEO_PROMPT_POST_GEN = """
 You are an SEO specialist with 15-20 years of experience. 
 Help write SEO-optimized image file name with image alt tags in English for the product image with a model created, having product details according to this url: {product_url}
@@ -309,7 +308,7 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 2: BULK SEO (Fixed) ===
+# === TAB 2: BULK SEO (Fixed Start Over) ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
     bc1, bc2 = st.columns([1, 1.5])
@@ -327,11 +326,13 @@ with tab2:
         burl = st.text_input("Product URL:", key="bulk_url")
         c_btn1, c_btn2 = st.columns([1, 1])
         run_batch = c_btn1.button("🚀 Run Batch", type="primary", disabled=(not bimgs))
-        # แก้ไขจุดที่ Error: เพิ่ม key ให้ไม่ซ้ำกัน
         clear_batch = c_btn2.button("🔄 Start Over", key="clear_bulk")
 
         if clear_batch:
             st.session_state.bulk_results = None
+            # --- FIX: Clear inputs explicitly ---
+            st.session_state["bulk_up"] = [] # Clear file uploader
+            st.session_state["bulk_url"] = "" # Clear text input
             st.rerun()
 
         if run_batch:
@@ -376,7 +377,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (Fixed) ===
+# === TAB 3: WRITER (Fixed Start Over) ===
 with tab3:
     st.header("📝 Product Writer")
     c1, c2 = st.columns([1, 1.2])
@@ -394,11 +395,13 @@ with tab3:
         
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate Content", type="primary")
-        # แก้ไขจุดที่ Error: เพิ่ม key ให้ไม่ซ้ำกัน
         clear_write = wb2.button("🔄 Start Over", key="clear_writer")
         
         if clear_write:
             st.session_state.writer_result = None
+            # --- FIX: Clear inputs explicitly ---
+            st.session_state["w_img"] = []
+            st.session_state["w_raw"] = ""
             st.rerun()
 
     with c2:
