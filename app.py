@@ -183,6 +183,7 @@ Frequently Asked Questions (FAQ)
 
 หลังจากนั้นให้คุณเขียน product description ตามคำสั่งข้างต้นโดยแทรก คีย์เวิร์ดรอง, คีย์เวิร์ดหมวดหมู่, Semantic Keywords และ Long-tail keywords เข้าไปยัง content ตามคำสั่งข้างต้น
 
+
 Input Data: {raw_input}
 Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
 Tone: Human-like.
@@ -261,7 +262,7 @@ def clean_filename(name):
     clean = re.sub(r'[^a-zA-Z0-9\-\_\.]', '', str(name))
     return clean.rsplit('.', 1)[0]
 
-# --- AI FUNCTIONS ---
+# --- AI FUNCTIONS (GEMINI) ---
 def generate_image(api_key, image_list, prompt):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
@@ -277,6 +278,35 @@ def generate_image(api_key, image_list, prompt):
         if "text" in content: return None, f"Model returned text: {content['text']}"
         return None, "Unknown format"
     except Exception as e: return None, str(e)
+
+# --- AI FUNCTIONS (OPENAI - RETOUCH) ---
+def generate_image_openai(api_key, prompt):
+    """
+    Generate image using OpenAI.
+    Updated Model: gpt-image-1.5 (as requested)
+    """
+    key = clean_key(api_key)
+    url = "https://api.openai.com/v1/images/generations"
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    payload = {
+        "model": "gpt-image-1.5",  # --- CHANGED HERE ---
+        "prompt": f"Product photography, high quality retouch: {prompt}",
+        "n": 1,
+        "size": "1024x1024",
+        # "quality": "standard", # Some models might not support this param, removing to be safe
+        "response_format": "b64_json" 
+    }
+    
+    try:
+        res = requests.post(url, json=payload, headers=headers, timeout=60)
+        if res.status_code == 200:
+            data = res.json()
+            b64_data = data['data'][0]['b64_json']
+            return base64.b64decode(b64_data), None
+        else:
+            return None, f"OpenAI Error {res.status_code}: {res.text}"
+    except Exception as e:
+        return None, str(e)
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = clean_key(api_key)
@@ -356,28 +386,45 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 # Store results
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
+if "retouch_results" not in st.session_state: st.session_state.retouch_results = None
 
-# --- FIX: Key Counters for Resetting Widgets ---
+# Widget Keys
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
 if "writer_key_counter" not in st.session_state: st.session_state.writer_key_counter = 0
+if "retouch_key_counter" not in st.session_state: st.session_state.retouch_key_counter = 0
 
 with st.sidebar:
     st.title("⚙️ Config")
+    
+    # 1. Gemini Key
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
-        st.success("✅ API Key Loaded (GEMINI)")
+        st.success("✅ Gemini Key Loaded")
     elif "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
-        st.success("✅ API Key Loaded (GOOGLE)")
+        st.success("✅ Google Key Loaded")
     else:
         api_key = st.text_input("Gemini API Key", type="password")
-    
     api_key = clean_key(api_key)
+
+    st.divider()
+
+    # 2. OpenAI Key (สำหรับ Retouch Section)
+    if "OPENAI_API_KEY" in st.secrets:
+        openai_key = st.secrets["OPENAI_API_KEY"]
+        st.success("✅ OpenAI Key Loaded")
+    else:
+        openai_key = st.text_input("OpenAI API Key (for Retouch)", type="password")
+    openai_key = clean_key(openai_key)
+    
+    st.divider()
+
     if "JSONBIN_API_KEY" in st.secrets: st.caption("✅ Database Connected")
     else: st.warning("⚠️ Local Mode (DB Not Connected)")
 
 st.title("💎 Jewelry AI Studio")
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
+# เพิ่ม Tab ใหม่: Retouch Images
+tab1, tab_retouch, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
 with tab1:
@@ -441,16 +488,101 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
+# === TAB 1.5: RETOUCH IMAGES (NEW SECTION) ===
+with tab_retouch:
+    st.header("🎨 Retouch & Resize (via ChatGPT/DALL-E)")
+    st.caption("Upload images (placeholders) and generate high-quality product shots using OpenAI based on your prompt.")
+    
+    rt_key_id = st.session_state.retouch_key_counter
+    
+    rt_c1, rt_c2 = st.columns([1, 1.2])
+    with rt_c1:
+        st.subheader("1. Input Images")
+        # ใช้ Key dynamic เพื่อให้ Reset ได้
+        rt_files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
+        rt_imgs = [Image.open(f) for f in rt_files] if rt_files else []
+        
+        if rt_imgs:
+            st.success(f"{len(rt_imgs)} images loaded for batch processing.")
+            with st.expander("View Input", expanded=False):
+                cols = st.columns(4)
+                for i, img in enumerate(rt_imgs):
+                    cols[i%4].image(img, use_column_width=True, caption=f"Input #{i+1}")
+
+    with rt_c2:
+        st.subheader("2. Prompt Settings")
+        lib = st.session_state.library
+        rt_cats = list(set(p.get('category','Other') for p in lib)) if lib else []
+        rt_sel_cat = st.selectbox("Category", rt_cats, key=f"rt_cat_{rt_key_id}") if rt_cats else None
+        
+        rt_filtered = [p for p in lib if p.get('category') == rt_sel_cat]
+        if rt_filtered:
+            rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
+            
+            rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
+            rt_user_vals = {v: st.text_input(v, key=f"rt_var_{v}_{rt_key_id}") for v in rt_vars}
+            
+            rt_final_prompt = rt_style.get('template','')
+            for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
+            
+            st.write("✏️ **Prompt for OpenAI:**")
+            rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}")
+            
+            c_rt1, c_rt2 = st.columns([1, 1])
+            run_retouch = c_rt1.button("🚀 Run Retouch Batch", type="primary", disabled=(not rt_imgs))
+            clear_retouch = c_rt2.button("🔄 Start Over", key="clear_retouch")
+            
+            if clear_retouch:
+                st.session_state.retouch_results = None
+                st.session_state.retouch_key_counter += 1
+                st.rerun()
+            
+            if run_retouch:
+                if not openai_key:
+                    st.error("Missing OpenAI API Key! Please add in Sidebar or Secrets.")
+                else:
+                    rt_temp_results = []
+                    rt_pbar = st.progress(0)
+                    
+                    # Loop ตามจำนวนรูป Input เพื่อ Gen รูปใหม่ตามจำนวนนั้น
+                    for i, _ in enumerate(rt_imgs):
+                        with st.spinner(f"Generating Image #{i+1} with OpenAI..."):
+                            gen_img_bytes, err = generate_image_openai(openai_key, rt_prompt_edit)
+                            
+                            rt_pbar.progress((i+1)/len(rt_imgs))
+                            
+                            if gen_img_bytes:
+                                rt_temp_results.append(gen_img_bytes)
+                            else:
+                                st.error(f"Failed Image #{i+1}: {err}")
+                                rt_temp_results.append(None)
+                                
+                    st.session_state.retouch_results = rt_temp_results
+                    st.success("Batch Processing Complete!")
+                    st.rerun()
+
+    # --- Display Retouch Results ---
+    if st.session_state.retouch_results:
+        st.divider()
+        st.subheader("🎨 Retouched Results (OpenAI)")
+        
+        cols = st.columns(3)
+        for i, res_bytes in enumerate(st.session_state.retouch_results):
+            with cols[i % 3]:
+                st.write(f"**Result #{i+1}**")
+                if res_bytes:
+                    st.image(res_bytes, use_column_width=True)
+                    st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.png", mime="image/png", key=f"dl_rt_{i}")
+                else:
+                    st.error("Generation Failed")
+
 # === TAB 2: BULK SEO (Fixed Reset) ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
-    
-    # ใช้ Dynamic Key เพื่อให้ Reset ได้จริง
     bulk_key_id = st.session_state.bulk_key_counter
     
     bc1, bc2 = st.columns([1, 1.5])
     with bc1:
-        # Key จะเปลี่ยนไปเมื่อกด Reset ทำให้ Widget ถูกสร้างใหม่ (ค่าว่าง)
         bfiles = st.file_uploader("Upload Images", accept_multiple_files=True, key=f"bulk_up_{bulk_key_id}")
         bimgs = [Image.open(f) for f in bfiles] if bfiles else []
         if bimgs:
@@ -461,16 +593,13 @@ with tab2:
                     cols[i%4].image(img, use_column_width=True, caption=f"Img #{i+1}")
 
     with bc2:
-        # URL Input ก็ต้อง Reset ด้วย
         burl = st.text_input("Product URL:", key=f"bulk_url_{bulk_key_id}")
-        
         c_btn1, c_btn2 = st.columns([1, 1])
         run_batch = c_btn1.button("🚀 Run Batch", type="primary", disabled=(not bimgs))
         clear_batch = c_btn2.button("🔄 Start Over", key="clear_bulk")
 
         if clear_batch:
             st.session_state.bulk_results = None
-            # วิธีแก้: เพิ่ม Counter เพื่อเปลี่ยน Key ของ Widget ในรอบถัดไป
             st.session_state.bulk_key_counter += 1
             st.rerun()
 
@@ -496,7 +625,6 @@ with tab2:
                 st.success("Done!")
                 st.rerun()
 
-    # --- Display Results ---
     if st.session_state.bulk_results and bimgs:
         st.divider()
         for i, res in enumerate(st.session_state.bulk_results):
@@ -519,8 +647,6 @@ with tab2:
 # === TAB 3: WRITER (Fixed Reset) ===
 with tab3:
     st.header("📝 Product Writer")
-    
-    # ใช้ Dynamic Key เช่นกัน
     writer_key_id = st.session_state.writer_key_counter
     
     c1, c2 = st.columns([1, 1.2])
@@ -542,7 +668,6 @@ with tab3:
         
         if clear_write:
             st.session_state.writer_result = None
-            # วิธีแก้: เพิ่ม Counter เพื่อเปลี่ยน Key
             st.session_state.writer_key_counter += 1
             st.rerun()
 
@@ -649,4 +774,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
