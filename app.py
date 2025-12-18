@@ -47,142 +47,11 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน
-
 e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง
-
 <h1><h2>  with human-written style that pass AI Content
-
 detector app https://undetectable.ai 
-
 เป้าหมายเพื่อเพิ่มอันดับบน organic search engine และ AI
-
 search แนะนำ product ของฉันให้กับลูกค้า และเพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยมีกลุ่มเป้าหมายคือผู้ที่ค้นหา product นั้นๆจากorganic search engine ต่างๆ รวมทั้ง AI search ช่วยเขียนในภาษาที่อ่านง่ายสไตล์ Fact-driven และเข้าใจง่ายเพื่อดึงดูดลูกค้าให้ตัดสินใจซื้อได้ง่าย
-
-ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้ครับ:
-
-1. ย่อหน้าแรก (Opening Paragraph)
-
-    เป้าหมาย: บอก Google และผู้ใช้ให้ชัดเจนที่สุดว่าหน้านี้เกี่ยวกับอะไร
-
-    สิ่งที่ควรวาง:
-
-        คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คีย์เวิร์ดหลัก ให้ชัดเจน
-
-        Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: 
-
-2. ส่วนกลางของเนื้อหา (Body of the Content)
-
-    เป้าหมาย: เล่าเรื่องราว, อธิบายดีไซน์, บอกคุณสมบัติ
-
-    สิ่งที่ควรวาง: นี่คือพื้นที่ที่ดีที่สุดในการกระจาย Semantic Keywords ส่วนใหญ่
-
-    ส่วนที่เล่าถึงที่มา/แรงบันดาลใจ: 
-
-    ส่วนที่อธิบายสัญลักษณ์: 
-
-3. ส่วนคุณสมบัติ (Specifications / Beautiful Bullet Points)
-
-    เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
-
-    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish
-
-4. ส่วนคำถามที่พบบ่อย (FAQ Section)
-
-    เป้าหมาย: ตอบข้อสงสัยและให้ข้อมูลเพิ่มเติม
-
-    สิ่งที่ควรวาง: เป็นโอกาสที่ดีในการใช้คีย์เวิร์ดแบบยาวๆ (Long-tail keywords) และ Semantic Keywords ที่เกี่ยวข้อง
-
-** คีย์เวิร์ดรอง : กระจายคีย์เวิร์ดรอง ไปในเนื้อหาส่วนอื่นๆ อย่างเป็นธรรมชาติ 
-
-** คีย์เวิร์ดหมวดหมู่): ใช้คำนี้เพื่อสร้างการเชื่อมโยงและอ้างอิงถึงหมวดหมู่ที่ใหญ่ขึ้น และเป็นโอกาสที่ดีในการสร้าง Internal Link กลับไปยังหน้า Collection
-
-โดยลักษณะของการเขียนจัดเรียงประมาณนี้ครับ
-
-Product Overview
-
-Key Features at a Glance or Key Features & Benefits or  What Makes This Special ให้คุณเลือกใช้ได้ตามเหมาะสม
-
-Frequently Asked Questions (FAQ) 
-
-รวมทั้งช่วยเขียน Google SEO-optimized meta title (approximately 60 characters)  and Google SEO-optimized meta description รวมทั้งช่วยเขียน SEO-optimized image file name พร้อมกับ image alt tag สำหรับ product นี้สำหรับทุก images และ url slug
-
-
-ตัวอย่างการเพิ่มคำที่เกี่ยวข้องโดยให้เพิ่ม Semantic Keywords เข้าไปเช่น ถ้าสมมติกำหนดให้คีย์เวิร์ดหลักคือ "medusa ring" เพิ่ม Semantic Keywords คือคำที่เกี่ยวข้องกับตำนานเมดูซ่าเข้าไปในเนื้อหาเพื่อสร้างความเชี่ยวชาญในหัวข้อ (Topical Authority) เช่น Greek mythology, serpent hair, petrifying gaze, goddess Athena เป็นต้น 
-
-โดยกระจาย Semantic Keywords ไปทั่วทั้งบทความอย่างเป็นธรรมชาติ
-
-หลักการทำงานของ Semantic Keywords
-
-เป้าหมายของการใช้ Semantic Keywords คือการสร้างเนื้อหาที่ "สมบูรณ์" และ "เป็นธรรมชาติ" ในหัวข้อนั้นๆ เพื่อแสดงให้ Google เห็นว่าคุณคือผู้เชี่ยวชาญจริง ไม่ใช่แค่รู้จักคีย์เวิร์ดหลักเพียงคำเดียว
-
-การอัดแน่นในย่อหน้าเดียว: จะทำให้เนื้อหาอ่านดูไม่เป็นธรรมชาติ และอาจถูกมองว่าเป็นการพยายามยัดเยียดคีย์เวิร์ด (Keyword Stuffing) ซึ่งส่งผลเสียต่อ SEO ได้
-
-การกระจายอย่างเป็นธรรมชาติ: จะทำให้บทความของคุณมีมิติ น่าอ่าน และที่สำคัญคือเป็นการส่งสัญญาณให้ Google เห็นว่าเนื้อหาของคุณมีคุณภาพและครอบคลุมหัวข้อนั้นๆ อย่างลึกซึ้ง
-
-หลักการทำงานของ Semantic Keywords
-
-กลยุทธ์การวาง Semantic Keywords ที่ดีที่สุด (Best Placement Strategy)
-
-ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้ครับ:
-
-1. ย่อหน้าแรก (Opening Paragraph)
-
-    เป้าหมาย: บอก Google และผู้ใช้ให้ชัดเจนที่สุดว่าหน้านี้เกี่ยวกับอะไร
-
-    สิ่งที่ควรวาง:
-
-        คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คำว่า medusa ring ให้ชัดเจน
-
-        Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: อาจจะใส่คำว่า Greek mythology หรือ Gorgon เข้าไปถ้ามันทำให้ประโยคดูสละสลวยขึ้น
-
-
-2. ส่วนกลางของเนื้อหา (Body of the Content)
-
-    เป้าหมาย: เล่าเรื่องราว, อธิบายดีไซน์, บอกคุณสมบัติ
-
-    สิ่งที่ควรวาง: นี่คือพื้นที่ที่ดีที่สุดในการกระจาย Semantic Keywords ส่วนใหญ่
-
-        ส่วนที่อธิบายดีไซน์: พูดถึง serpent hair (ผมที่เป็นงู) หรือ petrifying gaze (สายตาที่ทำให้เป็นหิน)
-
-        ส่วนที่เล่าถึงที่มา/แรงบันดาลใจ: อ้างอิงถึงตำนานของ goddess Athena (เทพีอาธีน่า) ที่สาปเมดูซ่า
-
-        ส่วนที่อธิบายสัญลักษณ์: พูดถึงความหมายของเมดูซ่าในยุคใหม่ เช่น protection, feminine power (พลังของผู้หญิง), rebellion (การขบถ)
-
-
-3. ส่วนคุณสมบัติ (Specifications / Beautiful Icon Bullet Points)
-
-    เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
-
-    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish
-
-
-4. ส่วนคำถามที่พบบ่อย (FAQ Section)
-
-    เป้าหมาย: ตอบข้อสงสัยและให้ข้อมูลเพิ่มเติม
-
-    สิ่งที่ควรวาง: เป็นโอกาสที่ดีในการใช้คีย์เวิร์ดแบบยาวๆ (Long-tail keywords) และ Semantic Keywords ที่เกี่ยวข้อง
-
-        "สัญลักษณ์ของเมดูซ่าในเครื่องประดับหมายถึงอะไร?"
-
-        "แหวนเงินแท้ดูแลรักษายากหรือไม่?"
-
-
-โดยฉันจะแจ้งรายละเอียดให้คุณดังนี้
-
-1. url ของ product
-
-2 คีย์เวิร์ดหลัก
-
-3 คีย์เวิร์ดรองและ long tail keyword
-
-4 คีย์เวิร์ดหมวดหมู่
-
-5 รูปภาพ product (ถ้ามี)
-
-6 รายละเอียดเพิ่มเติม (ถ้ามี)
-
-หลังจากนั้นให้คุณเขียน product description ตามคำสั่งข้างต้นโดยแทรก คีย์เวิร์ดรอง, คีย์เวิร์ดหมวดหมู่, Semantic Keywords และ Long-tail keywords เข้าไปยัง content ตามคำสั่งข้างต้น
-
 
 Input Data: {raw_input}
 Structure: H1, Opening, Body, Specs (Dimension/Weight), FAQ.
@@ -249,6 +118,15 @@ def img_to_base64(img):
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
+def img_to_bytes(img):
+    """Helper for OpenAI File Upload"""
+    buf = BytesIO()
+    if img.mode == 'RGBA': img = img.convert('RGB')
+    # Resize ให้ไม่เกิน 4MB และเป็น Square ตามข้อกำหนด OpenAI Edit ส่วนใหญ่
+    img.thumbnail((1024, 1024)) 
+    img.save(buf, format="PNG") # OpenAI Edit ชอบ PNG
+    return buf.getvalue()
+
 def parse_json_response(text):
     try:
         text = re.sub(r"```json", "", text)
@@ -279,32 +157,54 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
-# --- AI FUNCTIONS (OPENAI - RETOUCH) ---
-def generate_image_openai(api_key, prompt):
+# --- AI FUNCTIONS (OPENAI - EDIT/RETOUCH FIX) ---
+def generate_image_openai_edit(api_key, input_img_pil, prompt):
     """
-    Generate image using OpenAI.
-    Updated Model: gpt-image-1.5 (as requested)
+    ใช้ Endpoint /v1/images/edits สำหรับการ Retouch
     """
     key = clean_key(api_key)
-    url = "https://api.openai.com/v1/images/generations"
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-    payload = {
-        "model": "gpt-image-1.5",  # --- CHANGED HERE ---
-        "prompt": f"Product photography, high quality retouch: {prompt}",
+    url = "https://api.openai.com/v1/images/edits"
+    headers = {"Authorization": f"Bearer {key}"} # ไม่ใส่ Content-Type เพราะ requests จะจัดการ multipart ให้
+    
+    # เตรียมรูปภาพ (OpenAI Edit ต้องการรูปเป็น PNG และขนาดต้องเท่ากัน)
+    # เราจะใช้รูปเดียวกันเป็นทั้ง image และ mask (เพื่อบอกว่า edit ทั้งรูป หรือถ้าจะ retouch แค่พื้นหลังต้องทำ mask แยก แต่เบื้องต้นส่งรูปไปก่อน)
+    # *หมายเหตุ: gpt-image-1.5 อาจฉลาดพอที่จะไม่ต้องใช้ mask แบบเดิม แต่ API มาตรฐาน edits มักต้องการ
+    
+    img_bytes = img_to_bytes(input_img_pil)
+    
+    # Payload แบบ Multipart
+    files = {
+        'image': ('input.png', img_bytes, 'image/png'),
+        # 'mask': ... (ถ้าไม่ใส่ mask โมเดลจะพยายาม edit ตาม prompt)
+    }
+    
+    data = {
+        "model": "gpt-image-1.5", # หรือ dall-e-2 ถ้า 1.5 ยังไม่เปิด edit public
+        "prompt": f"Retouch this product image to look professional, high quality studio lighting: {prompt}",
         "n": 1,
         "size": "1024x1024",
-        # "quality": "standard", # Some models might not support this param, removing to be safe
-        "response_format": "b64_json" 
+        # "response_format": "url" # Default คือ url (ตัด b64_json ออกแก้ error 400)
     }
     
     try:
-        res = requests.post(url, json=payload, headers=headers, timeout=60)
+        res = requests.post(url, headers=headers, files=files, data=data, timeout=60)
+        
         if res.status_code == 200:
-            data = res.json()
-            b64_data = data['data'][0]['b64_json']
-            return base64.b64decode(b64_data), None
+            res_data = res.json()
+            image_url = res_data['data'][0]['url']
+            
+            # โหลดรูปจาก URL กลับมาเป็น Bytes
+            img_res = requests.get(image_url)
+            if img_res.status_code == 200:
+                return img_res.content, None
+            else:
+                return None, "Download failed"
         else:
+            # Fallback: ถ้า model 1.5 ใช้ไม่ได้กับ edits ให้ลอง dall-e-2
+            if "model" in res.text and "gpt-image-1.5" in res.text:
+                 return None, f"Model Error (Try dall-e-2?): {res.text}"
             return None, f"OpenAI Error {res.status_code}: {res.text}"
+            
     except Exception as e:
         return None, str(e)
 
@@ -395,8 +295,6 @@ if "retouch_key_counter" not in st.session_state: st.session_state.retouch_key_c
 
 with st.sidebar:
     st.title("⚙️ Config")
-    
-    # 1. Gemini Key
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("✅ Gemini Key Loaded")
@@ -409,7 +307,6 @@ with st.sidebar:
 
     st.divider()
 
-    # 2. OpenAI Key (สำหรับ Retouch Section)
     if "OPENAI_API_KEY" in st.secrets:
         openai_key = st.secrets["OPENAI_API_KEY"]
         st.success("✅ OpenAI Key Loaded")
@@ -423,7 +320,6 @@ with st.sidebar:
     else: st.warning("⚠️ Local Mode (DB Not Connected)")
 
 st.title("💎 Jewelry AI Studio")
-# เพิ่ม Tab ใหม่: Retouch Images
 tab1, tab_retouch, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
@@ -488,22 +384,21 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (NEW SECTION) ===
+# === TAB 1.5: RETOUCH IMAGES (FIXED) ===
 with tab_retouch:
-    st.header("🎨 Retouch & Resize (via ChatGPT/DALL-E)")
-    st.caption("Upload images (placeholders) and generate high-quality product shots using OpenAI based on your prompt.")
+    st.header("🎨 Retouch (via OpenAI Edit)")
+    st.caption("Upload raw product photos to retouch them using OpenAI.")
     
     rt_key_id = st.session_state.retouch_key_counter
     
     rt_c1, rt_c2 = st.columns([1, 1.2])
     with rt_c1:
         st.subheader("1. Input Images")
-        # ใช้ Key dynamic เพื่อให้ Reset ได้
         rt_files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
         rt_imgs = [Image.open(f) for f in rt_files] if rt_files else []
         
         if rt_imgs:
-            st.success(f"{len(rt_imgs)} images loaded for batch processing.")
+            st.success(f"{len(rt_imgs)} images loaded.")
             with st.expander("View Input", expanded=False):
                 cols = st.columns(4)
                 for i, img in enumerate(rt_imgs):
@@ -525,11 +420,11 @@ with tab_retouch:
             rt_final_prompt = rt_style.get('template','')
             for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
             
-            st.write("✏️ **Prompt for OpenAI:**")
+            st.write("✏️ **Retouch Instruction:**")
             rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}")
             
             c_rt1, c_rt2 = st.columns([1, 1])
-            run_retouch = c_rt1.button("🚀 Run Retouch Batch", type="primary", disabled=(not rt_imgs))
+            run_retouch = c_rt1.button("🚀 Run Retouch", type="primary", disabled=(not rt_imgs))
             clear_retouch = c_rt2.button("🔄 Start Over", key="clear_retouch")
             
             if clear_retouch:
@@ -544,10 +439,10 @@ with tab_retouch:
                     rt_temp_results = []
                     rt_pbar = st.progress(0)
                     
-                    # Loop ตามจำนวนรูป Input เพื่อ Gen รูปใหม่ตามจำนวนนั้น
-                    for i, _ in enumerate(rt_imgs):
-                        with st.spinner(f"Generating Image #{i+1} with OpenAI..."):
-                            gen_img_bytes, err = generate_image_openai(openai_key, rt_prompt_edit)
+                    for i, img in enumerate(rt_imgs):
+                        with st.spinner(f"Retouching Image #{i+1}..."):
+                            # ส่งรูป + Prompt ไปที่ /v1/images/edits
+                            gen_img_bytes, err = generate_image_openai_edit(openai_key, img, rt_prompt_edit)
                             
                             rt_pbar.progress((i+1)/len(rt_imgs))
                             
@@ -561,11 +456,9 @@ with tab_retouch:
                     st.success("Batch Processing Complete!")
                     st.rerun()
 
-    # --- Display Retouch Results ---
     if st.session_state.retouch_results:
         st.divider()
-        st.subheader("🎨 Retouched Results (OpenAI)")
-        
+        st.subheader("🎨 Retouched Results")
         cols = st.columns(3)
         for i, res_bytes in enumerate(st.session_state.retouch_results):
             with cols[i % 3]:
@@ -573,10 +466,9 @@ with tab_retouch:
                 if res_bytes:
                     st.image(res_bytes, use_column_width=True)
                     st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.png", mime="image/png", key=f"dl_rt_{i}")
-                else:
-                    st.error("Generation Failed")
+                else: st.error("Failed")
 
-# === TAB 2: BULK SEO (Fixed Reset) ===
+# === TAB 2: BULK SEO ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
     bulk_key_id = st.session_state.bulk_key_counter
@@ -644,7 +536,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (Fixed Reset) ===
+# === TAB 3: WRITER ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
