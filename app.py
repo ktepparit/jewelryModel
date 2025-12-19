@@ -46,6 +46,14 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
+system_prompt_seo = """
+You are an SEO expert with 10-15 years of experience. 
+Your task is to analyze the provided product images and the user's initial description. 
+Please generate:
+1. An attractive, SEO-optimized Product Name.
+2. A suitable, clean URL Slug (using hyphens).
+"""
+
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน
 e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง
@@ -436,6 +444,71 @@ with tab_retouch:
                     st.image(res_bytes, use_column_width=True)
                     st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
                 else: st.error("Failed")
+import streamlit as st
+import google.generativeai as genai
+
+# --- UI Layout: SEO Generator Section ---
+st.markdown("---")
+st.subheader("🛍️ SEO Product Name & Slug Generator")
+
+# 1. Text Input สำหรับข้อมูลเบื้องต้น
+user_product_desc = st.text_input(
+    "Basic Product Description",
+    placeholder="e.g., bracelet, sterling silver bracelet",
+    help="Enter a short keyword or category to help the AI understand the product context."
+)
+
+# 2. Logic การเลือกรูปภาพ (Result > Input)
+target_images_for_seo = []
+source_label = ""
+
+# สมมติว่าตัวแปรเก็บรูปภาพของคุณคือ 'retouched_images' (ผลลัพธ์) และ 'uploaded_files' (Input เดิม)
+# ปรับชื่อตัวแปรตามโค้ดจริงของคุณนะครับ
+if 'retouched_images' in st.session_state and st.session_state.retouched_images:
+    target_images_for_seo = st.session_state.retouched_images
+    source_label = "Using Retouched Images"
+elif 'uploaded_files' in st.session_state and st.session_state.uploaded_files:
+    # กรณีนี้ต้องแปลง uploaded_files ให้เป็น PIL Image หากยังไม่ได้แปลง
+    # หรือถ้าตัวแปร Input ของคุณเป็น list ของ PIL Image อยู่แล้วก็ใช้ได้เลย
+    target_images_for_seo = st.session_state.input_pil_images # (สมมติชื่อตัวแปร)
+    source_label = "Using Input Images (Original)"
+
+# 3. ปุ่ม Analyze
+if st.button("✨ Analyze Product Info"):
+    if not target_images_for_seo:
+        st.warning("⚠️ Please upload images or run retouching first.")
+    elif not user_product_desc:
+        st.warning("⚠️ Please enter a basic product description.")
+    else:
+        with st.spinner(f"Analyzing... ({source_label})"):
+            try:
+                # Setup Model
+                model_seo = genai.GenerativeModel(MODEL_TEXT_SEO)
+                
+                # Construct Query
+                seo_prompt = f"""
+                {system_prompt_seo}
+                
+                User Input Description: "{user_product_desc}"
+                
+                Output Format:
+                Product Name: [Name]
+                URL Slug: [slug]
+                """
+                
+                # Prepare content (Text + Images)
+                # หมายเหตุ: Gemini รับ input เป็น List [text, img1, img2, ...]
+                content_payload = [seo_prompt] + target_images_for_seo
+                
+                # Generate Content
+                response = model_seo.generate_content(content_payload)
+                
+                # Show Result
+                st.success("Analysis Complete!")
+                st.info(response.text)
+                
+            except Exception as e:
+                st.error(f"An error occurred during SEO analysis: {e}")
 
 # === TAB 2: BULK SEO ===
 with tab2:
@@ -635,3 +708,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
