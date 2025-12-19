@@ -7,7 +7,7 @@ from PIL import Image
 import time
 import pandas as pd
 import re
-import zipfile # <--- เพิ่ม Library สำหรับบีบอัดไฟล์
+import zipfile
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
@@ -46,14 +46,6 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
-system_prompt_seo = """
-You are an SEO expert with 10-15 years of experience. 
-Your task is to analyze the provided product images and the user's initial description. 
-Please generate:
-1. An attractive, SEO-optimized Product Name.
-2. A suitable, clean URL Slug (using hyphens).
-"""
-
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน
 e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง
@@ -79,6 +71,24 @@ The JSON structure must be exactly like this:
     { "file_name": "silver-medusa-ring-mens.jpg", "alt_tag": "Silver Medusa Ring detailed view" },
     { "file_name": "medusa-ring-side-view.jpg", "alt_tag": "Side view of handcrafted Medusa ring" }
   ]
+}
+"""
+
+# --- NEW PROMPT FOR NAME & SLUG GENERATOR ---
+SEO_PROMPT_NAME_SLUG = """
+You are an SEO expert with 10-15 years of experience. 
+Your task is to analyze the provided product images and the user's initial description. 
+Please generate:
+1. An attractive, SEO-optimized Product Name.
+2. A suitable, clean URL Slug (using hyphens).
+
+User Input Description: "{user_desc}"
+
+IMPORTANT: You MUST return the result in RAW JSON format ONLY (no markdown backticks).
+Structure:
+{
+  "product_name": "Sterling Silver Charm Bracelet - Handcrafted",
+  "url_slug": "sterling-silver-charm-bracelet-handcrafted"
 }
 """
 
@@ -145,7 +155,6 @@ def generate_image(api_key, image_list, prompt):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
     
-    # เพิ่ม Constraint ใน Prompt เพื่อให้ Gemini พยายามรักษาลักษณะสินค้าเดิม
     full_prompt = f"Instruction: {prompt} \nImportant Constraint: Keep the main jewelry product in the input image EXACTLY as it looks (same shape, design, texture). Only improve the lighting, background, and overall photography quality. Do not hallucinate new details on the product itself."
     
     parts = [{"text": full_prompt}]
@@ -221,6 +230,35 @@ def generate_full_product_content(api_key, img_pil_list, raw_input):
         except Exception as e: time.sleep(1)
     return None, "Failed"
 
+# --- NEW FUNCTION FOR NAME/SLUG ---
+def generate_seo_name_slug(api_key, img_list, user_desc):
+    key = clean_key(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    prompt = SEO_PROMPT_NAME_SLUG.replace("{user_desc}", user_desc)
+    
+    parts = [{"text": prompt}]
+    # Handle both PIL Images and Bytes
+    if img_list:
+        for item in img_list:
+            if isinstance(item, bytes):
+                try:
+                    img_pil = Image.open(BytesIO(item))
+                    parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}})
+                except: pass
+            elif isinstance(item, Image.Image):
+                parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(item)}})
+
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
+    
+    try:
+        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+        if res.status_code == 200:
+            content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+            return content.get("text"), None
+        else: return None, f"Error {res.status_code}"
+    except Exception as e: return None, str(e)
+
+
 def list_available_models(api_key):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
@@ -240,6 +278,7 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
 if "retouch_results" not in st.session_state: st.session_state.retouch_results = None
+if "seo_name_result" not in st.session_state: st.session_state.seo_name_result = None # Store Name/Slug result
 
 # Widget Keys
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
@@ -326,7 +365,7 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION + DOWNLOAD ALL) ===
+# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION + DOWNLOAD ALL + SEO NAME) ===
 with tab_retouch:
     st.header("🎨 Retouch (via Gemini)")
     st.caption("Upload raw product photos. Gemini will regenerate them based on your prompt (one by one).")
@@ -383,6 +422,7 @@ with tab_retouch:
             
             if clear_retouch:
                 st.session_state.retouch_results = None
+                st.session_state.seo_name_result = None
                 st.session_state.retouch_key_counter += 1
                 st.rerun()
             
@@ -444,71 +484,70 @@ with tab_retouch:
                     st.image(res_bytes, use_column_width=True)
                     st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
                 else: st.error("Failed")
-import streamlit as st
-import google.generativeai as genai
 
-# --- UI Layout: SEO Generator Section ---
-st.markdown("---")
-st.subheader("🛍️ SEO Product Name & Slug Generator")
+    # ========================================================
+    # NEW FEATURE: SEO PRODUCT NAME & SLUG GENERATOR
+    # ========================================================
+    st.markdown("---")
+    st.subheader("🛍️ SEO Product Name & Slug Generator")
+    st.caption("Auto-generate a catchy product name and clean URL slug based on the images.")
 
-# 1. Text Input สำหรับข้อมูลเบื้องต้น
-user_product_desc = st.text_input(
-    "Basic Product Description",
-    placeholder="e.g., bracelet, sterling silver bracelet",
-    help="Enter a short keyword or category to help the AI understand the product context."
-)
-
-# 2. Logic การเลือกรูปภาพ (Result > Input)
-target_images_for_seo = []
-source_label = ""
-
-# สมมติว่าตัวแปรเก็บรูปภาพของคุณคือ 'retouched_images' (ผลลัพธ์) และ 'uploaded_files' (Input เดิม)
-# ปรับชื่อตัวแปรตามโค้ดจริงของคุณนะครับ
-if 'retouched_images' in st.session_state and st.session_state.retouched_images:
-    target_images_for_seo = st.session_state.retouched_images
-    source_label = "Using Retouched Images"
-elif 'uploaded_files' in st.session_state and st.session_state.uploaded_files:
-    # กรณีนี้ต้องแปลง uploaded_files ให้เป็น PIL Image หากยังไม่ได้แปลง
-    # หรือถ้าตัวแปร Input ของคุณเป็น list ของ PIL Image อยู่แล้วก็ใช้ได้เลย
-    target_images_for_seo = st.session_state.input_pil_images # (สมมติชื่อตัวแปร)
-    source_label = "Using Input Images (Original)"
-
-# 3. ปุ่ม Analyze
-if st.button("✨ Analyze Product Info"):
-    if not target_images_for_seo:
-        st.warning("⚠️ Please upload images or run retouching first.")
-    elif not user_product_desc:
-        st.warning("⚠️ Please enter a basic product description.")
+    # 1. Image Source Logic
+    target_images_for_seo = []
+    source_label = ""
+    
+    if st.session_state.retouch_results and any(st.session_state.retouch_results):
+        # Use Retouched images (Bytes)
+        target_images_for_seo = [x for x in st.session_state.retouch_results if x is not None]
+        source_label = "✅ Using Retouched Images"
+    elif rt_imgs:
+        # Use Input images (PIL)
+        target_images_for_seo = rt_imgs
+        source_label = "✅ Using Input Images (Original)"
     else:
-        with st.spinner(f"Analyzing... ({source_label})"):
-            try:
-                # Setup Model
-                model_seo = genai.GenerativeModel(MODEL_TEXT_SEO)
-                
-                # Construct Query
-                seo_prompt = f"""
-                {system_prompt_seo}
-                
-                User Input Description: "{user_product_desc}"
-                
-                Output Format:
-                Product Name: [Name]
-                URL Slug: [slug]
-                """
-                
-                # Prepare content (Text + Images)
-                # หมายเหตุ: Gemini รับ input เป็น List [text, img1, img2, ...]
-                content_payload = [seo_prompt] + target_images_for_seo
-                
-                # Generate Content
-                response = model_seo.generate_content(content_payload)
-                
-                # Show Result
-                st.success("Analysis Complete!")
-                st.info(response.text)
-                
-            except Exception as e:
-                st.error(f"An error occurred during SEO analysis: {e}")
+        source_label = "⚠️ No images available"
+
+    # 2. Input & Button
+    c_seo1, c_seo2 = st.columns([1, 1])
+    with c_seo1:
+        user_product_desc = st.text_input(
+            "Basic Product Description",
+            placeholder="e.g., sterling silver bracelet, gemstone ring",
+            help="Enter a short keyword to help the AI."
+        )
+        st.write(f"Source: {source_label}")
+        
+        if st.button("✨ Analyze Name & Slug"):
+            if not api_key: st.error("Missing API Key")
+            elif not target_images_for_seo: st.warning("Please upload images first.")
+            elif not user_product_desc: st.warning("Please enter a description.")
+            else:
+                with st.spinner("Analyzing SEO..."):
+                    # Call new function
+                    seo_json, seo_err = generate_seo_name_slug(api_key, target_images_for_seo, user_product_desc)
+                    if seo_json:
+                        res_dict = parse_json_response(seo_json)
+                        if res_dict:
+                            st.session_state.seo_name_result = res_dict
+                        else:
+                            st.error("Failed to parse result")
+                            st.code(seo_json)
+                    else:
+                        st.error(seo_err)
+
+    # 3. Results Display
+    with c_seo2:
+        if st.session_state.seo_name_result:
+            res = st.session_state.seo_name_result
+            st.success("Analysis Complete!")
+            
+            st.write("**Product Name:**")
+            st.text_input("Name", value=res.get("product_name", ""), label_visibility="collapsed")
+            
+            st.write("**URL Slug:**")
+            st.code(res.get("url_slug", ""), language="text")
+    # ========================================================
+
 
 # === TAB 2: BULK SEO ===
 with tab2:
@@ -708,4 +747,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
