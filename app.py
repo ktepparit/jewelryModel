@@ -157,7 +157,7 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
-# --- AI FUNCTIONS (OPENAI - EDIT/RETOUCH) ---
+# --- AI FUNCTIONS (OPENAI - EDIT/RETOUCH FIX) ---
 def generate_image_openai_edit(api_key, input_img_pil, prompt):
     """
     ใช้ Endpoint /v1/images/edits สำหรับการ Retouch
@@ -172,9 +172,21 @@ def generate_image_openai_edit(api_key, input_img_pil, prompt):
         'image': ('input.png', img_bytes, 'image/png'),
     }
     
+    # --- FIX: Truncate Prompt to 1000 chars (OpenAI Limit) ---
+    prefix = "Retouch this product image to look professional, high quality studio lighting: "
+    allowed_len = 1000 - len(prefix) - 5 # เผื่อที่ไว้ 5 ตัวอักษร
+    
+    if len(prompt) > allowed_len:
+        clean_prompt = prompt[:allowed_len]
+    else:
+        clean_prompt = prompt
+        
+    final_prompt = f"{prefix}{clean_prompt}"
+    # ---------------------------------------------------------
+    
     data = {
-        "model": "dall-e-2", # ปัจจุบัน gpt-image-1.5 ยังไม่เปิด endpoint 'edits' สาธารณะ (ต้องใช้ dall-e-2 สำหรับ edits)
-        "prompt": f"Retouch this product image to look professional, high quality studio lighting: {prompt}",
+        "model": "dall-e-2", 
+        "prompt": final_prompt,
         "n": 1,
         "size": "1024x1024",
     }
@@ -374,7 +386,7 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (FIXED PROMPT UPDATE) ===
+# === TAB 1.5: RETOUCH IMAGES (FIXED PROMPT UPDATE & LENGTH) ===
 with tab_retouch:
     st.header("🎨 Retouch (via OpenAI Edit)")
     st.caption("Upload raw product photos to retouch them using OpenAI.")
@@ -402,17 +414,13 @@ with tab_retouch:
         
         rt_filtered = [p for p in lib if p.get('category') == rt_sel_cat]
         if rt_filtered:
-            # --- FIX: Track Style Change ---
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
             
-            # Tracker Key
+            # --- FIX: Track Style Change ---
             style_tracker_key = f"last_rt_style_{rt_key_id}"
-            
-            # Initialize tracker
             if style_tracker_key not in st.session_state:
                 st.session_state[style_tracker_key] = rt_style['id']
                 
-            # Check if style changed
             style_changed = False
             if st.session_state[style_tracker_key] != rt_style['id']:
                 style_changed = True
@@ -477,7 +485,7 @@ with tab_retouch:
                     st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.png", mime="image/png", key=f"dl_rt_{i}")
                 else: st.error("Failed")
 
-# === TAB 2: BULK SEO ===
+# === TAB 2: BULK SEO (Fixed Reset) ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
     bulk_key_id = st.session_state.bulk_key_counter
@@ -545,7 +553,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER ===
+# === TAB 3: WRITER (Fixed Reset) ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
