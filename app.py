@@ -7,6 +7,7 @@ from PIL import Image
 import time
 import pandas as pd
 import re
+import zipfile # <--- เพิ่ม Library สำหรับบีบอัดไฟล์
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
@@ -317,7 +318,7 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION) ===
+# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION + DOWNLOAD ALL) ===
 with tab_retouch:
     st.header("🎨 Retouch (via Gemini)")
     st.caption("Upload raw product photos. Gemini will regenerate them based on your prompt (one by one).")
@@ -387,8 +388,6 @@ with tab_retouch:
                     # --- LOOP: Process One Image at a Time ---
                     for i, img in enumerate(rt_imgs):
                         with st.spinner(f"Processing Image #{i+1} with Gemini..."):
-                            # ส่งรูปเดียว + Prompt เข้าฟังก์ชัน generate_image เดิมของ Gemini
-                            # (ใส่เป็น list [img] เพราะฟังก์ชันรับ list)
                             gen_img_bytes, err = generate_image(api_key, [img], rt_prompt_edit)
                             
                             rt_pbar.progress((i+1)/len(rt_imgs))
@@ -406,6 +405,29 @@ with tab_retouch:
     if st.session_state.retouch_results:
         st.divider()
         st.subheader("🎨 Retouched Results (Gemini)")
+        
+        # --- DOWNLOAD ALL BUTTON ---
+        try:
+            zip_buf = BytesIO()
+            has_files = False
+            with zipfile.ZipFile(zip_buf, "w") as zf:
+                for i, res_bytes in enumerate(st.session_state.retouch_results):
+                    if res_bytes:
+                        zf.writestr(f"retouched_{i+1}.jpg", res_bytes)
+                        has_files = True
+            
+            if has_files:
+                st.download_button(
+                    label="📦 Download All Images (.zip)",
+                    data=zip_buf.getvalue(),
+                    file_name="all_retouched_images.zip",
+                    mime="application/zip",
+                    type="primary"
+                )
+        except Exception as e:
+            st.error(f"Error creating zip: {e}")
+        # ---------------------------
+
         cols = st.columns(3)
         for i, res_bytes in enumerate(st.session_state.retouch_results):
             with cols[i % 3]:
