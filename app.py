@@ -118,24 +118,23 @@ def img_to_base64(img):
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
-def img_to_bytes(img):
-    """
-    Helper for OpenAI File Upload (Fix: Force RGBA)
-    """
+def img_to_png_bytes(img):
+    """Helper: แปลงรูปเป็น PNG RGBA สำหรับส่งให้ OpenAI"""
     buf = BytesIO()
-    # --- FIX: OpenAI Edits endpoint REQUIRES RGBA ---
-    if img.mode != 'RGBA': 
-        img = img.convert('RGBA')
-    # ------------------------------------------------
-    
-    # Resize ให้เป็น Square (OpenAI ชอบ Square) และไม่ใหญ่เกิน
-    img.thumbnail((1024, 1024)) 
-    
-    # สร้าง Background Canvas สี่เหลี่ยมจัตุรัสใส ถ้าภาพไม่ใช่จัตุรัส
-    # (Optional step to prevent distortion, but simple resize is safer for now)
-    
-    img.save(buf, format="PNG") # ต้องเป็น PNG เท่านั้น
+    img = img.convert('RGBA') # บังคับ RGBA แก้ Error got RGB
+    img.thumbnail((1024, 1024)) # Resize ตามกฎ OpenAI
+    img.save(buf, format="PNG")
     return buf.getvalue()
+
+def bytes_to_jpg_bytes(png_bytes):
+    """Helper: แปลง PNG Bytes กลับเป็น JPG Bytes สำหรับ User"""
+    try:
+        img = Image.open(BytesIO(png_bytes))
+        img = img.convert("RGB") # ตัด Alpha ทิ้ง
+        out_buf = BytesIO()
+        img.save(out_buf, format="JPEG", quality=95)
+        return out_buf.getvalue()
+    except: return png_bytes
 
 def parse_json_response(text):
     try:
@@ -167,28 +166,31 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
-# --- AI FUNCTIONS (OPENAI - EDIT/RETOUCH FIX) ---
+# --- AI FUNCTIONS (OPENAI - RETOUCH FIXED) ---
 def generate_image_openai_edit(api_key, input_img_pil, prompt):
     key = clean_key(api_key)
     url = "https://api.openai.com/v1/images/edits"
     headers = {"Authorization": f"Bearer {key}"}
     
-    img_bytes = img_to_bytes(input_img_pil)
+    # 1. เตรียมรูป Input (บังคับ RGBA)
+    img_bytes = img_to_png_bytes(input_img_pil)
     
+    # 2. สร้าง Mask (บังคับ RGBA & โปร่งใส 100% เพื่อให้ AI วาดทับได้)
+    # ถ้าไม่ใส่ Mask AI จะไม่แก้รูปที่ทึบแสง
+    mask_img = Image.new("RGBA", input_img_pil.size, (0, 0, 0, 0)) # Fully transparent mask
+    mask_bytes = img_to_png_bytes(mask_img)
+
     files = {
         'image': ('input.png', img_bytes, 'image/png'),
+        'mask': ('mask.png', mask_bytes, 'image/png')
     }
     
-    # --- FIX: Truncate Prompt to 1000 chars ---
-    prefix = "Retouch product image, professional studio lighting: "
-    allowed_len = 1000 - len(prefix) - 5
-    clean_prompt = prompt[:allowed_len] if len(prompt) > allowed_len else prompt
-    final_prompt = f"{prefix}{clean_prompt}"
-    # ------------------------------------------
+    # ตัด Prompt ให้สั้นลงป้องกัน Error 400
+    clean_prompt = prompt[:900] # Safe limit
     
     data = {
         "model": "dall-e-2", 
-        "prompt": final_prompt,
+        "prompt": f"Retouch this product, professional lighting: {clean_prompt}",
         "n": 1,
         "size": "1024x1024",
     }
@@ -200,9 +202,11 @@ def generate_image_openai_edit(api_key, input_img_pil, prompt):
             res_data = res.json()
             image_url = res_data['data'][0]['url']
             
+            # โหลดรูปจาก URL
             img_res = requests.get(image_url)
             if img_res.status_code == 200:
-                return img_res.content, None
+                # แปลงเป็น JPG ก่อนส่งกลับ
+                return bytes_to_jpg_bytes(img_res.content), None
             else:
                 return None, "Download failed"
         else:
@@ -286,12 +290,10 @@ if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
 if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
 
-# Store results
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
 if "retouch_results" not in st.session_state: st.session_state.retouch_results = None
 
-# Widget Keys
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
 if "writer_key_counter" not in st.session_state: st.session_state.writer_key_counter = 0
 if "retouch_key_counter" not in st.session_state: st.session_state.retouch_key_counter = 0
@@ -387,10 +389,10 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (FIXED FORMAT & PROMPT) ===
+# === TAB 1.5: RETOUCH IMAGES (FIXED MASK & JPG) ===
 with tab_retouch:
     st.header("🎨 Retouch (via OpenAI Edit)")
-    st.caption("Upload raw product photos to retouch them using OpenAI.")
+    st.caption("Upload raw product photos. AI will retouch based on prompt.")
     
     rt_key_id = st.session_state.retouch_key_counter
     
@@ -417,6 +419,7 @@ with tab_retouch:
         if rt_filtered:
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
             
+            # Tracker for style change
             style_tracker_key = f"last_rt_style_{rt_key_id}"
             if style_tracker_key not in st.session_state:
                 st.session_state[style_tracker_key] = rt_style['id']
@@ -433,8 +436,7 @@ with tab_retouch:
             for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
             
             prompt_key = f"rt_prompt_{rt_key_id}"
-            if style_changed:
-                st.session_state[prompt_key] = rt_final_prompt
+            if style_changed: st.session_state[prompt_key] = rt_final_prompt
             
             st.write("✏️ **Retouch Instruction:**")
             rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=prompt_key)
@@ -450,13 +452,14 @@ with tab_retouch:
             
             if run_retouch:
                 if not openai_key:
-                    st.error("Missing OpenAI API Key! Please add in Sidebar or Secrets.")
+                    st.error("Missing OpenAI API Key!")
                 else:
                     rt_temp_results = []
                     rt_pbar = st.progress(0)
                     
                     for i, img in enumerate(rt_imgs):
                         with st.spinner(f"Retouching Image #{i+1}..."):
+                            # ส่งรูป + Prompt + Mask(สร้างเอง)
                             gen_img_bytes, err = generate_image_openai_edit(openai_key, img, rt_prompt_edit)
                             
                             rt_pbar.progress((i+1)/len(rt_imgs))
@@ -468,7 +471,7 @@ with tab_retouch:
                                 rt_temp_results.append(None)
                                 
                     st.session_state.retouch_results = rt_temp_results
-                    st.success("Batch Processing Complete!")
+                    st.success("Complete!")
                     st.rerun()
 
     if st.session_state.retouch_results:
@@ -480,7 +483,8 @@ with tab_retouch:
                 st.write(f"**Result #{i+1}**")
                 if res_bytes:
                     st.image(res_bytes, use_column_width=True)
-                    st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.png", mime="image/png", key=f"dl_rt_{i}")
+                    # ปุ่ม Download เป็น JPG
+                    st.download_button("Download JPG", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
                 else: st.error("Failed")
 
 # === TAB 2: BULK SEO ===
