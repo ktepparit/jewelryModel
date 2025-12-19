@@ -119,12 +119,22 @@ def img_to_base64(img):
     return base64.b64encode(buf.getvalue()).decode()
 
 def img_to_bytes(img):
-    """Helper for OpenAI File Upload"""
+    """
+    Helper for OpenAI File Upload (Fix: Force RGBA)
+    """
     buf = BytesIO()
-    if img.mode == 'RGBA': img = img.convert('RGB')
-    # Resize ให้ไม่เกิน 4MB และเป็น Square ตามข้อกำหนด OpenAI Edit ส่วนใหญ่
+    # --- FIX: OpenAI Edits endpoint REQUIRES RGBA ---
+    if img.mode != 'RGBA': 
+        img = img.convert('RGBA')
+    # ------------------------------------------------
+    
+    # Resize ให้เป็น Square (OpenAI ชอบ Square) และไม่ใหญ่เกิน
     img.thumbnail((1024, 1024)) 
-    img.save(buf, format="PNG") # OpenAI Edit ชอบ PNG
+    
+    # สร้าง Background Canvas สี่เหลี่ยมจัตุรัสใส ถ้าภาพไม่ใช่จัตุรัส
+    # (Optional step to prevent distortion, but simple resize is safer for now)
+    
+    img.save(buf, format="PNG") # ต้องเป็น PNG เท่านั้น
     return buf.getvalue()
 
 def parse_json_response(text):
@@ -159,9 +169,6 @@ def generate_image(api_key, image_list, prompt):
 
 # --- AI FUNCTIONS (OPENAI - EDIT/RETOUCH FIX) ---
 def generate_image_openai_edit(api_key, input_img_pil, prompt):
-    """
-    ใช้ Endpoint /v1/images/edits สำหรับการ Retouch
-    """
     key = clean_key(api_key)
     url = "https://api.openai.com/v1/images/edits"
     headers = {"Authorization": f"Bearer {key}"}
@@ -172,17 +179,12 @@ def generate_image_openai_edit(api_key, input_img_pil, prompt):
         'image': ('input.png', img_bytes, 'image/png'),
     }
     
-    # --- FIX: Truncate Prompt to 1000 chars (OpenAI Limit) ---
-    prefix = "Retouch this product image to look professional, high quality studio lighting: "
-    allowed_len = 1000 - len(prefix) - 5 # เผื่อที่ไว้ 5 ตัวอักษร
-    
-    if len(prompt) > allowed_len:
-        clean_prompt = prompt[:allowed_len]
-    else:
-        clean_prompt = prompt
-        
+    # --- FIX: Truncate Prompt to 1000 chars ---
+    prefix = "Retouch product image, professional studio lighting: "
+    allowed_len = 1000 - len(prefix) - 5
+    clean_prompt = prompt[:allowed_len] if len(prompt) > allowed_len else prompt
     final_prompt = f"{prefix}{clean_prompt}"
-    # ---------------------------------------------------------
+    # ------------------------------------------
     
     data = {
         "model": "dall-e-2", 
@@ -321,7 +323,6 @@ with st.sidebar:
     else: st.warning("⚠️ Local Mode (DB Not Connected)")
 
 st.title("💎 Jewelry AI Studio")
-# เพิ่ม Tab ใหม่: Retouch Images
 tab1, tab_retouch, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
@@ -386,7 +387,7 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (FIXED PROMPT UPDATE & LENGTH) ===
+# === TAB 1.5: RETOUCH IMAGES (FIXED FORMAT & PROMPT) ===
 with tab_retouch:
     st.header("🎨 Retouch (via OpenAI Edit)")
     st.caption("Upload raw product photos to retouch them using OpenAI.")
@@ -416,7 +417,6 @@ with tab_retouch:
         if rt_filtered:
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
             
-            # --- FIX: Track Style Change ---
             style_tracker_key = f"last_rt_style_{rt_key_id}"
             if style_tracker_key not in st.session_state:
                 st.session_state[style_tracker_key] = rt_style['id']
@@ -425,7 +425,6 @@ with tab_retouch:
             if st.session_state[style_tracker_key] != rt_style['id']:
                 style_changed = True
                 st.session_state[style_tracker_key] = rt_style['id']
-            # -------------------------------
             
             rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
             rt_user_vals = {v: st.text_input(v, key=f"rt_var_{v}_{rt_key_id}") for v in rt_vars}
@@ -433,7 +432,6 @@ with tab_retouch:
             rt_final_prompt = rt_style.get('template','')
             for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
             
-            # --- FIX: Force Update Text Area if Style Changed ---
             prompt_key = f"rt_prompt_{rt_key_id}"
             if style_changed:
                 st.session_state[prompt_key] = rt_final_prompt
@@ -485,7 +483,7 @@ with tab_retouch:
                     st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.png", mime="image/png", key=f"dl_rt_{i}")
                 else: st.error("Failed")
 
-# === TAB 2: BULK SEO (Fixed Reset) ===
+# === TAB 2: BULK SEO ===
 with tab2:
     st.header("🏷️ Bulk SEO Tags")
     bulk_key_id = st.session_state.bulk_key_counter
@@ -553,7 +551,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (Fixed Reset) ===
+# === TAB 3: WRITER ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
