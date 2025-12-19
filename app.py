@@ -99,6 +99,13 @@ DEFAULT_PROMPTS = [
         "template": "A realistic close-up of a female hand model wearing a ring with {face_size} face size, soft studio lighting, elegant jewelry photography.",
         "variables": "face_size",
         "sample_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Ring_render.jpg/320px-Ring_render.jpg"
+    },
+    # เพิ่ม Default Retouch Template เผื่อไว้ทดสอบ
+    {
+        "id": "rt1", "name": "Clean Studio Look", "category": "Retouch",
+        "template": "Retouch this jewelry product to have a clean white studio background. Enhance the metal shine of {metal_type} and gemstone clarity. Professional product photography.",
+        "variables": "metal_type",
+        "sample_url": ""
     }
 ]
 
@@ -278,7 +285,7 @@ if "current_generated_image" not in st.session_state: st.session_state.current_g
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
 if "retouch_results" not in st.session_state: st.session_state.retouch_results = None
-if "seo_name_result" not in st.session_state: st.session_state.seo_name_result = None # Store Name/Slug result
+if "seo_name_result" not in st.session_state: st.session_state.seo_name_result = None
 
 # Widget Keys
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
@@ -389,7 +396,14 @@ with tab_retouch:
         st.subheader("2. Prompt Settings")
         lib = st.session_state.library
         rt_cats = list(set(p.get('category','Other') for p in lib)) if lib else []
-        rt_sel_cat = st.selectbox("Category", rt_cats, key=f"rt_cat_{rt_key_id}") if rt_cats else None
+        
+        # --- MODIFIED LOGIC: Default to 'Retouch' category if exists ---
+        default_cat_index = 0
+        if "Retouch" in rt_cats:
+            default_cat_index = rt_cats.index("Retouch")
+        # -------------------------------------------------------------
+
+        rt_sel_cat = st.selectbox("Category", rt_cats, index=default_cat_index, key=f"rt_cat_{rt_key_id}") if rt_cats else None
         
         rt_filtered = [p for p in lib if p.get('category') == rt_sel_cat]
         if rt_filtered:
