@@ -118,24 +118,6 @@ def img_to_base64(img):
     img.save(buf, format="JPEG", quality=90)
     return base64.b64encode(buf.getvalue()).decode()
 
-def img_to_png_bytes(img):
-    """Helper: แปลงรูปเป็น PNG RGBA สำหรับส่งให้ OpenAI"""
-    buf = BytesIO()
-    img = img.convert('RGBA') # บังคับ RGBA แก้ Error got RGB
-    img.thumbnail((1024, 1024)) # Resize ตามกฎ OpenAI
-    img.save(buf, format="PNG")
-    return buf.getvalue()
-
-def bytes_to_jpg_bytes(png_bytes):
-    """Helper: แปลง PNG Bytes กลับเป็น JPG Bytes สำหรับ User"""
-    try:
-        img = Image.open(BytesIO(png_bytes))
-        img = img.convert("RGB") # ตัด Alpha ทิ้ง
-        out_buf = BytesIO()
-        img.save(out_buf, format="JPEG", quality=95)
-        return out_buf.getvalue()
-    except: return png_bytes
-
 def parse_json_response(text):
     try:
         text = re.sub(r"```json", "", text)
@@ -153,7 +135,11 @@ def clean_filename(name):
 def generate_image(api_key, image_list, prompt):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_IMAGE_GEN}:generateContent?key={key}"
-    parts = [{"text": f"Instruction: {prompt} \nConstraint: Keep the jewelry products in the input images EXACTLY as they are. Analyze all images to understand the 3D structure. Generate a realistic model wearing it."}]
+    
+    # เพิ่ม Constraint ใน Prompt เพื่อให้ Gemini พยายามรักษาลักษณะสินค้าเดิม
+    full_prompt = f"Instruction: {prompt} \nImportant Constraint: Keep the main jewelry product in the input image EXACTLY as it looks (same shape, design, texture). Only improve the lighting, background, and overall photography quality. Do not hallucinate new details on the product itself."
+    
+    parts = [{"text": full_prompt}]
     for img in image_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     
     try:
@@ -165,55 +151,6 @@ def generate_image(api_key, image_list, prompt):
         if "text" in content: return None, f"Model returned text: {content['text']}"
         return None, "Unknown format"
     except Exception as e: return None, str(e)
-
-# --- AI FUNCTIONS (OPENAI - RETOUCH FIXED) ---
-def generate_image_openai_edit(api_key, input_img_pil, prompt):
-    key = clean_key(api_key)
-    url = "https://api.openai.com/v1/images/edits"
-    headers = {"Authorization": f"Bearer {key}"}
-    
-    # 1. เตรียมรูป Input (บังคับ RGBA)
-    img_bytes = img_to_png_bytes(input_img_pil)
-    
-    # 2. สร้าง Mask (บังคับ RGBA & โปร่งใส 100% เพื่อให้ AI วาดทับได้)
-    # ถ้าไม่ใส่ Mask AI จะไม่แก้รูปที่ทึบแสง
-    mask_img = Image.new("RGBA", input_img_pil.size, (0, 0, 0, 0)) # Fully transparent mask
-    mask_bytes = img_to_png_bytes(mask_img)
-
-    files = {
-        'image': ('input.png', img_bytes, 'image/png'),
-        'mask': ('mask.png', mask_bytes, 'image/png')
-    }
-    
-    # ตัด Prompt ให้สั้นลงป้องกัน Error 400
-    clean_prompt = prompt[:900] # Safe limit
-    
-    data = {
-        "model": "dall-e-2", 
-        "prompt": f"Retouch this product, professional lighting: {clean_prompt}",
-        "n": 1,
-        "size": "1024x1024",
-    }
-    
-    try:
-        res = requests.post(url, headers=headers, files=files, data=data, timeout=60)
-        
-        if res.status_code == 200:
-            res_data = res.json()
-            image_url = res_data['data'][0]['url']
-            
-            # โหลดรูปจาก URL
-            img_res = requests.get(image_url)
-            if img_res.status_code == 200:
-                # แปลงเป็น JPG ก่อนส่งกลับ
-                return bytes_to_jpg_bytes(img_res.content), None
-            else:
-                return None, "Download failed"
-        else:
-            return None, f"OpenAI Error {res.status_code}: {res.text}"
-            
-    except Exception as e:
-        return None, str(e)
 
 def generate_seo_tags_post_gen(api_key, product_url):
     key = clean_key(api_key)
@@ -290,10 +227,12 @@ if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
 if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
 
+# Store results
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
 if "writer_result" not in st.session_state: st.session_state.writer_result = None
 if "retouch_results" not in st.session_state: st.session_state.retouch_results = None
 
+# Widget Keys
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
 if "writer_key_counter" not in st.session_state: st.session_state.writer_key_counter = 0
 if "retouch_key_counter" not in st.session_state: st.session_state.retouch_key_counter = 0
@@ -309,17 +248,6 @@ with st.sidebar:
     else:
         api_key = st.text_input("Gemini API Key", type="password")
     api_key = clean_key(api_key)
-
-    st.divider()
-
-    if "OPENAI_API_KEY" in st.secrets:
-        openai_key = st.secrets["OPENAI_API_KEY"]
-        st.success("✅ OpenAI Key Loaded")
-    else:
-        openai_key = st.text_input("OpenAI API Key (for Retouch)", type="password")
-    openai_key = clean_key(openai_key)
-    
-    st.divider()
 
     if "JSONBIN_API_KEY" in st.secrets: st.caption("✅ Database Connected")
     else: st.warning("⚠️ Local Mode (DB Not Connected)")
@@ -389,10 +317,10 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (FIXED MASK & JPG) ===
+# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION) ===
 with tab_retouch:
-    st.header("🎨 Retouch (via OpenAI Edit)")
-    st.caption("Upload raw product photos. AI will retouch based on prompt.")
+    st.header("🎨 Retouch (via Gemini)")
+    st.caption("Upload raw product photos. Gemini will regenerate them based on your prompt (one by one).")
     
     rt_key_id = st.session_state.retouch_key_counter
     
@@ -419,7 +347,6 @@ with tab_retouch:
         if rt_filtered:
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
             
-            # Tracker for style change
             style_tracker_key = f"last_rt_style_{rt_key_id}"
             if style_tracker_key not in st.session_state:
                 st.session_state[style_tracker_key] = rt_style['id']
@@ -442,7 +369,7 @@ with tab_retouch:
             rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=prompt_key)
             
             c_rt1, c_rt2 = st.columns([1, 1])
-            run_retouch = c_rt1.button("🚀 Run Retouch", type="primary", disabled=(not rt_imgs))
+            run_retouch = c_rt1.button("🚀 Run Batch Retouch", type="primary", disabled=(not rt_imgs))
             clear_retouch = c_rt2.button("🔄 Start Over", key="clear_retouch")
             
             if clear_retouch:
@@ -451,16 +378,18 @@ with tab_retouch:
                 st.rerun()
             
             if run_retouch:
-                if not openai_key:
-                    st.error("Missing OpenAI API Key!")
+                if not api_key:
+                    st.error("Missing Gemini API Key!")
                 else:
                     rt_temp_results = []
                     rt_pbar = st.progress(0)
                     
+                    # --- LOOP: Process One Image at a Time ---
                     for i, img in enumerate(rt_imgs):
-                        with st.spinner(f"Retouching Image #{i+1}..."):
-                            # ส่งรูป + Prompt + Mask(สร้างเอง)
-                            gen_img_bytes, err = generate_image_openai_edit(openai_key, img, rt_prompt_edit)
+                        with st.spinner(f"Processing Image #{i+1} with Gemini..."):
+                            # ส่งรูปเดียว + Prompt เข้าฟังก์ชัน generate_image เดิมของ Gemini
+                            # (ใส่เป็น list [img] เพราะฟังก์ชันรับ list)
+                            gen_img_bytes, err = generate_image(api_key, [img], rt_prompt_edit)
                             
                             rt_pbar.progress((i+1)/len(rt_imgs))
                             
@@ -471,20 +400,19 @@ with tab_retouch:
                                 rt_temp_results.append(None)
                                 
                     st.session_state.retouch_results = rt_temp_results
-                    st.success("Complete!")
+                    st.success("Batch Processing Complete!")
                     st.rerun()
 
     if st.session_state.retouch_results:
         st.divider()
-        st.subheader("🎨 Retouched Results")
+        st.subheader("🎨 Retouched Results (Gemini)")
         cols = st.columns(3)
         for i, res_bytes in enumerate(st.session_state.retouch_results):
             with cols[i % 3]:
                 st.write(f"**Result #{i+1}**")
                 if res_bytes:
                     st.image(res_bytes, use_column_width=True)
-                    # ปุ่ม Download เป็น JPG
-                    st.download_button("Download JPG", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
+                    st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
                 else: st.error("Failed")
 
 # === TAB 2: BULK SEO ===
