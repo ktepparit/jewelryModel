@@ -505,10 +505,10 @@ def get_shopify_product_images(shop_url, access_token, product_id):
     except Exception as e:
         return None, f"Connection Error: {str(e)}"
 
-# --- SHOPIFY GET DETAILS FUNCTION ---
+# --- SHOPIFY GET DETAILS FUNCTION (RETURNS 3 VALUES + HANDLE) ---
 def get_shopify_product_details(shop_url, access_token, product_id):
     """
-    ดึง Title และ Body HTML ของสินค้า
+    ดึง Title, Body HTML, และ Handle ของสินค้า
     """
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"):
@@ -521,12 +521,12 @@ def get_shopify_product_details(shop_url, access_token, product_id):
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             prod = response.json().get("product", {})
-            # Return body_html (description) and title
-            return prod.get("body_html", ""), prod.get("title", ""), None
+            # Return body_html, title, handle, error
+            return prod.get("body_html", ""), prod.get("title", ""), prod.get("handle", ""), None
         else:
-            return None, None, f"Error {response.status_code}: {response.text}"
+            return None, None, None, f"Error {response.status_code}: {response.text}"
     except Exception as e:
-        return None, None, str(e)
+        return None, None, None, str(e)
 
 # (ฟังก์ชัน HTML stripper ง่ายๆ เผื่อคุณอยากแปลง HTML เป็น Text ล้วน แต่ในที่นี้จะส่ง Raw HTML ให้ก่อน)
 def remove_html_tags(text):
@@ -727,6 +727,14 @@ with tab1:
                         with st.spinner("Downloading..."):
                             imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_gen_id)
                             if imgs:
+                                # Fetch Detail to get handle for URL
+                                _, _, handle, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_gen_id)
+                                if handle:
+                                    clean_shop = sh_secret_shop.replace("https://", "").replace("http://", "").strip()
+                                    if not clean_shop.endswith(".myshopify.com"): clean_shop += ".myshopify.com"
+                                    # Update 'post_url' session state directly
+                                    st.session_state['post_url'] = f"https://{clean_shop}/products/{handle}"
+
                                 st.session_state.gen_shopify_imgs = imgs
                                 st.success(f"Loaded {len(imgs)} images")
                                 st.rerun()
@@ -734,6 +742,7 @@ with tab1:
                             
                 if col_clear.button("❌ Clear", key="gen_clear_btn"):
                     st.session_state.gen_shopify_imgs = []
+                    if 'post_url' in st.session_state: st.session_state['post_url'] = ""
                     st.rerun()
             else:
                 st.info("Set Secrets to use Import")
@@ -818,7 +827,7 @@ with tab1:
                 st.markdown("---")
                 st.write("☁️ **Upload to Shopify (Add New Image)**")
                 
-                # 1. Gen Tags Section (Moved Logic Here for Flow)
+                # 1. Gen Tags Section
                 url_input = st.text_input("Product URL (for generating Tags):", key="post_url")
                 if st.button("✨ 1. Gen Tags"):
                     if not url_input:
@@ -1247,7 +1256,7 @@ with tab3:
                             # 1. Fetch Images
                             imgs, err_img = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_writer_id)
                             # 2. Fetch Description
-                            desc_html, title, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
+                            desc_html, title, handle, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             
                             if imgs:
                                 st.session_state.writer_shopify_imgs = imgs
