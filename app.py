@@ -182,6 +182,8 @@ Frequently Asked Questions (FAQ)
 
 6 รายละเอียดเพิ่มเติม (ถ้ามี)
 
+ถ้าหากฉันไม่มีข้อมูล คีย์เวิร์ดหลัก , คีย์เวิร์ดรองและ long tail keyword และ คีย์เวิร์ดหมวดหมู่มาให้ให้คุณทำการคิดให้ฉันเลย
+
 หลังจากนั้นให้คุณเขียน product description ตามคำสั่งข้างต้นโดยแทรก คีย์เวิร์ดรอง, คีย์เวิร์ดหมวดหมู่, Semantic Keywords และ Long-tail keywords เข้าไปยัง content ตามคำสั่งข้างต้น
 
 
@@ -1256,6 +1258,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
