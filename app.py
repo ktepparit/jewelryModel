@@ -366,10 +366,50 @@ def update_shopify_product_v2(shop_url, access_token, product_id, data, images_p
     except Exception as e:
         return False, f"Connection Error: {str(e)}"
 
-# --- SHOPIFY HELPER: UPLOAD IMAGES ONLY (NEW) ---
+# --- SHOPIFY HELPER: UPLOAD SINGLE IMAGE (APPEND ONLY) ---
+def add_single_image_to_shopify(shop_url, access_token, product_id, image_bytes):
+    """
+    เพิ่มรูปภาพ 1 รูปเข้าไปในสินค้า (ไม่ลบรูปเก่า) - สำหรับ Gen Image Tab
+    """
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"):
+        shop_url += ".myshopify.com"
+        
+    # Endpoint สำหรับเพิ่มรูป (POST .../images.json)
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+    
+    if not image_bytes:
+        return False, "No valid image data."
+
+    # แปลง Bytes เป็น Base64
+    b64_str = base64.b64encode(image_bytes).decode('utf-8')
+    
+    payload = {
+        "image": {
+            "attachment": b64_str,
+            "filename": f"gen_ai_image_{int(time.time())}.jpg", # Unique filename
+            "alt": "AI Generated Product Image"
+        }
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            return True, "✅ Added Successful! เพิ่มรูปภาพใหม่เข้าไปเรียบร้อยแล้ว"
+        else:
+            return False, f"Shopify Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+
+# --- SHOPIFY HELPER: UPLOAD IMAGES (REPLACE ALL) ---
 def upload_only_images_to_shopify(shop_url, access_token, product_id, image_bytes_list):
     """
-    อัปโหลดรูปภาพไปแทนที่รูปเดิมทั้งหมด (Replace All)
+    อัปโหลดรูปภาพไปแทนที่รูปเดิมทั้งหมด (Replace All) - สำหรับ Retouch Tab
     image_bytes_list: List ของข้อมูลรูปภาพแบบ Bytes (ไม่ใช่ PIL)
     """
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
@@ -390,8 +430,8 @@ def upload_only_images_to_shopify(shop_url, access_token, product_id, image_byte
             b64_str = base64.b64encode(img_bytes).decode('utf-8')
             img_payloads.append({
                 "attachment": b64_str,
-                "filename": f"gen_image_{i+1}.jpg", # ตั้งชื่อไฟล์ default
-                "alt": f"Product Image {i+1}"
+                "filename": f"retouched_image_{i+1}.jpg", # ตั้งชื่อไฟล์ default
+                "alt": f"Retouched Product Image {i+1}"
             })
             
     if not img_payloads:
@@ -767,9 +807,9 @@ with tab1:
                 # Download Button
                 st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
                 
-                # --- AUTOMATION: UPLOAD TO SHOPIFY ---
+                # --- AUTOMATION: UPLOAD TO SHOPIFY (ADD IMAGE ONLY) ---
                 st.markdown("---")
-                st.write("☁️ **Upload to Shopify**")
+                st.write("☁️ **Upload to Shopify (Add New Image)**")
                 
                 with st.container(border=True):
                     # Auto-load Secrets
@@ -780,19 +820,19 @@ with tab1:
                     default_id = st.session_state.get("gen_shopify_id", "")
                     
                     col_u1, col_u2 = st.columns([2, 1])
-                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", help="รูปนี้จะไปแทนที่รูปเดิมทั้งหมดของสินค้านี้")
+                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", help="เพิ่มรูปนี้เข้าไปในสินค้าโดยไม่ลบรูปเก่า")
                     
-                    if col_u2.button("🚀 Upload & Replace", type="primary", use_container_width=True):
+                    if col_u2.button("🚀 Upload (Add Image)", type="primary", use_container_width=True):
                         if not s_shop or not s_token:
                             st.error("Missing Shopify Secrets")
                         elif not u_prod_id:
                             st.warning("Enter Product ID")
                         else:
                             with st.spinner("Uploading to Shopify..."):
-                                # ส่งรูปปัจจุบันไป (ใส่ list เพราะฟังก์ชันรับ list)
-                                success, msg = upload_only_images_to_shopify(
+                                # เรียกใช้ฟังก์ชันใหม่สำหรับ ADD รูป (POST)
+                                success, msg = add_single_image_to_shopify(
                                     s_shop, s_token, u_prod_id, 
-                                    [st.session_state.current_generated_image]
+                                    st.session_state.current_generated_image
                                 )
                                 if success: st.success(msg)
                                 else: st.error(msg)
@@ -829,6 +869,7 @@ with tab_retouch:
             
             if sh_secret_shop and sh_secret_token:
                 st.success("✅ Shopify Connected")
+                # ช่องกรอก ID สำหรับดึงรูป (จะใช้ค่านี้ไปเป็น default ในช่อง upload ด้วย)
                 sh_imp_id = st.text_input("Product ID to Fetch", key=f"imp_id_{rt_key_id}")
                 
                 c_fetch, c_clear = st.columns([2,1])
@@ -995,7 +1036,7 @@ with tab_retouch:
                     st.image(res_bytes, use_column_width=True)
                 else: st.error("Failed")
 
-        # --- AUTOMATION: UPLOAD TO SHOPIFY ---
+        # --- AUTOMATION: UPLOAD TO SHOPIFY (REPLACE ALL) ---
         st.markdown("---")
         st.subheader("🚀 Automation: Upload to Shopify")
         st.caption("⚠️ การกดปุ่มนี้จะ **ลบรูปเดิมทั้งหมด** บน Shopify และแทนที่ด้วยชุดรูป Retouch นี้")
