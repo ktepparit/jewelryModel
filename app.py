@@ -79,71 +79,6 @@ search แนะนำ product ของฉันให้กับลูกค�
 
     สิ่งที่ควรวาง:
 
-        คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คีย์เวิร์ดหลัก ให้ชัดเจน
-
-        Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: 
-
-2. ส่วนกลางของเนื้อหา (Body of the Content)
-
-    เป้าหมาย: เล่าเรื่องราว, อธิบายดีไซน์, บอกคุณสมบัติ
-
-    สิ่งที่ควรวาง: นี่คือพื้นที่ที่ดีที่สุดในการกระจาย Semantic Keywords ส่วนใหญ่
-
-    ส่วนที่เล่าถึงที่มา/แรงบันดาลใจ: 
-
-    ส่วนที่อธิบายสัญลักษณ์: 
-
-3. ส่วนคุณสมบัติ (Specifications / Beautiful Bullet Points)
-
-    เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
-
-    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish และช่วยทำตัวหนาและใส่สี font ข้อมูลที่เป็นตัวเลขภายใน bullit point ให้ด้วย เช่นคำว่า 110 grams, 16 mm. (5/8 inches) เป็นต้น
-
-4. ส่วนคำถามที่พบบ่อย (FAQ Section)
-
-    เป้าหมาย: ตอบข้อสงสัยและให้ข้อมูลเพิ่มเติม
-
-    สิ่งที่ควรวาง: เป็นโอกาสที่ดีในการใช้คีย์เวิร์ดแบบยาวๆ (Long-tail keywords) และ Semantic Keywords ที่เกี่ยวข้อง
-
-** คีย์เวิร์ดรอง : กระจายคีย์เวิร์ดรอง ไปในเนื้อหาส่วนอื่นๆ อย่างเป็นธรรมชาติ 
-
-** คีย์เวิร์ดหมวดหมู่): ใช้คำนี้เพื่อสร้างการเชื่อมโยงและอ้างอิงถึงหมวดหมู่ที่ใหญ่ขึ้น และเป็นโอกาสที่ดีในการสร้าง Internal Link กลับไปยังหน้า Collection
-
-โดยลักษณะของการเขียนจัดเรียงประมาณนี้ครับ
-
-Product Overview
-
-Key Features at a Glance or Key Features & Benefits or  What Makes This Special ให้คุณเลือกใช้ได้ตามเหมาะสม
-
-Frequently Asked Questions (FAQ) 
-
-รวมทั้งช่วยเขียน Google SEO-optimized meta title (approximately 60 characters)  and Google SEO-optimized meta description รวมทั้งช่วยเขียน SEO-optimized image file name พร้อมกับ image alt tag สำหรับ product นี้สำหรับทุก images และ url slug
-
-
-ตัวอย่างการเพิ่มคำที่เกี่ยวข้องโดยให้เพิ่ม Semantic Keywords เข้าไปเช่น ถ้าสมมติกำหนดให้คีย์เวิร์ดหลักคือ "medusa ring" เพิ่ม Semantic Keywords คือคำที่เกี่ยวข้องกับตำนานเมดูซ่าเข้าไปในเนื้อหาเพื่อสร้างความเชี่ยวชาญในหัวข้อ (Topical Authority) เช่น Greek mythology, serpent hair, petrifying gaze, goddess Athena เป็นต้น 
-
-โดยกระจาย Semantic Keywords ไปทั่วทั้งบทความอย่างเป็นธรรมชาติ
-
-หลักการทำงานของ Semantic Keywords
-
-เป้าหมายของการใช้ Semantic Keywords คือการสร้างเนื้อหาที่ "สมบูรณ์" และ "เป็นธรรมชาติ" ในหัวข้อนั้นๆ เพื่อแสดงให้ Google เห็นว่าคุณคือผู้เชี่ยวชาญจริง ไม่ใช่แค่รู้จักคีย์เวิร์ดหลักเพียงคำเดียว
-
-การอัดแน่นในย่อหน้าเดียว: จะทำให้เนื้อหาอ่านดูไม่เป็นธรรมชาติ และอาจถูกมองว่าเป็นการพยายามยัดเยียดคีย์เวิร์ด (Keyword Stuffing) ซึ่งส่งผลเสียต่อ SEO ได้
-
-การกระจายอย่างเป็นธรรมชาติ: จะทำให้บทความของคุณมีมิติ น่าอ่าน และที่สำคัญคือเป็นการส่งสัญญาณให้ Google เห็นว่าเนื้อหาของคุณมีคุณภาพและครอบคลุมหัวข้อนั้นๆ อย่างลึกซึ้ง
-
-หลักการทำงานของ Semantic Keywords
-
-กลยุทธ์การวาง Semantic Keywords ที่ดีที่สุด (Best Placement Strategy)
-
-ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้ครับ:
-
-1. ย่อหน้าแรก (Opening Paragraph)
-
-    เป้าหมาย: บอก Google และผู้ใช้ให้ชัดเจนที่สุดว่าหน้านี้เกี่ยวกับอะไร
-
-    สิ่งที่ควรวาง:
-
         คีย์เวิร์ดหลัก (Primary Keyword): เน้นที่คำว่า medusa ring ให้ชัดเจน
 
         Semantic Keyword ที่สำคัญที่สุด 1-2 คำ: อาจจะใส่คำว่า Greek mythology หรือ Gorgon เข้าไปถ้ามันทำให้ประโยคดูสละสลวยขึ้น
@@ -862,51 +797,52 @@ with tab1:
 
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider()
-                st.subheader("✨ Result & Upload")
-                
-                res_col1, res_col2 = st.columns([1, 1.2])
-                with res_col1:
-                    st.image(st.session_state.current_generated_image, use_column_width=True)
-                    st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
+                st.subheader("✨ Result")
+                # Full width image view
+                st.image(st.session_state.current_generated_image, use_column_width=True)
+                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
 
-                with res_col2:
-                    with st.container(border=True):
-                        st.write("☁️ **Upload to Shopify (Add New Image)**")
-                        
-                        # Display & Edit Tags
-                        tags_data = st.session_state.get("gen_tags_result", {})
-                        
-                        default_filename = tags_data.get("file_name", "")
-                        default_alt = tags_data.get("alt_tag", "")
-                        
-                        final_filename = st.text_input("File Name", value=default_filename, help="SEO-optimized filename")
-                        final_alt = st.text_input("Alt Tag", value=default_alt, help="Descriptive alt text")
-                        
-                        # Auto-load Secrets
-                        s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
-                        s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-                        
-                        # พยายามดึง ID จากช่อง Import ด้านบนมาใส่ให้
-                        default_id = st.session_state.get("gen_shopify_id", "")
-                        
-                        u_prod_id = st.text_input("Product ID", value=default_id, key="gen_upload_id")
-                        
-                        if st.button("🚀 Upload (Add Image)", type="primary", use_container_width=True):
-                            if not s_shop or not s_token:
-                                st.error("Missing Shopify Secrets")
-                            elif not u_prod_id:
-                                st.warning("Enter Product ID")
-                            else:
-                                with st.spinner("Uploading to Shopify..."):
-                                    # เรียกใช้ฟังก์ชันใหม่สำหรับ ADD รูป (POST) พร้อม Tags
-                                    success, msg = add_single_image_to_shopify(
-                                        s_shop, s_token, u_prod_id, 
-                                        st.session_state.current_generated_image,
-                                        file_name=final_filename,
-                                        alt_tag=final_alt
-                                    )
-                                    if success: st.success(msg)
-                                    else: st.error(msg)
+                st.divider()
+                st.subheader("☁️ Upload to Shopify (Add New Image)")
+                with st.container(border=True):
+                    
+                    # Display & Edit Tags
+                    tags_data = st.session_state.get("gen_tags_result", {})
+                    
+                    default_filename = tags_data.get("file_name", "")
+                    default_alt = tags_data.get("alt_tag", "")
+                    
+                    col_tags1, col_tags2 = st.columns(2)
+                    final_filename = col_tags1.text_input("File Name", value=default_filename, help="SEO-optimized filename")
+                    final_alt = col_tags2.text_input("Alt Tag", value=default_alt, help="Descriptive alt text")
+                    
+                    # Auto-load Secrets
+                    s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+                    s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+                    
+                    # พยายามดึง ID จากช่อง Import ด้านบนมาใส่ให้
+                    default_id = st.session_state.get("gen_shopify_id", "")
+                    
+                    col_u1, col_u2 = st.columns([3, 1])
+                    # Use session state key directly for value update
+                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", label_visibility="collapsed")
+                    
+                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True):
+                        if not s_shop or not s_token:
+                            st.error("Missing Shopify Secrets")
+                        elif not u_prod_id:
+                            st.warning("Enter Product ID")
+                        else:
+                            with st.spinner("Uploading to Shopify..."):
+                                # เรียกใช้ฟังก์ชันใหม่สำหรับ ADD รูป (POST) พร้อม Tags
+                                success, msg = add_single_image_to_shopify(
+                                    s_shop, s_token, u_prod_id, 
+                                    st.session_state.current_generated_image,
+                                    file_name=final_filename,
+                                    alt_tag=final_alt
+                                )
+                                if success: st.success(msg)
+                                else: st.error(msg)
 
 # === TAB 1.5: RETOUCH IMAGES (UPDATED WITH SHOPIFY IMPORT) ===
 with tab_retouch:
