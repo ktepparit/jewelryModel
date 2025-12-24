@@ -925,57 +925,66 @@ with tab3:
                 st.info("No images uploaded.")
 
             
-        # ... (ต่อจากโค้ดเดิมใน Tab 3 ส่วน Loop แสดง Image SEO) ...
+# ... (วางต่อท้ายหลังจากแสดงผล Image SEO Mapping ใน Tab 3) ...
 
-            st.markdown("---")
-            st.subheader("🚀 Automation: Publish to Shopify")
+            st.divider()
+            st.markdown("### 🚀 Submit to Shopify Automation")
             
             with st.container(border=True):
                 st.info("ℹ️ ระบบจะอัปเดต: Title, Description (HTML), Meta Title/Desc และรูปภาพ (ถ้าเลือก)")
                 
-                # 1. Config Inputs (ดึงจาก Secrets ก่อน ถ้าไม่มีให้กรอกเอง)
-                col_s1, col_s2, col_s3 = st.columns(3)
+                # --- 1. CONFIGURATION CHECK ---
+                secret_shop = st.secrets.get("SHOPIFY_SHOP_URL")
+                secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN")
                 
-                default_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
-                default_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+                s_shop = None
+                s_token = None
+                s_prod_id = None
                 
-                # Input: Shop URL
-                s_shop = col_s1.text_input("Shop URL (.myshopify.com)", value=default_shop, help="เช่น your-shop.myshopify.com")
+                # กรณีมี Secret ครบ -> ซ่อน Input เพื่อความปลอดภัย
+                if secret_shop and secret_token:
+                    col_info, col_input = st.columns([1, 1])
+                    with col_info:
+                        st.success("✅ Credentials Loaded from Secrets")
+                        st.write(f"**Target Shop:** `{secret_shop}`")
+                        s_shop = secret_shop
+                        s_token = secret_token
+                    with col_input:
+                        s_prod_id = st.text_input("Product ID", help="เลข ID สินค้าจาก URL หลังบ้าน Shopify เช่น 8472xxxx")
                 
-                # Input: Token
-                s_token = col_s2.text_input("Access Token (shpat_...)", value=default_token, type="password")
-                
-                # Input: Product ID (ตาม Requirement ข้อ 1)
-                s_prod_id = col_s3.text_input("Product ID", help="เลข ID สินค้าจาก URL หลังบ้าน Shopify เช่น 8472xxxx")
-                
-                # 2. Options (ตาม Requirement ข้อ 5)
+                # กรณีไม่มี Secret -> แสดงช่องกรอก (Fallback)
+                else:
+                    st.warning("⚠️ ไม่พบ Credentials ใน Secrets.toml กรุณากรอกด้านล่าง")
+                    c1, c2, c3 = st.columns(3)
+                    s_shop = c1.text_input("Shop URL", placeholder="xxx.myshopify.com")
+                    s_token = c2.text_input("Access Token", type="password")
+                    s_prod_id = c3.text_input("Product ID")
+
+                # --- 2. OPTIONS ---
                 st.write("**Options:**")
-                
-                # Checkbox เลือกรูปภาพ (ตาม Requirement ข้อ 4 & 5)
-                # ถ้าไม่ติ๊ก -> รูปใน Shopify จะเหมือนเดิม ไม่ถูกยุ่งเกี่ยว
-                # ถ้าติ๊ก -> รูปเก่าจะหายไป แทนที่ด้วยรูปใหม่ + ชื่อไฟล์/Alt tag จาก AI
-                enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=False, help="ถ้าเลือก: รูปเดิมบน Shopify จะถูกลบและแทนที่ด้วยรูปชุดนี้ พร้อมตั้งชื่อไฟล์และ Alt Tag ตามผลลัพธ์ AI")
+                # Checkbox เลือกรูปภาพ
+                enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=False, help="ระวัง! รูปเดิมบน Shopify จะถูกลบและแทนที่ด้วยรูปชุดนี้ทั้งหมด")
                 
                 if enable_img_upload and not writer_imgs:
-                    st.warning("⚠️ คุณเลือกอัปโหลดรูปภาพ แต่ยังไม่มีรูปในระบบ (Writer Images)")
+                    st.warning("⚠️ เตือน: คุณเลือกอัปโหลดรูปภาพ แต่ยังไม่มีรูปในระบบ")
 
-                # 3. Submit Button
+                # --- 3. SUBMIT BUTTON ---
                 if st.button("☁️ Update Product to Shopify Now", type="primary", use_container_width=True):
-                    # Validation เบื้องต้น
+                    # Validation
                     if not s_shop or not s_token or not s_prod_id:
-                        st.error("กรุณากรอกข้อมูล Shop URL, Token และ Product ID ให้ครบถ้วน")
+                        st.error("❌ ข้อมูลไม่ครบถ้วน (ตรวจสอบ Secret หรือช่องกรอกข้อมูล)")
                     elif not st.session_state.writer_result:
-                        st.error("กรุณา Generate Content ก่อนกดส่ง")
+                        st.error("❌ กรุณา Generate Content ก่อนกดส่ง")
                     else:
-                        # เรียกใช้ฟังก์ชัน
+                        # Action
                         with st.spinner("Connecting to Shopify... (Sending Data & Images)"):
                             success, msg = update_shopify_product_v2(
                                 shop_url=s_shop,
                                 access_token=s_token,
                                 product_id=s_prod_id,
-                                data=st.session_state.writer_result, # ข้อมูล Text/SEO (Requirement ข้อ 2)
-                                images_pil=writer_imgs,     # รูปภาพ (Requirement ข้อ 4)
-                                upload_images=enable_img_upload # Toggle (Requirement ข้อ 5)
+                                data=st.session_state.writer_result,
+                                images_pil=writer_imgs,
+                                upload_images=enable_img_upload
                             )
                             
                             if success:
@@ -1033,5 +1042,6 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
