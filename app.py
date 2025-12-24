@@ -285,7 +285,7 @@ def parse_json_response(text):
         return json.loads(text)
     except: return None
 
-# --- SHOPIFY HELPER FUNCTION ---
+# --- SHOPIFY HELPER FUNCTION (FULL UPDATE) ---
 def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
     """
     shop_url: ชื่อร้าน (subdomain) หรือ full url
@@ -363,6 +363,53 @@ def update_shopify_product_v2(shop_url, access_token, product_id, data, images_p
             return True, "✅ Update Successful! ข้อมูล (และรูปภาพ) ถูกแก้ไขเรียบร้อยแล้ว"
         else:
             return False, f"Shopify API Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+
+# --- SHOPIFY HELPER: UPLOAD IMAGES ONLY (NEW) ---
+def upload_only_images_to_shopify(shop_url, access_token, product_id, image_bytes_list):
+    """
+    อัปโหลดรูปภาพไปแทนที่รูปเดิมทั้งหมด (Replace All)
+    image_bytes_list: List ของข้อมูลรูปภาพแบบ Bytes (ไม่ใช่ PIL)
+    """
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"):
+        shop_url += ".myshopify.com"
+        
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+    
+    img_payloads = []
+    for i, img_bytes in enumerate(image_bytes_list):
+        if img_bytes:
+            # แปลง Bytes เป็น Base64 โดยตรง
+            b64_str = base64.b64encode(img_bytes).decode('utf-8')
+            img_payloads.append({
+                "attachment": b64_str,
+                "filename": f"gen_image_{i+1}.jpg", # ตั้งชื่อไฟล์ default
+                "alt": f"Product Image {i+1}"
+            })
+            
+    if not img_payloads:
+        return False, "No valid images to upload."
+
+    payload = {
+        "product": {
+            "id": product_id,
+            "images": img_payloads # การส่ง key images จะเป็นการ Replace รูปเดิมทั้งหมด
+        }
+    }
+    
+    try:
+        response = requests.put(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            return True, "✅ Upload Successful! รูปภาพถูกแทนที่เรียบร้อยแล้ว"
+        else:
+            return False, f"Shopify Error {response.status_code}: {response.text}"
     except Exception as e:
         return False, f"Connection Error: {str(e)}"
         
@@ -714,12 +761,45 @@ with tab1:
 
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider()
+                st.subheader("✨ Result")
                 st.image(st.session_state.current_generated_image, use_column_width=True)
-                st.download_button("Download", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="primary")
+                
+                # Download Button
+                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
+                
+                # --- AUTOMATION: UPLOAD TO SHOPIFY ---
+                st.markdown("---")
+                st.write("☁️ **Upload to Shopify**")
+                
+                with st.container(border=True):
+                    # Auto-load Secrets
+                    s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+                    s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+                    
+                    # พยายามดึง ID จากช่อง Import ด้านบนมาใส่ให้
+                    default_id = st.session_state.get("gen_shopify_id", "")
+                    
+                    col_u1, col_u2 = st.columns([2, 1])
+                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", help="รูปนี้จะไปแทนที่รูปเดิมทั้งหมดของสินค้านี้")
+                    
+                    if col_u2.button("🚀 Upload & Replace", type="primary", use_container_width=True):
+                        if not s_shop or not s_token:
+                            st.error("Missing Shopify Secrets")
+                        elif not u_prod_id:
+                            st.warning("Enter Product ID")
+                        else:
+                            with st.spinner("Uploading to Shopify..."):
+                                # ส่งรูปปัจจุบันไป (ใส่ list เพราะฟังก์ชันรับ list)
+                                success, msg = upload_only_images_to_shopify(
+                                    s_shop, s_token, u_prod_id, 
+                                    [st.session_state.current_generated_image]
+                                )
+                                if success: st.success(msg)
+                                else: st.error(msg)
+                
                 st.divider()
                 url_input = st.text_input("Product URL:", key="post_url")
                 if st.button("✨ Gen Tags"):
-                      # (Logic เดิม...)
                       with st.spinner("Thinking..."):
                         txt, err = generate_seo_tags_post_gen(api_key, url_input)
                         if txt: st.code(txt) # Simplified display for brevity
@@ -914,6 +994,39 @@ with tab_retouch:
                 if res_bytes:
                     st.image(res_bytes, use_column_width=True)
                 else: st.error("Failed")
+
+        # --- AUTOMATION: UPLOAD TO SHOPIFY ---
+        st.markdown("---")
+        st.subheader("🚀 Automation: Upload to Shopify")
+        st.caption("⚠️ การกดปุ่มนี้จะ **ลบรูปเดิมทั้งหมด** บน Shopify และแทนที่ด้วยชุดรูป Retouch นี้")
+        
+        with st.container(border=True):
+            # Auto-load Secrets
+            rt_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+            rt_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+            
+            # พยายามดึง ID จากช่อง Import ด้านบน (auto-fill default value)
+            # key "imp_id_{rt_key_id}" มาจาก loop ต้องดึงค่าให้ถูก
+            current_imp_id = st.session_state.get(f"imp_id_{rt_key_id}", "")
+            
+            col_rt_u1, col_rt_u2 = st.columns([2, 1])
+            rt_prod_id = col_rt_u1.text_input("Target Product ID", value=current_imp_id, key="rt_upload_id")
+            
+            if col_rt_u2.button("☁️ Upload All & Replace", type="primary", use_container_width=True):
+                if not rt_shop or not rt_token:
+                    st.error("Missing Secrets")
+                elif not rt_prod_id:
+                    st.warning("Enter Product ID")
+                elif not any(st.session_state.retouch_results):
+                    st.warning("No images to upload")
+                else:
+                    with st.spinner(f"Uploading {len(st.session_state.retouch_results)} images..."):
+                        success, msg = upload_only_images_to_shopify(
+                            rt_shop, rt_token, rt_prod_id, 
+                            st.session_state.retouch_results
+                        )
+                        if success: st.success(msg); st.balloons()
+                        else: st.error(msg)
     
     # ... (ส่วน SEO Name & Slug Generator เดิมของคุณ ให้คงไว้ต่อท้ายตรงนี้ได้เลย) ...
     # ========================================================
