@@ -40,6 +40,18 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
+# --- NEW PROMPT: GEN TAGS FROM PROMPT TEXT ---
+SEO_PROMPT_FROM_TEXT = """
+You are an SEO specialist for Jewelry e-commerce.
+Based on this product image description/prompt: "{context}"
+Generate:
+1. An SEO-optimized image file name (lowercase, use hyphens, end with .jpg).
+2. A descriptive Image Alt Tag (English).
+
+IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
+Structure: {"file_name": "silver-ring-example.jpg", "alt_tag": "Description of the ring"}
+"""
+
 SEO_PROMPT_BULK_EXISTING = """
 คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
@@ -567,6 +579,26 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
+def generate_seo_tags_from_context(api_key, context):
+    """
+    Gen SEO Tags based on prompt text/context (For Gen Image tab)
+    """
+    key = clean_key(api_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
+    prompt = SEO_PROMPT_FROM_TEXT.replace("{context}", context)
+    payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
+    
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200:
+                content = res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0]
+                return content.get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, f"Error {res.status_code}"
+        except Exception as e: time.sleep(1)
+    return None, "Failed"
+
 def generate_seo_tags_post_gen(api_key, product_url):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
@@ -670,7 +702,7 @@ if "library" not in st.session_state: st.session_state.library = get_prompts()
 if "edit_target" not in st.session_state: st.session_state.edit_target = None
 if "image_generated_success" not in st.session_state: st.session_state.image_generated_success = False
 if "current_generated_image" not in st.session_state: st.session_state.current_generated_image = None
-if "gen_tags_result" not in st.session_state: st.session_state.gen_tags_result = None # State for Gen Tags Result
+if "gen_tags_result" not in st.session_state: st.session_state.gen_tags_result = {} # Store Tags as Dict {file_name, alt_tag}
 
 # Store results
 if "bulk_results" not in st.session_state: st.session_state.bulk_results = None
@@ -807,83 +839,74 @@ with tab1:
             if st.button("🚀 GENERATE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send: st.error("Check Key & Images")
                 else:
-                    with st.spinner("Generating..."):
+                    # 1. Gen Image
+                    with st.spinner("Generating Image & Tags..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.session_state.current_generated_image = d
                             st.session_state.image_generated_success = True
-                            st.session_state.gen_tags_result = None # Clear old tags
+                            
+                            # 2. Gen Tags (From Prompt)
+                            tags_json, tags_err = generate_seo_tags_from_context(api_key, prompt_edit)
+                            if tags_json:
+                                parsed_tags = parse_json_response(tags_json)
+                                if parsed_tags:
+                                    st.session_state.gen_tags_result = parsed_tags
+                                else:
+                                    st.session_state.gen_tags_result = {}
+                            else:
+                                st.session_state.gen_tags_result = {}
+                                
                             st.rerun()
                         else: st.error(e)
 
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider()
-                st.subheader("✨ Result")
-                st.image(st.session_state.current_generated_image, use_column_width=True)
+                st.subheader("✨ Result & Upload")
                 
-                # Download Button
-                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
-                
-                # --- AUTOMATION: UPLOAD TO SHOPIFY (ADD IMAGE ONLY) ---
-                st.markdown("---")
-                st.write("☁️ **Upload to Shopify (Add New Image)**")
-                
-                # 1. Gen Tags Section (Moved Logic Here for Flow)
-                url_input = st.text_input("Product URL (for generating Tags):", key="post_url")
-                if st.button("✨ 1. Gen Tags"):
-                    if not url_input:
-                        st.warning("Please enter Product URL first.")
-                    else:
-                        with st.spinner("Thinking..."):
-                            txt, err = generate_seo_tags_post_gen(api_key, url_input)
-                            if txt:
-                                d = parse_json_response(txt)
-                                if d:
-                                    st.session_state.gen_tags_result = d
-                                    st.success("Tags Generated!")
-                                    st.code(d)
-                                else:
-                                    st.error("Failed to parse tags")
+                res_col1, res_col2 = st.columns([1, 1.2])
+                with res_col1:
+                    st.image(st.session_state.current_generated_image, use_column_width=True)
+                    st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
+
+                with res_col2:
+                    with st.container(border=True):
+                        st.write("☁️ **Upload to Shopify (Add New Image)**")
+                        
+                        # Display & Edit Tags
+                        tags_data = st.session_state.get("gen_tags_result", {})
+                        
+                        default_filename = tags_data.get("file_name", "")
+                        default_alt = tags_data.get("alt_tag", "")
+                        
+                        final_filename = st.text_input("File Name", value=default_filename, help="SEO-optimized filename")
+                        final_alt = st.text_input("Alt Tag", value=default_alt, help="Descriptive alt text")
+                        
+                        # Auto-load Secrets
+                        s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+                        s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+                        
+                        # พยายามดึง ID จากช่อง Import ด้านบนมาใส่ให้
+                        default_id = st.session_state.get("gen_shopify_id", "")
+                        
+                        u_prod_id = st.text_input("Product ID", value=default_id, key="gen_upload_id")
+                        
+                        if st.button("🚀 Upload (Add Image)", type="primary", use_container_width=True):
+                            if not s_shop or not s_token:
+                                st.error("Missing Shopify Secrets")
+                            elif not u_prod_id:
+                                st.warning("Enter Product ID")
                             else:
-                                st.error(err)
-
-                # 2. Upload Section
-                with st.container(border=True):
-                    # Auto-load Secrets
-                    s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
-                    s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-                    
-                    # พยายามดึง ID จากช่อง Import ด้านบนมาใส่ให้
-                    default_id = st.session_state.get("gen_shopify_id", "")
-                    
-                    col_u1, col_u2 = st.columns([2, 1])
-                    # Use session state key directly for value update
-                    u_prod_id = col_u1.text_input("Product ID", key="gen_upload_id", help="เพิ่มรูปนี้เข้าไปในสินค้าโดยไม่ลบรูปเก่า")
-                    
-                    if col_u2.button("🚀 2. Upload (Add Image)", type="primary", use_container_width=True):
-                        if not s_shop or not s_token:
-                            st.error("Missing Shopify Secrets")
-                        elif not u_prod_id:
-                            st.warning("Enter Product ID")
-                        else:
-                            with st.spinner("Uploading to Shopify..."):
-                                # Prepare Tags if available
-                                fname_to_send = None
-                                alt_to_send = None
-                                if st.session_state.gen_tags_result:
-                                    fname_to_send = st.session_state.gen_tags_result.get("file_name")
-                                    alt_to_send = st.session_state.gen_tags_result.get("alt_tag")
-                                    st.info(f"Using Generated Tags: {fname_to_send}")
-
-                                # เรียกใช้ฟังก์ชันใหม่สำหรับ ADD รูป (POST)
-                                success, msg = add_single_image_to_shopify(
-                                    s_shop, s_token, u_prod_id, 
-                                    st.session_state.current_generated_image,
-                                    file_name=fname_to_send,
-                                    alt_tag=alt_to_send
-                                )
-                                if success: st.success(msg)
-                                else: st.error(msg)
+                                with st.spinner("Uploading to Shopify..."):
+                                    # เรียกใช้ฟังก์ชันใหม่สำหรับ ADD รูป (POST) พร้อม Tags
+                                    success, msg = add_single_image_to_shopify(
+                                        s_shop, s_token, u_prod_id, 
+                                        st.session_state.current_generated_image,
+                                        file_name=final_filename,
+                                        alt_tag=final_alt
+                                    )
+                                    if success: st.success(msg)
+                                    else: st.error(msg)
 
 # === TAB 1.5: RETOUCH IMAGES (UPDATED WITH SHOPIFY IMPORT) ===
 with tab_retouch:
