@@ -283,6 +283,87 @@ def parse_json_response(text):
         return json.loads(text)
     except: return None
 
+# --- SHOPIFY HELPER FUNCTION ---
+def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
+    """
+    shop_url: ชื่อร้าน (subdomain) หรือ full url
+    access_token: shpat_...
+    product_id: ID สินค้า
+    data: JSON Data จาก AI
+    images_pil: List ของ PIL Images (ถ้าจะอัปโหลดรูป)
+    upload_images: Boolean flag ว่าจะเอาสรูปขึ้นด้วยไหม
+    """
+    # Clean URL
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"):
+        shop_url += ".myshopify.com"
+        
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+    
+    # 1. Prepare Basic Product Data
+    product_payload = {
+        "id": product_id,
+        "title": data.get('product_title_h1'),
+        "body_html": data.get('html_content'),
+        # เราไม่ใส่ "handle": data.get('url_slug') ตามที่คุณแจ้งว่าไม่ต้องการแก้ slug
+        
+        # SEO Metafields (Global Title & Description)
+        "metafields": [
+            {
+                "namespace": "global",
+                "key": "title_tag",
+                "value": data.get('meta_title', ''),
+                "type": "single_line_text_field"
+            },
+            {
+                "namespace": "global",
+                "key": "description_tag",
+                "value": data.get('meta_description', ''),
+                "type": "multi_line_text_field"
+            }
+        ]
+    }
+    
+    # 2. Prepare Images (ถ้า User เลือกให้เอาขึ้น)
+    if upload_images and images_pil and "image_seo" in data:
+        img_payloads = []
+        image_seo_list = data.get("image_seo", [])
+        
+        for i, img in enumerate(images_pil):
+            # ดึงข้อมูล SEO ที่ตรงกับลำดับภาพ
+            seo_info = image_seo_list[i] if i < len(image_seo_list) else {}
+            
+            # แปลงรูปเป็น Base64
+            b64_str = img_to_base64(img) # ใช้ฟังก์ชันเดิมที่มีอยู่แล้ว
+            
+            # สร้าง Payload ของรูปภาพ
+            img_entry = {
+                "attachment": b64_str,
+                "filename": seo_info.get("file_name", f"image_{i+1}.jpg"),
+                "alt": seo_info.get("alt_tag", "")
+            }
+            img_payloads.append(img_entry)
+            
+        if img_payloads:
+            # การส่ง images ไปใน PUT request จะเป็นการ Replace รูปเดิมทั้งหมด
+            product_payload["images"] = img_payloads
+
+    try:
+        # ยิง Request ไป Shopify
+        response = requests.put(url, json={"product": product_payload}, headers=headers)
+        
+        if response.status_code in [200, 201]:
+            return True, "✅ Update Successful! ข้อมูล (และรูปภาพ) ถูกแก้ไขเรียบร้อยแล้ว"
+        else:
+            return False, f"Shopify API Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+        
 def clean_filename(name):
     if not name: return "N/A"
     clean = re.sub(r'[^a-zA-Z0-9\-\_\.]', '', str(name))
@@ -843,6 +924,66 @@ with tab3:
             else:
                 st.info("No images uploaded.")
 
+            
+        # ... (ต่อจากโค้ดเดิมใน Tab 3 ส่วน Loop แสดง Image SEO) ...
+
+            st.markdown("---")
+            st.subheader("🚀 Automation: Publish to Shopify")
+            
+            with st.container(border=True):
+                st.info("ℹ️ ระบบจะอัปเดต: Title, Description (HTML), Meta Title/Desc และรูปภาพ (ถ้าเลือก)")
+                
+                # 1. Config Inputs (ดึงจาก Secrets ก่อน ถ้าไม่มีให้กรอกเอง)
+                col_s1, col_s2, col_s3 = st.columns(3)
+                
+                default_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+                default_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+                
+                # Input: Shop URL
+                s_shop = col_s1.text_input("Shop URL (.myshopify.com)", value=default_shop, help="เช่น your-shop.myshopify.com")
+                
+                # Input: Token
+                s_token = col_s2.text_input("Access Token (shpat_...)", value=default_token, type="password")
+                
+                # Input: Product ID (ตาม Requirement ข้อ 1)
+                s_prod_id = col_s3.text_input("Product ID", help="เลข ID สินค้าจาก URL หลังบ้าน Shopify เช่น 8472xxxx")
+                
+                # 2. Options (ตาม Requirement ข้อ 5)
+                st.write("**Options:**")
+                
+                # Checkbox เลือกรูปภาพ (ตาม Requirement ข้อ 4 & 5)
+                # ถ้าไม่ติ๊ก -> รูปใน Shopify จะเหมือนเดิม ไม่ถูกยุ่งเกี่ยว
+                # ถ้าติ๊ก -> รูปเก่าจะหายไป แทนที่ด้วยรูปใหม่ + ชื่อไฟล์/Alt tag จาก AI
+                enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=False, help="ถ้าเลือก: รูปเดิมบน Shopify จะถูกลบและแทนที่ด้วยรูปชุดนี้ พร้อมตั้งชื่อไฟล์และ Alt Tag ตามผลลัพธ์ AI")
+                
+                if enable_img_upload and not writer_imgs:
+                    st.warning("⚠️ คุณเลือกอัปโหลดรูปภาพ แต่ยังไม่มีรูปในระบบ (Writer Images)")
+
+                # 3. Submit Button
+                if st.button("☁️ Update Product to Shopify Now", type="primary", use_container_width=True):
+                    # Validation เบื้องต้น
+                    if not s_shop or not s_token or not s_prod_id:
+                        st.error("กรุณากรอกข้อมูล Shop URL, Token และ Product ID ให้ครบถ้วน")
+                    elif not st.session_state.writer_result:
+                        st.error("กรุณา Generate Content ก่อนกดส่ง")
+                    else:
+                        # เรียกใช้ฟังก์ชัน
+                        with st.spinner("Connecting to Shopify... (Sending Data & Images)"):
+                            success, msg = update_shopify_product_v2(
+                                shop_url=s_shop,
+                                access_token=s_token,
+                                product_id=s_prod_id,
+                                data=st.session_state.writer_result, # ข้อมูล Text/SEO (Requirement ข้อ 2)
+                                images_pil=writer_imgs,     # รูปภาพ (Requirement ข้อ 4)
+                                upload_images=enable_img_upload # Toggle (Requirement ข้อ 5)
+                            )
+                            
+                            if success:
+                                st.success(msg)
+                                st.balloons()
+                            else:
+                                st.error(msg)
+
 # === TAB 4: LIBRARY ===
 with tab4:
     st.subheader("🛠️ Library Manager")
@@ -892,4 +1033,5 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
