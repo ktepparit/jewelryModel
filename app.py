@@ -736,6 +736,7 @@ with tab1:
                                     st.session_state['post_url'] = f"https://{clean_shop}/products/{handle}"
 
                                 st.session_state.gen_shopify_imgs = imgs
+                                st.session_state['gen_upload_id'] = sh_gen_id # Sync Bottom ID
                                 st.success(f"Loaded {len(imgs)} images")
                                 st.rerun()
                             else: st.error(err)
@@ -827,7 +828,7 @@ with tab1:
                 st.markdown("---")
                 st.write("☁️ **Upload to Shopify (Add New Image)**")
                 
-                # 1. Gen Tags Section
+                # 1. Gen Tags Section (Moved Logic Here for Flow)
                 url_input = st.text_input("Product URL (for generating Tags):", key="post_url")
                 if st.button("✨ 1. Gen Tags"):
                     if not url_input:
@@ -856,7 +857,8 @@ with tab1:
                     default_id = st.session_state.get("gen_shopify_id", "")
                     
                     col_u1, col_u2 = st.columns([2, 1])
-                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", help="เพิ่มรูปนี้เข้าไปในสินค้าโดยไม่ลบรูปเก่า")
+                    # Use session state key directly for value update
+                    u_prod_id = col_u1.text_input("Product ID", key="gen_upload_id", help="เพิ่มรูปนี้เข้าไปในสินค้าโดยไม่ลบรูปเก่า")
                     
                     if col_u2.button("🚀 2. Upload (Add Image)", type="primary", use_container_width=True):
                         if not s_shop or not s_token:
@@ -1256,7 +1258,7 @@ with tab3:
                             # 1. Fetch Images
                             imgs, err_img = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_writer_id)
                             # 2. Fetch Description
-                            desc_html, title, handle, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
+                            desc_html, title, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             
                             if imgs:
                                 st.session_state.writer_shopify_imgs = imgs
