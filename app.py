@@ -719,8 +719,8 @@ with tab1:
                 st.divider()
                 url_input = st.text_input("Product URL:", key="post_url")
                 if st.button("✨ Gen Tags"):
-                     # (Logic เดิม...)
-                     with st.spinner("Thinking..."):
+                      # (Logic เดิม...)
+                      with st.spinner("Thinking..."):
                         txt, err = generate_seo_tags_post_gen(api_key, url_input)
                         if txt: st.code(txt) # Simplified display for brevity
 
@@ -1069,9 +1069,9 @@ with tab3:
                                 st.session_state.writer_shopify_imgs = imgs
                             
                             if desc_html is not None: # เช็ค is not None เพราะ text อาจจะว่างได้
-                                # --- แก้ไขตรงนี้: แปลง HTML เป็น Clean Text ---
+                                # --- แก้ไขตรงนี้: ดึงเฉพาะ Description ไม่เอา Title ---
                                 clean_desc = remove_html_tags(desc_html)
-                                combined_text = f"Product Name: {title}\n\nOriginal Details:\n{clean_desc}"
+                                combined_text = clean_desc 
                                 # ----------------------------------------
                                 
                                 st.session_state[text_area_key] = combined_text
@@ -1191,7 +1191,9 @@ with tab3:
                     s_prod_id = c_x3.text_input("Product ID")
 
                 st.write("**Options:**")
-                enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=False)
+                # --- แก้ไขตรงนี้: ให้ Default เป็น Checked (True) ---
+                enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=True)
+                # ----------------------------------------------------
                 
                 if st.button("☁️ Update Product to Shopify Now", type="primary", use_container_width=True):
                     if not s_shop or not s_token or not s_prod_id:
@@ -1258,12 +1260,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
-
-
-
-
-
-
-
-
