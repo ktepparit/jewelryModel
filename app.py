@@ -436,8 +436,21 @@ def get_shopify_product_details(shop_url, access_token, product_id):
 
 # (ฟังก์ชัน HTML stripper ง่ายๆ เผื่อคุณอยากแปลง HTML เป็น Text ล้วน แต่ในที่นี้จะส่ง Raw HTML ให้ก่อน)
 def remove_html_tags(text):
+    if not text: return ""
+    # 1. แปลง <br>, </p>, </div> เป็นการขึ้นบรรทัดใหม่ เพื่อรักษาย่อหน้า
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
+    
+    # 2. ลบ HTML tags ทั้งหมด
     clean = re.compile('<.*?>')
-    return re.sub(clean, '', text) if text else ""
+    text = re.sub(clean, '', text)
+    
+    # 3. แก้ไข HTML Entities พื้นฐาน (ถ้ามี)
+    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&gt;', '>').replace('&lt;', '<')
+    
+    # 4. ลบช่องว่างส่วนเกิน
+    return "\n".join([line.strip() for line in text.split('\n') if line.strip()])
 
 
 # --- AI FUNCTIONS (GEMINI) ---
@@ -1016,7 +1029,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (UPDATED) ===
+# === TAB 3: WRITER (UPDATED - CLEAN TEXT) ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
@@ -1053,11 +1066,12 @@ with tab3:
                             if imgs:
                                 st.session_state.writer_shopify_imgs = imgs
                             
-                            if desc_html:
-                                # แปลง HTML เป็น Text ล้วน (Option) หรือส่ง HTML ไปเลย
-                                # ในที่นี้ส่งเป็น HTML ไปเพื่อให้ AI เห็น Structure เดิม หรือจะใช้ remove_html_tags(desc_html) ก็ได้
-                                combined_text = f"Product: {title}\n\nDetails:\n{desc_html}"
-                                # Update Session State ของ Text Area โดยตรง
+                            if desc_html is not None: # เช็ค is not None เพราะ text อาจจะว่างได้
+                                # --- แก้ไขตรงนี้: แปลง HTML เป็น Clean Text ---
+                                clean_desc = remove_html_tags(desc_html)
+                                combined_text = f"Product Name: {title}\n\nOriginal Details:\n{clean_desc}"
+                                # ----------------------------------------
+                                
                                 st.session_state[text_area_key] = combined_text
                                 
                             st.success("Loaded!")
@@ -1065,7 +1079,6 @@ with tab3:
                             
                 if col_w_clear.button("❌ Clear", key="writer_clear_btn"):
                     st.session_state.writer_shopify_imgs = []
-                    # Clear Text Area
                     if text_area_key in st.session_state:
                         st.session_state[text_area_key] = ""
                     st.rerun()
@@ -1086,8 +1099,6 @@ with tab3:
                     cols[i%4].image(img, use_column_width=True, caption=f"#{i+1}")
 
         # C. Text Input
-        # ใช้ value จาก session_state ถ้ามี (เพื่อรับค่าจากการ Fetch)
-        # หมายเหตุ: st.text_area จะอ่านค่าจาก key ใน session_state โดยอัตโนมัติ
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
         
         wb1, wb2 = st.columns([1, 1])
@@ -1100,7 +1111,7 @@ with tab3:
             st.session_state.writer_key_counter += 1
             st.rerun()
 
-    # --- COLUMN 2: OUTPUT & AUTOMATION (เหมือนเดิม + Updated Automation) ---
+    # --- COLUMN 2: OUTPUT & AUTOMATION ---
     with c2:
         if run_write:
             if not api_key or not raw: st.error("Missing Info")
@@ -1147,7 +1158,7 @@ with tab3:
                                 st.write("**Alt Tag:**"); st.code(atag, language="text")
                         st.divider()
 
-            # --- AUTOMATION SECTION (Your latest updated code) ---
+            # --- AUTOMATION SECTION ---
             st.markdown("---")
             st.subheader("🚀 Automation: Publish to Shopify")
             
@@ -1168,7 +1179,6 @@ with tab3:
                         s_shop = secret_shop
                         s_token = secret_token
                     with col_input:
-                        # Auto-fill ID if available from Fetch
                         default_id = st.session_state.get("writer_shopify_id", "")
                         s_prod_id = st.text_input("Product ID", value=default_id, help="ID สินค้า")
                 else:
@@ -1246,6 +1256,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
