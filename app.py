@@ -369,6 +369,49 @@ def clean_filename(name):
     clean = re.sub(r'[^a-zA-Z0-9\-\_\.]', '', str(name))
     return clean.rsplit('.', 1)[0]
 
+# --- SHOPIFY GET IMAGES FUNCTION ---
+def get_shopify_product_images(shop_url, access_token, product_id):
+    """
+    ดึงรูปภาพทั้งหมดจาก Shopify Product ID
+    return: List of PIL Images
+    """
+    # Clean URL
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"):
+        shop_url += ".myshopify.com"
+        
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            images_data = data.get("images", [])
+            
+            pil_images = []
+            for img_info in images_data:
+                src = img_info.get("src")
+                if src:
+                    # Download Image Bytes
+                    img_resp = requests.get(src, stream=True)
+                    if img_resp.status_code == 200:
+                        img_pil = Image.open(BytesIO(img_resp.content))
+                        # Convert to RGB (for JPG compatibility)
+                        if img_pil.mode in ('RGBA', 'P'):
+                            img_pil = img_pil.convert('RGB')
+                        pil_images.append(img_pil)
+            return pil_images, None
+        else:
+            return None, f"Shopify API Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return None, f"Connection Error: {str(e)}"
+
+
 # --- AI FUNCTIONS (GEMINI) ---
 def generate_image(api_key, image_list, prompt):
     key = clean_key(api_key)
@@ -584,37 +627,104 @@ with tab1:
                                 else: st.code(txt)
                             else: st.error(err)
 
-# === TAB 1.5: RETOUCH IMAGES (GEMINI VERSION + DOWNLOAD ALL + SEO NAME) ===
+# === TAB 1.5: RETOUCH IMAGES (UPDATED WITH SHOPIFY IMPORT) ===
 with tab_retouch:
     st.header("🎨 Retouch (via Gemini)")
-    st.caption("Upload raw product photos. Gemini will regenerate them based on your prompt (one by one).")
+    st.caption("Upload raw product photos OR Import directly from Shopify.")
     
+    # State สำหรับเก็บรูปจาก Shopify (ป้องกันการหายเวลากดปุ่มอื่น)
+    if "shopify_fetched_imgs" not in st.session_state:
+        st.session_state.shopify_fetched_imgs = []
+
     rt_key_id = st.session_state.retouch_key_counter
     
     rt_c1, rt_c2 = st.columns([1, 1.2])
+    
+    # --- COLUMN 1: INPUT SOURCE ---
     with rt_c1:
         st.subheader("1. Input Images")
-        rt_files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
-        rt_imgs = [Image.open(f) for f in rt_files] if rt_files else []
         
+        # A. Shopify Import Section
+        with st.expander("🛍️ Import from Shopify (Optional)", expanded=True):
+            # Auto-load Secrets
+            sh_secret_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+            sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+            
+            if sh_secret_shop and sh_secret_token:
+                st.success("✅ Shopify Connected")
+                sh_imp_id = st.text_input("Product ID to Fetch", key=f"imp_id_{rt_key_id}")
+                
+                c_fetch, c_clear = st.columns([2,1])
+                if c_fetch.button("⬇️ Fetch Images"):
+                    if not sh_imp_id:
+                        st.warning("Please enter Product ID")
+                    else:
+                        with st.spinner("Downloading images from Shopify..."):
+                            imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_imp_id)
+                            if imgs:
+                                st.session_state.shopify_fetched_imgs = imgs
+                                st.success(f"Loaded {len(imgs)} images!")
+                                st.rerun()
+                            else:
+                                st.error(err)
+                
+                if c_clear.button("❌ Clear"):
+                    st.session_state.shopify_fetched_imgs = []
+                    st.rerun()
+            else:
+                st.info("Set SHOPIFY_SHOP_URL and SHOPIFY_ACCESS_TOKEN in secrets to use this feature.")
+
+        # B. Determine Source (Shopify vs Upload)
+        rt_imgs = []
+        source_type = ""
+        
+        # Priority 1: Images from Shopify
+        if st.session_state.shopify_fetched_imgs:
+            rt_imgs = st.session_state.shopify_fetched_imgs
+            source_type = "Shopify"
+            st.info(f"📂 Using {len(rt_imgs)} images from Shopify Product")
+            
+            # Feature: Download Original Images (ที่ User ขอมา)
+            try:
+                zip_orig = BytesIO()
+                with zipfile.ZipFile(zip_orig, "w") as zf:
+                    for i, img in enumerate(rt_imgs):
+                        # Save as JPEG
+                        buf = BytesIO()
+                        img.save(buf, format="JPEG", quality=95)
+                        zf.writestr(f"original_shopify_{i+1}.jpg", buf.getvalue())
+                
+                st.download_button(
+                    "💾 Download All Originals (.zip)",
+                    data=zip_orig.getvalue(),
+                    file_name="shopify_original_images.zip",
+                    mime="application/zip"
+                )
+            except Exception as e: st.error(f"Zip Error: {e}")
+
+        # Priority 2: Manual Upload (ถ้าไม่ได้ดึงจาก Shopify)
+        else:
+            rt_files = st.file_uploader("Upload Manual Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
+            if rt_files:
+                rt_imgs = [Image.open(f) for f in rt_files]
+                source_type = "Upload"
+        
+        # Preview Images
         if rt_imgs:
-            st.success(f"{len(rt_imgs)} images loaded.")
-            with st.expander("View Input", expanded=False):
+            with st.expander(f"📸 View Input ({len(rt_imgs)} images)", expanded=False):
                 cols = st.columns(4)
                 for i, img in enumerate(rt_imgs):
-                    cols[i%4].image(img, use_column_width=True, caption=f"Input #{i+1}")
+                    cols[i%4].image(img, use_column_width=True, caption=f"In #{i+1}")
+        else:
+            st.warning("Waiting for images...")
 
+    # --- COLUMN 2: PROCESS & OUTPUT ---
     with rt_c2:
         st.subheader("2. Prompt Settings")
         lib = st.session_state.library
         rt_cats = list(set(p.get('category','Other') for p in lib)) if lib else []
         
-        # --- MODIFIED LOGIC: Default to 'Retouch' category if exists ---
-        default_cat_index = 0
-        if "Retouch" in rt_cats:
-            default_cat_index = rt_cats.index("Retouch")
-        # -------------------------------------------------------------
-
+        default_cat_index = rt_cats.index("Retouch") if "Retouch" in rt_cats else 0
         rt_sel_cat = st.selectbox("Category", rt_cats, index=default_cat_index, key=f"rt_cat_{rt_key_id}") if rt_cats else None
         
         rt_filtered = [p for p in lib if p.get('category') == rt_sel_cat]
@@ -649,6 +759,7 @@ with tab_retouch:
             if clear_retouch:
                 st.session_state.retouch_results = None
                 st.session_state.seo_name_result = None
+                st.session_state.shopify_fetched_imgs = [] # Clear fetched images too
                 st.session_state.retouch_key_counter += 1
                 st.rerun()
             
@@ -659,11 +770,9 @@ with tab_retouch:
                     rt_temp_results = []
                     rt_pbar = st.progress(0)
                     
-                    # --- LOOP: Process One Image at a Time ---
                     for i, img in enumerate(rt_imgs):
                         with st.spinner(f"Processing Image #{i+1} with Gemini..."):
                             gen_img_bytes, err = generate_image(api_key, [img], rt_prompt_edit)
-                            
                             rt_pbar.progress((i+1)/len(rt_imgs))
                             
                             if gen_img_bytes:
@@ -680,7 +789,7 @@ with tab_retouch:
         st.divider()
         st.subheader("🎨 Retouched Results (Gemini)")
         
-        # --- DOWNLOAD ALL BUTTON ---
+        # Download All Retouched
         try:
             zip_buf = BytesIO()
             has_files = False
@@ -692,7 +801,7 @@ with tab_retouch:
             
             if has_files:
                 st.download_button(
-                    label="📦 Download All Images (.zip)",
+                    label="📦 Download All Retouched (.zip)",
                     data=zip_buf.getvalue(),
                     file_name="all_retouched_images.zip",
                     mime="application/zip",
@@ -700,7 +809,6 @@ with tab_retouch:
                 )
         except Exception as e:
             st.error(f"Error creating zip: {e}")
-        # ---------------------------
 
         cols = st.columns(3)
         for i, res_bytes in enumerate(st.session_state.retouch_results):
@@ -708,71 +816,54 @@ with tab_retouch:
                 st.write(f"**Result #{i+1}**")
                 if res_bytes:
                     st.image(res_bytes, use_column_width=True)
-                    st.download_button("Download", res_bytes, file_name=f"retouched_{i+1}.jpg", mime="image/jpeg", key=f"dl_rt_{i}")
                 else: st.error("Failed")
-
+    
+    # ... (ส่วน SEO Name & Slug Generator เดิมของคุณ ให้คงไว้ต่อท้ายตรงนี้ได้เลย) ...
     # ========================================================
     # NEW FEATURE: SEO PRODUCT NAME & SLUG GENERATOR
     # ========================================================
     st.markdown("---")
     st.subheader("🛍️ SEO Product Name & Slug Generator")
-    st.caption("Auto-generate a catchy product name and clean URL slug based on the images.")
-
+    # ... (โค้ดส่วนนี้เหมือนเดิม ใช้ rt_imgs ต่อได้เลย เพราะเรา override มาแล้ว) ...
     # 1. Image Source Logic
     target_images_for_seo = []
     source_label = ""
     
     if st.session_state.retouch_results and any(st.session_state.retouch_results):
-        # Use Retouched images (Bytes)
         target_images_for_seo = [x for x in st.session_state.retouch_results if x is not None]
         source_label = "✅ Using Retouched Images"
     elif rt_imgs:
-        # Use Input images (PIL)
         target_images_for_seo = rt_imgs
-        source_label = "✅ Using Input Images (Original)"
+        source_label = f"✅ Using {source_type} Images"
     else:
         source_label = "⚠️ No images available"
 
-    # 2. Input & Button
     c_seo1, c_seo2 = st.columns([1, 1])
     with c_seo1:
-        user_product_desc = st.text_input(
-            "Basic Product Description",
-            placeholder="e.g., sterling silver bracelet, gemstone ring",
-            help="Enter a short keyword to help the AI."
-        )
+        user_product_desc = st.text_input("Basic Product Description", placeholder="e.g., sterling silver bracelet", key=f"seo_desc_{rt_key_id}")
         st.write(f"Source: {source_label}")
         
         if st.button("✨ Analyze Name & Slug"):
             if not api_key: st.error("Missing API Key")
-            elif not target_images_for_seo: st.warning("Please upload images first.")
-            elif not user_product_desc: st.warning("Please enter a description.")
+            elif not target_images_for_seo: st.warning("No images.")
+            elif not user_product_desc: st.warning("Enter description.")
             else:
                 with st.spinner("Analyzing SEO..."):
-                    # Call new function
                     seo_json, seo_err = generate_seo_name_slug(api_key, target_images_for_seo, user_product_desc)
                     if seo_json:
                         res_dict = parse_json_response(seo_json)
-                        if res_dict:
-                            st.session_state.seo_name_result = res_dict
-                        else:
-                            st.error("Failed to parse result")
-                            st.code(seo_json)
-                    else:
-                        st.error(seo_err)
+                        if res_dict: st.session_state.seo_name_result = res_dict
+                        else: st.error("Failed to parse"); st.code(seo_json)
+                    else: st.error(seo_err)
 
-    # 3. Results Display
     with c_seo2:
         if st.session_state.seo_name_result:
             res = st.session_state.seo_name_result
             st.success("Analysis Complete!")
-            
             st.write("**Product Name:**")
-            st.text_input("Name", value=res.get("product_name", ""), label_visibility="collapsed")
-            
+            st.text_input("Name", value=res.get("product_name", ""), label_visibility="collapsed", key=f"res_name_{rt_key_id}")
             st.write("**URL Slug:**")
             st.code(res.get("url_slug", ""), language="text")
-    # ========================================================
 
 
 # === TAB 2: BULK SEO ===
@@ -1042,6 +1133,7 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
 
 
 
