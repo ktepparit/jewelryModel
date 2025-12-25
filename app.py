@@ -1185,7 +1185,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (UPDATED - CLEAN TEXT) ===
+# === TAB 3: WRITER (FIXED ERROR) ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
@@ -1216,14 +1216,15 @@ with tab3:
                         with st.spinner("Fetching Data..."):
                             # 1. Fetch Images
                             imgs, err_img = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_writer_id)
-                            # 2. Fetch Description
-                            desc_html, title, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
+                            
+                            # 2. Fetch Description (FIXED LINE: รับค่าตัวแปรที่ 3 เป็น _ หรือ handle ก็ได้)
+                            desc_html, title, _, err_desc = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             
                             if imgs:
                                 st.session_state.writer_shopify_imgs = imgs
                             
-                            if desc_html is not None: # เช็ค is not None เพราะ text อาจจะว่างได้
-                                # --- แก้ไขตรงนี้: ดึงเฉพาะ Description ไม่เอา Title ---
+                            if desc_html is not None: 
+                                # --- ดึงเฉพาะ Description ไม่เอา Title ---
                                 clean_desc = remove_html_tags(desc_html)
                                 combined_text = clean_desc 
                                 # ----------------------------------------
@@ -1345,9 +1346,8 @@ with tab3:
                     s_prod_id = c_x3.text_input("Product ID")
 
                 st.write("**Options:**")
-                # --- แก้ไขตรงนี้: ให้ Default เป็น Checked (True) ---
+                # Default เป็น Checked (True)
                 enable_img_upload = st.checkbox("📷 Upload Images & Replace Existing", value=True)
-                # ----------------------------------------------------
                 
                 if st.button("☁️ Update Product to Shopify Now", type="primary", use_container_width=True):
                     if not s_shop or not s_token or not s_prod_id:
@@ -1414,3 +1414,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
