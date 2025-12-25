@@ -40,16 +40,23 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
-# --- NEW PROMPT: GEN TAGS FROM PROMPT TEXT ---
-SEO_PROMPT_FROM_TEXT = """
-You are an SEO specialist for Jewelry e-commerce.
-Based on this product image description/prompt: "{context}"
-Generate:
-1. An SEO-optimized image file name (lowercase, use hyphens, end with .jpg).
-2. A descriptive Image Alt Tag (English).
+# --- NEW PROMPT: SMART GEN (PROMPT + URL) ---
+SEO_PROMPT_SMART_GEN = """
+You are an SEO & Visual Content Specialist for Jewelry e-commerce.
+Your task is to generate an SEO-optimized **Image File Name** and **Alt Tag** based on the visual description and product context provided.
+
+**Inputs:**
+1. **Visual Instruction (The image is generated from this):** "{context}"
+2. **Product Reference URL (Context):** "{product_url}"
+
+**Instructions:**
+- **File Name:** Create a lowercase, hyphenated file name ending in .jpg (e.g., `silver-ring-blue-gemstone-side-view.jpg`).
+    - COMBINE keywords from the URL (if valid) with the VISUAL details from the instruction.
+    - Do NOT simply copy the URL slug. The filename MUST describe the visual look of the image (e.g., pose, angle, lighting, material).
+- **Alt Tag:** Write a natural English sentence describing the image for accessibility and SEO. Mention the material, stone, and style visible in the instruction.
 
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
-Structure: {"file_name": "silver-ring-example.jpg", "alt_tag": "Description of the ring"}
+Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PROMPT_BULK_EXISTING = """
@@ -97,7 +104,7 @@ search แนะนำ product ของฉันให้กับลูกค�
 
     เป้าหมาย: ให้ข้อมูลทางเทคนิคที่ชัดเจน
 
-    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish
+    สิ่งที่ควรวาง: เหมาะสำหรับคำที่เกี่ยวกับวัสดุ เช่น 925 sterling silver, solid silver, handcrafted, oxidized finish และช่วยทำตัวหนาและใส่สี font ข้อมูลที่เป็นตัวเลขภายใน bullit point ให้ด้วย เช่นคำว่า 110 grams, 16 mm. (5/8 inches) เป็นต้น
 
 4. ส่วนคำถามที่พบบ่อย (FAQ Section)
 
@@ -184,15 +191,17 @@ Frequently Asked Questions (FAQ)
 
 1. url ของ product
 
-2 คีย์เวิร์ดหลัก : (ถ้าไม่มีช่วยคิดให้ฉันหน่อย)
+2 คีย์เวิร์ดหลัก
 
-3 คีย์เวิร์ดรองและ long tail keyword : (ถ้าไม่มีช่วยคิดให้ฉันหน่อย)
+3 คีย์เวิร์ดรองและ long tail keyword
 
-4 คีย์เวิร์ดหมวดหมู่ : (ถ้าไม่มีช่วยคิดให้ฉันหน่อย)
+4 คีย์เวิร์ดหมวดหมู่
 
 5 รูปภาพ product (ถ้ามี)
 
 6 รายละเอียดเพิ่มเติม (ถ้ามี)
+
+ถ้าหากฉันไม่มีข้อมูล คีย์เวิร์ดหลัก , คีย์เวิร์ดรองและ long tail keyword และ คีย์เวิร์ดหมวดหมู่มาให้ให้คุณทำการคิดให้ฉันเลย
 
 หลังจากนั้นให้คุณเขียน product description ตามคำสั่งข้างต้นโดยแทรก คีย์เวิร์ดรอง, คีย์เวิร์ดหมวดหมู่, Semantic Keywords และ Long-tail keywords เข้าไปยัง content ตามคำสั่งข้างต้น
 
@@ -577,13 +586,16 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
-def generate_seo_tags_from_context(api_key, context):
+def generate_seo_tags_smart(api_key, context, product_url=""):
     """
-    Gen SEO Tags based on prompt text/context (For Gen Image tab)
+    Gen SEO Tags: Visual Context + URL Keywords (Smart Hybrid)
     """
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_SEO}:generateContent?key={key}"
-    prompt = SEO_PROMPT_FROM_TEXT.replace("{context}", context)
+    
+    # Use the new Smart Prompt
+    prompt = SEO_PROMPT_SMART_GEN.replace("{context}", context).replace("{product_url}", product_url)
+    
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     
     for attempt in range(3):
@@ -834,18 +846,25 @@ with tab1:
             st.write("✏️ **Edit Prompt:**")
             prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
             
+            # URL Input for Tags Reference
+            url_input = st.text_input("Product URL (Optional):", key="post_url", help="AI will use this URL context + your Prompt to generate smart tags")
+
             if st.button("🚀 GENERATE", type="primary", use_container_width=True):
                 if not api_key or not images_to_send: st.error("Check Key & Images")
                 else:
                     # 1. Gen Image
-                    with st.spinner("Generating Image & Tags..."):
+                    with st.spinner("Generating Image & Smart Tags..."):
                         d, e = generate_image(api_key, images_to_send, prompt_edit)
                         if d:
                             st.session_state.current_generated_image = d
                             st.session_state.image_generated_success = True
                             
-                            # 2. Gen Tags (From Prompt)
-                            tags_json, tags_err = generate_seo_tags_from_context(api_key, prompt_edit)
+                            # 2. Gen Tags (Smart Hybrid: Prompt + URL)
+                            # Pass both Prompt and URL to the smart function
+                            current_url = st.session_state.get("post_url", "")
+                            
+                            tags_json, tags_err = generate_seo_tags_smart(api_key, prompt_edit, current_url)
+                                
                             if tags_json:
                                 parsed_tags = parse_json_response(tags_json)
                                 if parsed_tags:
@@ -867,8 +886,8 @@ with tab1:
 
                 st.divider()
                 st.subheader("☁️ Upload to Shopify (Add New Image)")
+                
                 with st.container(border=True):
-                    
                     # Display & Edit Tags
                     tags_data = st.session_state.get("gen_tags_result", {})
                     
@@ -1248,7 +1267,7 @@ with tab2:
                             st.code(res.get('alt_tag', ''), language="text")
                     st.divider()
 
-# === TAB 3: WRITER (FIXED ERROR) ===
+# === TAB 3: WRITER (UPDATED - CLEAN TEXT) ===
 with tab3:
     st.header("📝 Product Writer")
     writer_key_id = st.session_state.writer_key_counter
@@ -1477,8 +1496,3 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
-
-
-
-
-
