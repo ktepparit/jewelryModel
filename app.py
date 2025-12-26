@@ -545,12 +545,36 @@ with tab1:
         if filtered:
             sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name','Unknown'), key="gen_style_tab1")
             if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=100)
+            
+            # Track style change to reset prompt
+            gen_style_tracker = "gen_last_style_id"
+            current_style_id = sel_style.get('id', '')
+            
+            if gen_style_tracker not in st.session_state:
+                st.session_state[gen_style_tracker] = current_style_id
+            
+            # Check if style changed
+            style_changed = st.session_state[gen_style_tracker] != current_style_id
+            if style_changed:
+                st.session_state[gen_style_tracker] = current_style_id
+                # Clear the prompt key to force refresh
+                if "gen_prompt_value" in st.session_state:
+                    del st.session_state["gen_prompt_value"]
+            
             vars_list = [v.strip() for v in sel_style.get('variables','').split(",") if v.strip()]
             user_vals = {v: st.text_input(v, key=f"gen_var_{v}_tab1") for v in vars_list}
             final_prompt = sel_style.get('template','')
             for k, v in user_vals.items(): final_prompt = final_prompt.replace(f"{{{k}}}", v)
+            
+            # Use session state to control the value
+            if "gen_prompt_value" not in st.session_state or style_changed:
+                st.session_state["gen_prompt_value"] = final_prompt
+            
             st.write("✏️ **Edit Prompt:**")
-            prompt_edit = st.text_area("Instruction", value=final_prompt, height=100, key="gen_prompt_tab1")
+            prompt_edit = st.text_area("Instruction", value=st.session_state["gen_prompt_value"], height=100, key="gen_prompt_tab1")
+            # Update session state with user edits
+            st.session_state["gen_prompt_value"] = prompt_edit
+            
             url_input = st.text_input("Product URL (Optional):", key="post_url", help="AI will use URL context for tags")
 
             if st.button("🚀 GENERATE", type="primary", use_container_width=True, key="gen_run_btn_tab1"):
@@ -657,12 +681,38 @@ with tab_retouch:
         rt_filtered = [p for p in lib if p.get('category') == rt_sel_cat]
         if rt_filtered:
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
+            
+            # Track style change to reset prompt
+            rt_style_tracker = f"rt_last_style_id_{rt_key_id}"
+            current_rt_style_id = rt_style.get('id', '')
+            
+            if rt_style_tracker not in st.session_state:
+                st.session_state[rt_style_tracker] = current_rt_style_id
+            
+            # Check if style changed
+            rt_style_changed = st.session_state[rt_style_tracker] != current_rt_style_id
+            if rt_style_changed:
+                st.session_state[rt_style_tracker] = current_rt_style_id
+                # Clear the prompt key to force refresh
+                rt_prompt_key = f"rt_prompt_value_{rt_key_id}"
+                if rt_prompt_key in st.session_state:
+                    del st.session_state[rt_prompt_key]
+            
             rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
             rt_user_vals = {v: st.text_input(v, key=f"rt_var_{v}_{rt_key_id}") for v in rt_vars}
             rt_final_prompt = rt_style.get('template','')
             for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
+            
+            # Use session state to control the value
+            rt_prompt_state_key = f"rt_prompt_value_{rt_key_id}"
+            if rt_prompt_state_key not in st.session_state or rt_style_changed:
+                st.session_state[rt_prompt_state_key] = rt_final_prompt
+            
             st.write("✏️ **Retouch Instruction:**")
-            rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}")
+            rt_prompt_edit = st.text_area("Instruction", value=st.session_state[rt_prompt_state_key], height=100, key=f"rt_prompt_{rt_key_id}")
+            # Update session state with user edits
+            st.session_state[rt_prompt_state_key] = rt_prompt_edit
+            
             c_rt1, c_rt2 = st.columns([1, 1])
             run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs), key=f"rt_run_btn_{rt_key_id}")
             clear_retouch = c_rt2.button("🔄 Start Over", key=f"rt_startover_btn_{rt_key_id}")
@@ -670,6 +720,9 @@ with tab_retouch:
                 st.session_state.retouch_results = None; st.session_state.seo_name_result = None
                 st.session_state.shopify_fetched_imgs = []; st.session_state.retouch_key_counter += 1
                 if 'rt_upload_id' in st.session_state: del st.session_state['rt_upload_id']
+                # Also clear prompt state
+                if rt_prompt_state_key in st.session_state: del st.session_state[rt_prompt_state_key]
+                if rt_style_tracker in st.session_state: del st.session_state[rt_style_tracker]
                 st.rerun()
             if run_retouch:
                 if not gemini_key: st.error("Missing Gemini API Key!")
@@ -890,31 +943,59 @@ with tab3:
 with tab4:
     st.subheader("🛠️ Library Manager")
     target = st.session_state.edit_target
-    with st.form("lib_form"):
+    
+    # Use dynamic form key based on whether editing or adding
+    form_key = f"lib_form_{target['id']}" if target else "lib_form_new"
+    
+    with st.form(form_key, clear_on_submit=True):
         st.write(f"**{'Edit: '+target['name'] if target else 'Add New'}**")
         c1, c2 = st.columns(2)
-        n = c1.text_input("Name", value=target['name'] if target else "", key="lib_name")
-        c = c2.text_input("Category", value=target['category'] if target else "", key="lib_cat")
-        t = st.text_area("Template", value=target['template'] if target else "", key="lib_template")
-        v = st.text_input("Vars", value=target['variables'] if target else "", key="lib_vars")
-        u = st.text_input("Sample URL", value=target['sample_url'] if target else "", key="lib_url")
-        cols = st.columns([1, 4])
-        if cols[0].form_submit_button("💾 Save"):
-            new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
+        
+        # Use dynamic keys with target id to force refresh
+        key_suffix = target['id'] if target else "new"
+        n = c1.text_input("Name", value=target['name'] if target else "", key=f"lib_name_{key_suffix}")
+        c = c2.text_input("Category", value=target['category'] if target else "", key=f"lib_cat_{key_suffix}")
+        t = st.text_area("Template", value=target['template'] if target else "", key=f"lib_template_{key_suffix}")
+        v = st.text_input("Vars (comma separated)", value=target['variables'] if target else "", key=f"lib_vars_{key_suffix}")
+        u = st.text_input("Sample URL", value=target['sample_url'] if target else "", key=f"lib_url_{key_suffix}")
+        
+        cols = st.columns([1, 1, 3])
+        save_btn = cols[0].form_submit_button("💾 Save", type="primary")
+        cancel_btn = cols[1].form_submit_button("❌ Cancel") if target else False
+        
+        if save_btn:
+            new = {"id": target['id'] if target else str(int(time.time())), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
             if target:
                 for idx, item in enumerate(st.session_state.library):
                     if item['id'] == target['id']: st.session_state.library[idx] = new; break
-            else: st.session_state.library.append(new)
-            save_prompts(st.session_state.library); st.session_state.edit_target = None; st.rerun()
-        if target and cols[1].form_submit_button("❌ Cancel"): st.session_state.edit_target = None; st.rerun()
+            else: 
+                st.session_state.library.append(new)
+            save_prompts(st.session_state.library)
+            st.session_state.edit_target = None
+            st.success("✅ Saved!")
+            st.rerun()
+            
+        if cancel_btn: 
+            st.session_state.edit_target = None
+            st.rerun()
+    
     st.divider()
+    st.write("**📚 Prompt Library:**")
     for i, p in enumerate(st.session_state.library):
-        c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
-        if p.get("sample_url"):
-            with c1: safe_st_image(p["sample_url"], width=50)
-        c2.write(f"**{p.get('name')}**")
-        if c3.button("✏️", key=f"lib_edit_{i}"): st.session_state.edit_target = p; st.rerun()
-        if c4.button("🗑️", key=f"lib_del_{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
+        with st.container(border=True):
+            c1, c2, c3, c4 = st.columns([1, 4, 1, 1])
+            if p.get("sample_url"):
+                with c1: safe_st_image(p["sample_url"], width=50)
+            else:
+                c1.write("📝")
+            c2.write(f"**{p.get('name')}** ({p.get('category', 'N/A')})")
+            if c3.button("✏️ Edit", key=f"lib_edit_{i}"): 
+                st.session_state.edit_target = p
+                st.rerun()
+            if c4.button("🗑️ Del", key=f"lib_del_{i}"): 
+                st.session_state.library.pop(i)
+                save_prompts(st.session_state.library)
+                st.rerun()
 
 # === TAB 5: MODELS ===
 with tab5:
