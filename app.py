@@ -15,7 +15,7 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 # Model IDs
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_GEMINI = "models/gemini-3-pro-preview"
-MODEL_TEXT_CLAUDE = "claude-sonnet-4-20250514"  # Claude Model for Text/SEO
+MODEL_TEXT_CLAUDE = "claude-sonnet-4-20250514"
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -441,7 +441,7 @@ with st.sidebar:
     
     # MODEL SELECTOR
     st.subheader("🤖 AI Model Selection")
-    selected_text_model = st.selectbox("Text/SEO Model:", ["Gemini", "Claude"], index=0, help="เลือก Model สำหรับงาน SEO Writing")
+    selected_text_model = st.selectbox("Text/SEO Model:", ["Gemini", "Claude"], index=0, help="เลือก Model สำหรับงาน SEO Writing", key="sidebar_model_select")
     st.session_state['selected_text_model'] = selected_text_model
     st.caption("📸 Image Gen: Gemini (Fixed)")
     st.divider()
@@ -457,7 +457,7 @@ with st.sidebar:
         gemini_key = st.secrets["GOOGLE_API_KEY"]
         st.success("✅ Google Key Loaded")
     else:
-        gemini_key = st.text_input("Gemini API Key", type="password")
+        gemini_key = st.text_input("Gemini API Key", type="password", key="sidebar_gemini_key")
     gemini_key = clean_key(gemini_key)
     
     # Claude Key
@@ -465,7 +465,7 @@ with st.sidebar:
         claude_key = clean_key(st.secrets["CLAUDE_API_KEY"])
         st.success("✅ Claude Key Loaded")
     else:
-        claude_key = st.text_input("Claude API Key (Optional)", type="password")
+        claude_key = st.text_input("Claude API Key (Optional)", type="password", key="sidebar_claude_key")
         claude_key = clean_key(claude_key)
     
     if selected_text_model == "Claude" and not claude_key:
@@ -494,7 +494,7 @@ with tab1:
             if sh_secret_shop and sh_secret_token:
                 sh_gen_id = st.text_input("Product ID", key="gen_shopify_id")
                 col_fetch, col_clear = st.columns([2, 1])
-                if col_fetch.button("⬇️ Fetch Images", key="gen_fetch_btn"):
+                if col_fetch.button("⬇️ Fetch Images", key="gen_fetch_btn_tab1"):
                     if not sh_gen_id: st.warning("Enter ID")
                     else:
                         with st.spinner("Downloading..."):
@@ -509,7 +509,7 @@ with tab1:
                                 st.session_state['gen_upload_id'] = sh_gen_id
                                 st.success(f"Loaded {len(imgs)} images"); st.rerun()
                             else: st.error(err)
-                if col_clear.button("❌ Clear", key="gen_clear_btn"):
+                if col_clear.button("❌ Clear", key="gen_clear_btn_tab1"):
                     st.session_state.gen_shopify_imgs = []
                     if 'post_url' in st.session_state: st.session_state['post_url'] = ""
                     st.rerun()
@@ -525,10 +525,10 @@ with tab1:
                     for i, img in enumerate(images_to_send):
                         buf = BytesIO(); img.save(buf, format="JPEG", quality=95)
                         zf.writestr(f"shopify_orig_{i+1}.jpg", buf.getvalue())
-                st.download_button("💾 Download All Originals (.zip)", data=zip_gen.getvalue(), file_name="shopify_original_images.zip", mime="application/zip")
+                st.download_button("💾 Download All Originals (.zip)", data=zip_gen.getvalue(), file_name="shopify_original_images.zip", mime="application/zip", key="gen_download_zip_tab1")
             except: pass
         else:
-            files = st.file_uploader("Upload Manual", accept_multiple_files=True, type=["jpg","png"], key="gen_up")
+            files = st.file_uploader("Upload Manual", accept_multiple_files=True, type=["jpg","png"], key="gen_up_tab1")
             images_to_send = [Image.open(f) for f in files] if files else []
         if images_to_send:
             cols = st.columns(4)
@@ -540,20 +540,20 @@ with tab1:
         st.caption(f"🤖 SEO Tags Model: **{current_text_model}**")
         lib = st.session_state.library
         cats = list(set(p.get('category','Other') for p in lib)) if lib else []
-        sel_cat = st.selectbox("Category", cats) if cats else None
+        sel_cat = st.selectbox("Category", cats, key="gen_cat_tab1") if cats else None
         filtered = [p for p in lib if p.get('category') == sel_cat]
         if filtered:
-            sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name','Unknown'))
+            sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name','Unknown'), key="gen_style_tab1")
             if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=100)
             vars_list = [v.strip() for v in sel_style.get('variables','').split(",") if v.strip()]
-            user_vals = {v: st.text_input(v) for v in vars_list}
+            user_vals = {v: st.text_input(v, key=f"gen_var_{v}_tab1") for v in vars_list}
             final_prompt = sel_style.get('template','')
             for k, v in user_vals.items(): final_prompt = final_prompt.replace(f"{{{k}}}", v)
             st.write("✏️ **Edit Prompt:**")
-            prompt_edit = st.text_area("Instruction", value=final_prompt, height=100)
+            prompt_edit = st.text_area("Instruction", value=final_prompt, height=100, key="gen_prompt_tab1")
             url_input = st.text_input("Product URL (Optional):", key="post_url", help="AI will use URL context for tags")
 
-            if st.button("🚀 GENERATE", type="primary", use_container_width=True):
+            if st.button("🚀 GENERATE", type="primary", use_container_width=True, key="gen_run_btn_tab1"):
                 if not gemini_key or not images_to_send: st.error("Check Key & Images")
                 else:
                     with st.spinner("Generating Image & Smart Tags..."):
@@ -573,19 +573,19 @@ with tab1:
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider(); st.subheader("✨ Result")
                 st.image(st.session_state.current_generated_image, use_column_width=True)
-                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary")
+                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary", key="gen_dl_img_tab1")
                 st.divider(); st.subheader("☁️ Upload to Shopify")
                 with st.container(border=True):
                     tags_data = st.session_state.get("gen_tags_result", {})
                     col_tags1, col_tags2 = st.columns(2)
-                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""))
-                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""))
+                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""), key="gen_filename_tab1")
+                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key="gen_alt_tab1")
                     s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
                     s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
                     default_id = st.session_state.get("gen_shopify_id", "")
                     col_u1, col_u2 = st.columns([3, 1])
                     u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", label_visibility="collapsed")
-                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True):
+                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True, key="gen_upload_btn_tab1"):
                         if not s_shop or not s_token: st.error("Missing Shopify Secrets")
                         elif not u_prod_id: st.warning("Enter Product ID")
                         else:
@@ -608,9 +608,9 @@ with tab_retouch:
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             if sh_secret_shop and sh_secret_token:
                 st.success("✅ Shopify Connected")
-                sh_imp_id = st.text_input("Product ID to Fetch", key=f"imp_id_{rt_key_id}")
+                sh_imp_id = st.text_input("Product ID to Fetch", key=f"rt_imp_id_{rt_key_id}")
                 c_fetch, c_clear = st.columns([2,1])
-                if c_fetch.button("⬇️ Fetch Images"):
+                if c_fetch.button("⬇️ Fetch Images", key=f"rt_fetch_btn_{rt_key_id}"):
                     if not sh_imp_id: st.warning("Enter ID")
                     else:
                         with st.spinner("Downloading..."):
@@ -620,7 +620,7 @@ with tab_retouch:
                                 st.session_state['rt_upload_id'] = sh_imp_id
                                 st.success(f"Loaded {len(imgs)} images!"); st.rerun()
                             else: st.error(err)
-                if c_clear.button("❌ Clear"):
+                if c_clear.button("❌ Clear", key=f"rt_clear_btn_{rt_key_id}"):
                     st.session_state.shopify_fetched_imgs = []
                     if 'rt_upload_id' in st.session_state: del st.session_state['rt_upload_id']
                     st.rerun()
@@ -637,7 +637,7 @@ with tab_retouch:
                     for i, img in enumerate(rt_imgs):
                         buf = BytesIO(); img.save(buf, format="JPEG", quality=95)
                         zf.writestr(f"original_{i+1}.jpg", buf.getvalue())
-                st.download_button("💾 Download Originals (.zip)", data=zip_orig.getvalue(), file_name="originals.zip", mime="application/zip")
+                st.download_button("💾 Download Originals (.zip)", data=zip_orig.getvalue(), file_name="originals.zip", mime="application/zip", key=f"rt_dl_orig_{rt_key_id}")
             except: pass
         else:
             rt_files = st.file_uploader("Upload Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
@@ -664,8 +664,8 @@ with tab_retouch:
             st.write("✏️ **Retouch Instruction:**")
             rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}")
             c_rt1, c_rt2 = st.columns([1, 1])
-            run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs))
-            clear_retouch = c_rt2.button("🔄 Start Over", key="clear_retouch")
+            run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs), key=f"rt_run_btn_{rt_key_id}")
+            clear_retouch = c_rt2.button("🔄 Start Over", key=f"rt_startover_btn_{rt_key_id}")
             if clear_retouch:
                 st.session_state.retouch_results = None; st.session_state.seo_name_result = None
                 st.session_state.shopify_fetched_imgs = []; st.session_state.retouch_key_counter += 1
@@ -692,7 +692,7 @@ with tab_retouch:
             with zipfile.ZipFile(zip_buf, "w") as zf:
                 for i, res_bytes in enumerate(st.session_state.retouch_results):
                     if res_bytes: zf.writestr(f"retouched_{i+1}.jpg", res_bytes)
-            st.download_button("📦 Download All (.zip)", data=zip_buf.getvalue(), file_name="retouched.zip", mime="application/zip", type="primary")
+            st.download_button("📦 Download All (.zip)", data=zip_buf.getvalue(), file_name="retouched.zip", mime="application/zip", type="primary", key=f"rt_dl_all_{rt_key_id}")
         except: pass
         cols = st.columns(3)
         for i, res_bytes in enumerate(st.session_state.retouch_results):
@@ -704,10 +704,10 @@ with tab_retouch:
         with st.container(border=True):
             rt_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             rt_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-            current_imp_id = st.session_state.get(f"imp_id_{rt_key_id}", "")
+            current_imp_id = st.session_state.get(f"rt_imp_id_{rt_key_id}", "")
             col_rt_u1, col_rt_u2 = st.columns([2, 1])
-            rt_prod_id = col_rt_u1.text_input("Product ID", value=current_imp_id, key="rt_upload_id")
-            if col_rt_u2.button("☁️ Upload & Replace", type="primary", use_container_width=True):
+            rt_prod_id = col_rt_u1.text_input("Product ID", value=current_imp_id, key=f"rt_upload_id_{rt_key_id}")
+            if col_rt_u2.button("☁️ Upload & Replace", type="primary", use_container_width=True, key=f"rt_upload_btn_{rt_key_id}"):
                 if not rt_shop or not rt_token: st.error("Missing Secrets")
                 elif not rt_prod_id: st.warning("Enter ID")
                 elif not any(st.session_state.retouch_results): st.warning("No images")
@@ -728,9 +728,9 @@ with tab_retouch:
     else: source_label = "None"
     c_seo1, c_seo2 = st.columns([1, 1])
     with c_seo1:
-        user_product_desc = st.text_input("Description", placeholder="e.g., sterling silver bracelet", key=f"seo_desc_{rt_key_id}")
+        user_product_desc = st.text_input("Description", placeholder="e.g., sterling silver bracelet", key=f"rt_seo_desc_{rt_key_id}")
         st.write(f"Source: {source_label}")
-        if st.button("✨ Analyze"):
+        if st.button("✨ Analyze", key=f"rt_seo_analyze_btn_{rt_key_id}"):
             if not target_images_for_seo: st.warning("No images.")
             elif not user_product_desc: st.warning("Enter description.")
             else:
@@ -745,7 +745,7 @@ with tab_retouch:
         if st.session_state.seo_name_result:
             res = st.session_state.seo_name_result
             st.success("Done!")
-            st.write("**Product Name:**"); st.text_input("Name", value=res.get("product_name", ""), label_visibility="collapsed", key=f"res_name_{rt_key_id}")
+            st.write("**Product Name:**"); st.text_input("Name", value=res.get("product_name", ""), label_visibility="collapsed", key=f"rt_res_name_{rt_key_id}")
             st.write("**URL Slug:**"); st.code(res.get("url_slug", ""))
 
 # === TAB 2: BULK SEO ===
@@ -762,8 +762,8 @@ with tab2:
     with bc2:
         burl = st.text_input("Product URL:", key=f"bulk_url_{bulk_key_id}")
         c_btn1, c_btn2 = st.columns([1, 1])
-        run_batch = c_btn1.button("🚀 Run Batch", type="primary", disabled=(not bimgs))
-        if c_btn2.button("🔄 Start Over", key="clear_bulk"):
+        run_batch = c_btn1.button("🚀 Run Batch", type="primary", disabled=(not bimgs), key=f"bulk_run_btn_{bulk_key_id}")
+        if c_btn2.button("🔄 Start Over", key=f"bulk_startover_btn_{bulk_key_id}"):
             st.session_state.bulk_results = None; st.session_state.bulk_key_counter += 1; st.rerun()
         if run_batch:
             if (current_text_model == "Gemini" and not gemini_key) or (current_text_model == "Claude" and not claude_key): st.error("Missing API Key")
@@ -805,9 +805,9 @@ with tab3:
             sh_secret_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             if sh_secret_shop and sh_secret_token:
-                sh_writer_id = st.text_input("Product ID", key="writer_shopify_id")
+                sh_writer_id = st.text_input("Product ID", key=f"writer_shopify_id_{writer_key_id}")
                 col_w_fetch, col_w_clear = st.columns([2, 1])
-                if col_w_fetch.button("⬇️ Fetch All", key="writer_fetch_btn"):
+                if col_w_fetch.button("⬇️ Fetch All", key=f"writer_fetch_btn_{writer_key_id}"):
                     if not sh_writer_id: st.warning("Enter ID")
                     else:
                         with st.spinner("Fetching..."):
@@ -816,7 +816,7 @@ with tab3:
                             if imgs: st.session_state.writer_shopify_imgs = imgs
                             if desc_html: st.session_state[text_area_key] = remove_html_tags(desc_html)
                             st.success("Loaded!"); st.rerun()
-                if col_w_clear.button("❌ Clear", key="writer_clear_btn"):
+                if col_w_clear.button("❌ Clear", key=f"writer_clear_btn_{writer_key_id}"):
                     st.session_state.writer_shopify_imgs = []
                     if text_area_key in st.session_state: st.session_state[text_area_key] = ""
                     st.rerun()
@@ -830,8 +830,8 @@ with tab3:
                 for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
         wb1, wb2 = st.columns([1, 1])
-        run_write = wb1.button("🚀 Generate Content", type="primary")
-        if wb2.button("🔄 Start Over", key="clear_writer"):
+        run_write = wb1.button("🚀 Generate Content", type="primary", key=f"writer_run_btn_{writer_key_id}")
+        if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
             st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_key_counter += 1; st.rerun()
     with c2:
         if run_write:
@@ -875,10 +875,10 @@ with tab3:
                 if secret_shop and secret_token:
                     col_info, col_input = st.columns([1, 1])
                     with col_info: st.success("✅ Credentials Loaded"); s_shop = secret_shop; s_token = secret_token
-                    with col_input: s_prod_id = st.text_input("Product ID", value=st.session_state.get("writer_shopify_id", ""))
-                else: st.warning("⚠️ Credentials Required"); c_x1, c_x2, c_x3 = st.columns(3); s_shop = c_x1.text_input("Shop URL"); s_token = c_x2.text_input("Token", type="password"); s_prod_id = c_x3.text_input("Product ID")
-                enable_img_upload = st.checkbox("📷 Upload Images", value=True)
-                if st.button("☁️ Update Product", type="primary", use_container_width=True):
+                    with col_input: s_prod_id = st.text_input("Product ID", value=st.session_state.get(f"writer_shopify_id_{writer_key_id}", ""), key=f"writer_prod_id_{writer_key_id}")
+                else: st.warning("⚠️ Credentials Required"); c_x1, c_x2, c_x3 = st.columns(3); s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}"); s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}"); s_prod_id = c_x3.text_input("Product ID", key=f"writer_prodid2_{writer_key_id}")
+                enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
+                if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}"):
                     if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
                     else:
                         with st.spinner("Updating..."):
@@ -893,11 +893,11 @@ with tab4:
     with st.form("lib_form"):
         st.write(f"**{'Edit: '+target['name'] if target else 'Add New'}**")
         c1, c2 = st.columns(2)
-        n = c1.text_input("Name", value=target['name'] if target else "")
-        c = c2.text_input("Category", value=target['category'] if target else "")
-        t = st.text_area("Template", value=target['template'] if target else "")
-        v = st.text_input("Vars", value=target['variables'] if target else "")
-        u = st.text_input("Sample URL", value=target['sample_url'] if target else "")
+        n = c1.text_input("Name", value=target['name'] if target else "", key="lib_name")
+        c = c2.text_input("Category", value=target['category'] if target else "", key="lib_cat")
+        t = st.text_area("Template", value=target['template'] if target else "", key="lib_template")
+        v = st.text_input("Vars", value=target['variables'] if target else "", key="lib_vars")
+        u = st.text_input("Sample URL", value=target['sample_url'] if target else "", key="lib_url")
         cols = st.columns([1, 4])
         if cols[0].form_submit_button("💾 Save"):
             new = {"id": target['id'] if target else str(len(st.session_state.library)+1000), "name": n, "category": c, "template": t, "variables": v, "sample_url": u}
@@ -913,8 +913,8 @@ with tab4:
         if p.get("sample_url"):
             with c1: safe_st_image(p["sample_url"], width=50)
         c2.write(f"**{p.get('name')}**")
-        if c3.button("✏️", key=f"e{i}"): st.session_state.edit_target = p; st.rerun()
-        if c4.button("🗑️", key=f"d{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
+        if c3.button("✏️", key=f"lib_edit_{i}"): st.session_state.edit_target = p; st.rerun()
+        if c4.button("🗑️", key=f"lib_del_{i}"): st.session_state.library.pop(i); save_prompts(st.session_state.library); st.rerun()
 
 # === TAB 5: MODELS ===
 with tab5:
@@ -930,7 +930,7 @@ with tab5:
         if claude_key: st.success("✅ Claude API Key: Configured")
         else: st.warning("⚠️ Claude API Key: Not Set")
     st.divider()
-    if st.button("📡 Scan Gemini Models"):
+    if st.button("📡 Scan Gemini Models", key="models_scan_btn"):
         if not gemini_key: st.error("No Key")
         else:
             with st.spinner("Scanning..."):
