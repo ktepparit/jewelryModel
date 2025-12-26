@@ -926,12 +926,12 @@ with tab1:
                                 if success: st.success(msg)
                                 else: st.error(msg)
 
-# === TAB 1.5: RETOUCH IMAGES (UPDATED WITH SHOPIFY IMPORT) ===
+# === TAB 1.5: RETOUCH IMAGES (FIXED ID SYNC) ===
 with tab_retouch:
     st.header("🎨 Retouch (via Gemini)")
     st.caption("Upload raw product photos OR Import directly from Shopify.")
     
-    # State สำหรับเก็บรูปจาก Shopify (ป้องกันการหายเวลากดปุ่มอื่น)
+    # State สำหรับเก็บรูปจาก Shopify
     if "shopify_fetched_imgs" not in st.session_state:
         st.session_state.shopify_fetched_imgs = []
 
@@ -945,13 +945,11 @@ with tab_retouch:
         
         # A. Shopify Import Section
         with st.expander("🛍️ Import from Shopify (Optional)", expanded=True):
-            # Auto-load Secrets
             sh_secret_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             
             if sh_secret_shop and sh_secret_token:
                 st.success("✅ Shopify Connected")
-                # ช่องกรอก ID สำหรับดึงรูป (จะใช้ค่านี้ไปเป็น default ในช่อง upload ด้วย)
                 sh_imp_id = st.text_input("Product ID to Fetch", key=f"imp_id_{rt_key_id}")
                 
                 c_fetch, c_clear = st.columns([2,1])
@@ -963,6 +961,11 @@ with tab_retouch:
                             imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_imp_id)
                             if imgs:
                                 st.session_state.shopify_fetched_imgs = imgs
+                                
+                                # --- FIX: Force Update Upload ID Bottom ---
+                                st.session_state['rt_upload_id'] = sh_imp_id 
+                                # ------------------------------------------
+                                
                                 st.success(f"Loaded {len(imgs)} images!")
                                 st.rerun()
                             else:
@@ -970,6 +973,9 @@ with tab_retouch:
                 
                 if c_clear.button("❌ Clear"):
                     st.session_state.shopify_fetched_imgs = []
+                    # Optional: Clear upload ID too
+                    if 'rt_upload_id' in st.session_state:
+                        del st.session_state['rt_upload_id']
                     st.rerun()
             else:
                 st.info("Set SHOPIFY_SHOP_URL and SHOPIFY_ACCESS_TOKEN in secrets to use this feature.")
@@ -984,12 +990,11 @@ with tab_retouch:
             source_type = "Shopify"
             st.info(f"📂 Using {len(rt_imgs)} images from Shopify Product")
             
-            # Feature: Download Original Images (ที่ User ขอมา)
+            # Feature: Download Original Images
             try:
                 zip_orig = BytesIO()
                 with zipfile.ZipFile(zip_orig, "w") as zf:
                     for i, img in enumerate(rt_imgs):
-                        # Save as JPEG
                         buf = BytesIO()
                         img.save(buf, format="JPEG", quality=95)
                         zf.writestr(f"original_shopify_{i+1}.jpg", buf.getvalue())
@@ -1002,7 +1007,7 @@ with tab_retouch:
                 )
             except Exception as e: st.error(f"Zip Error: {e}")
 
-        # Priority 2: Manual Upload (ถ้าไม่ได้ดึงจาก Shopify)
+        # Priority 2: Manual Upload
         else:
             rt_files = st.file_uploader("Upload Manual Images", accept_multiple_files=True, type=["jpg", "png"], key=f"rt_up_{rt_key_id}")
             if rt_files:
@@ -1059,7 +1064,8 @@ with tab_retouch:
             if clear_retouch:
                 st.session_state.retouch_results = None
                 st.session_state.seo_name_result = None
-                st.session_state.shopify_fetched_imgs = [] # Clear fetched images too
+                st.session_state.shopify_fetched_imgs = [] 
+                if 'rt_upload_id' in st.session_state: del st.session_state['rt_upload_id']
                 st.session_state.retouch_key_counter += 1
                 st.rerun()
             
@@ -1128,11 +1134,11 @@ with tab_retouch:
             rt_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             rt_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             
-            # พยายามดึง ID จากช่อง Import ด้านบน (auto-fill default value)
-            # key "imp_id_{rt_key_id}" มาจาก loop ต้องดึงค่าให้ถูก
+            # พยายามดึง ID จากช่อง Import ด้านบน (หรือจาก Session State ที่ Sync มา)
             current_imp_id = st.session_state.get(f"imp_id_{rt_key_id}", "")
             
             col_rt_u1, col_rt_u2 = st.columns([2, 1])
+            # ใช้ key="rt_upload_id" ซึ่งจะถูกอัปเดตค่าตอนกด Fetch
             rt_prod_id = col_rt_u1.text_input("Target Product ID", value=current_imp_id, key="rt_upload_id")
             
             if col_rt_u2.button("☁️ Upload All & Replace", type="primary", use_container_width=True):
@@ -1151,7 +1157,7 @@ with tab_retouch:
                         if success: st.success(msg); st.balloons()
                         else: st.error(msg)
     
-    # ... (ส่วน SEO Name & Slug Generator เดิมของคุณ ให้คงไว้ต่อท้ายตรงนี้ได้เลย) ...
+    # ... (ส่วน SEO Name & Slug Generator คงเดิม) ...
     # ========================================================
     # NEW FEATURE: SEO PRODUCT NAME & SLUG GENERATOR
     # ========================================================
@@ -1496,3 +1502,4 @@ with tab5:
                     st.success(f"Found {len(gem)} Gemini models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed to fetch models")
+
