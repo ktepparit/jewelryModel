@@ -546,34 +546,17 @@ with tab1:
             sel_style = st.selectbox("Style", filtered, format_func=lambda x: x.get('name','Unknown'), key="gen_style_tab1")
             if sel_style.get("sample_url"): safe_st_image(sel_style["sample_url"], width=100)
             
-            # Track style change to reset prompt
-            gen_style_tracker = "gen_last_style_id"
-            current_style_id = sel_style.get('id', '')
-            
-            if gen_style_tracker not in st.session_state:
-                st.session_state[gen_style_tracker] = current_style_id
-            
-            # Check if style changed
-            style_changed = st.session_state[gen_style_tracker] != current_style_id
-            if style_changed:
-                st.session_state[gen_style_tracker] = current_style_id
-                # Clear the prompt key to force refresh
-                if "gen_prompt_value" in st.session_state:
-                    del st.session_state["gen_prompt_value"]
+            # Get current style id for dynamic key
+            current_style_id = sel_style.get('id', 'default')
             
             vars_list = [v.strip() for v in sel_style.get('variables','').split(",") if v.strip()]
             user_vals = {v: st.text_input(v, key=f"gen_var_{v}_tab1") for v in vars_list}
             final_prompt = sel_style.get('template','')
             for k, v in user_vals.items(): final_prompt = final_prompt.replace(f"{{{k}}}", v)
             
-            # Use session state to control the value
-            if "gen_prompt_value" not in st.session_state or style_changed:
-                st.session_state["gen_prompt_value"] = final_prompt
-            
             st.write("✏️ **Edit Prompt:**")
-            prompt_edit = st.text_area("Instruction", value=st.session_state["gen_prompt_value"], height=100, key="gen_prompt_tab1")
-            # Update session state with user edits
-            st.session_state["gen_prompt_value"] = prompt_edit
+            # Use style id in key so it creates new text_area when style changes
+            prompt_edit = st.text_area("Instruction", value=final_prompt, height=100, key=f"gen_prompt_{current_style_id}")
             
             url_input = st.text_input("Product URL (Optional):", key="post_url", help="AI will use URL context for tags")
 
@@ -682,36 +665,17 @@ with tab_retouch:
         if rt_filtered:
             rt_style = st.selectbox("Style", rt_filtered, format_func=lambda x: x.get('name','Unknown'), key=f"rt_style_{rt_key_id}")
             
-            # Track style change to reset prompt
-            rt_style_tracker = f"rt_last_style_id_{rt_key_id}"
-            current_rt_style_id = rt_style.get('id', '')
-            
-            if rt_style_tracker not in st.session_state:
-                st.session_state[rt_style_tracker] = current_rt_style_id
-            
-            # Check if style changed
-            rt_style_changed = st.session_state[rt_style_tracker] != current_rt_style_id
-            if rt_style_changed:
-                st.session_state[rt_style_tracker] = current_rt_style_id
-                # Clear the prompt key to force refresh
-                rt_prompt_key = f"rt_prompt_value_{rt_key_id}"
-                if rt_prompt_key in st.session_state:
-                    del st.session_state[rt_prompt_key]
+            # Get current style id for dynamic key
+            current_rt_style_id = rt_style.get('id', 'default')
             
             rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
             rt_user_vals = {v: st.text_input(v, key=f"rt_var_{v}_{rt_key_id}") for v in rt_vars}
             rt_final_prompt = rt_style.get('template','')
             for k, v in rt_user_vals.items(): rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", v)
             
-            # Use session state to control the value
-            rt_prompt_state_key = f"rt_prompt_value_{rt_key_id}"
-            if rt_prompt_state_key not in st.session_state or rt_style_changed:
-                st.session_state[rt_prompt_state_key] = rt_final_prompt
-            
             st.write("✏️ **Retouch Instruction:**")
-            rt_prompt_edit = st.text_area("Instruction", value=st.session_state[rt_prompt_state_key], height=100, key=f"rt_prompt_{rt_key_id}")
-            # Update session state with user edits
-            st.session_state[rt_prompt_state_key] = rt_prompt_edit
+            # Use style id in key so it creates new text_area when style changes
+            rt_prompt_edit = st.text_area("Instruction", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}_{current_rt_style_id}")
             
             c_rt1, c_rt2 = st.columns([1, 1])
             run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs), key=f"rt_run_btn_{rt_key_id}")
@@ -720,9 +684,6 @@ with tab_retouch:
                 st.session_state.retouch_results = None; st.session_state.seo_name_result = None
                 st.session_state.shopify_fetched_imgs = []; st.session_state.retouch_key_counter += 1
                 if 'rt_upload_id' in st.session_state: del st.session_state['rt_upload_id']
-                # Also clear prompt state
-                if rt_prompt_state_key in st.session_state: del st.session_state[rt_prompt_state_key]
-                if rt_style_tracker in st.session_state: del st.session_state[rt_style_tracker]
                 st.rerun()
             if run_retouch:
                 if not gemini_key: st.error("Missing Gemini API Key!")
