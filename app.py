@@ -618,19 +618,20 @@ with tab1:
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider(); st.subheader("✨ Result")
                 st.image(st.session_state.current_generated_image, use_column_width=True)
-                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary", key="gen_dl_img_tab1")
+                st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary", key=f"gen_dl_img_{gen_key_id}")
                 st.divider(); st.subheader("☁️ Upload to Shopify")
                 with st.container(border=True):
                     tags_data = st.session_state.get("gen_tags_result", {})
                     col_tags1, col_tags2 = st.columns(2)
-                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""), key="gen_filename_tab1")
-                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key="gen_alt_tab1")
+                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""), key=f"gen_filename_{gen_key_id}")
+                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key=f"gen_alt_{gen_key_id}")
                     s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
                     s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-                    default_id = st.session_state.get("gen_shopify_id", "")
+                    # Get Product ID from fetch input (auto-fill)
+                    fetched_prod_id = st.session_state.get(f"gen_shopify_id_{gen_key_id}", "")
                     col_u1, col_u2 = st.columns([3, 1])
-                    u_prod_id = col_u1.text_input("Product ID", value=default_id, key="gen_upload_id", label_visibility="collapsed")
-                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True, key="gen_upload_btn_tab1"):
+                    u_prod_id = col_u1.text_input("Product ID", value=fetched_prod_id, key=f"gen_upload_prodid_{gen_key_id}")
+                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True, key=f"gen_upload_btn_{gen_key_id}"):
                         if not s_shop or not s_token: st.error("Missing Shopify Secrets")
                         elif not u_prod_id: st.warning("Enter Product ID")
                         else:
@@ -667,7 +668,9 @@ with tab_retouch:
                             else: st.error(err)
                 if c_clear.button("❌ Clear", key=f"rt_clear_btn_{rt_key_id}"):
                     st.session_state.shopify_fetched_imgs = []
-                    if 'rt_upload_id' in st.session_state: del st.session_state['rt_upload_id']
+                    st.session_state.retouch_results = None
+                    st.session_state.seo_name_result = None
+                    st.session_state.retouch_key_counter += 1  # Reset all widgets including Product ID
                     st.rerun()
             else: st.info("Set Secrets to use.")
         
@@ -897,7 +900,8 @@ with tab3:
                             st.success("Loaded!"); st.rerun()
                 if col_w_clear.button("❌ Clear", key=f"writer_clear_btn_{writer_key_id}"):
                     st.session_state.writer_shopify_imgs = []
-                    if text_area_key in st.session_state: st.session_state[text_area_key] = ""
+                    st.session_state.writer_result = None
+                    st.session_state.writer_key_counter += 1  # Reset all widgets including Product ID
                     st.rerun()
         writer_imgs = st.session_state.writer_shopify_imgs if st.session_state.writer_shopify_imgs else []
         if not writer_imgs:
@@ -951,11 +955,13 @@ with tab3:
                 secret_shop = st.secrets.get("SHOPIFY_SHOP_URL")
                 secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN")
                 s_shop, s_token, s_prod_id = None, None, None
+                # Get Product ID from fetch input (auto-fill)
+                fetched_writer_id = st.session_state.get(f"writer_shopify_id_{writer_key_id}", "")
                 if secret_shop and secret_token:
                     col_info, col_input = st.columns([1, 1])
                     with col_info: st.success("✅ Credentials Loaded"); s_shop = secret_shop; s_token = secret_token
-                    with col_input: s_prod_id = st.text_input("Product ID", value=st.session_state.get(f"writer_shopify_id_{writer_key_id}", ""), key=f"writer_prod_id_{writer_key_id}")
-                else: st.warning("⚠️ Credentials Required"); c_x1, c_x2, c_x3 = st.columns(3); s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}"); s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}"); s_prod_id = c_x3.text_input("Product ID", key=f"writer_prodid2_{writer_key_id}")
+                    with col_input: s_prod_id = st.text_input("Product ID", value=fetched_writer_id, key=f"writer_prod_id_{writer_key_id}")
+                else: st.warning("⚠️ Credentials Required"); c_x1, c_x2, c_x3 = st.columns(3); s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}"); s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}"); s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}")
                 enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
                 if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}"):
                     if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
