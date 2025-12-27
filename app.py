@@ -15,7 +15,18 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 # Model IDs
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_GEMINI = "models/gemini-3-pro-preview"
-MODEL_TEXT_CLAUDE = "claude-sonnet-4-20250514"
+
+# Claude Models
+CLAUDE_MODELS = {
+    "Claude Sonnet 4": "claude-sonnet-4-20250514",
+    "Claude Opus 4": "claude-opus-4-20250514",
+}
+
+# OpenAI Models
+OPENAI_MODELS = {
+    "GPT-5.2": "gpt-5.2",
+    "GPT-5.2 Pro": "gpt-5.2-pro",
+}
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -287,9 +298,9 @@ def get_shopify_product_details(shop_url, access_token, product_id):
     except Exception as e: return None, None, None, str(e)
 
 # ============================================================
-# --- CLAUDE API FUNCTION (NEW) ---
+# --- CLAUDE API FUNCTION ---
 # ============================================================
-def call_claude_api(claude_key, prompt, img_pil_list=None):
+def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-4-20250514"):
     """Call Claude API for Text/SEO tasks with optional image support"""
     url = "https://api.anthropic.com/v1/messages"
     headers = {"Content-Type": "application/json", "x-api-key": claude_key, "anthropic-version": "2023-06-01"}
@@ -300,7 +311,7 @@ def call_claude_api(claude_key, prompt, img_pil_list=None):
             content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": img_to_base64(img)}})
     content.append({"type": "text", "text": prompt})
     
-    payload = {"model": MODEL_TEXT_CLAUDE, "max_tokens": 4096, "messages": [{"role": "user", "content": content}]}
+    payload = {"model": model_id, "max_tokens": 4096, "messages": [{"role": "user", "content": content}]}
     
     for attempt in range(3):
         try:
@@ -314,6 +325,36 @@ def call_claude_api(claude_key, prompt, img_pil_list=None):
             else: return None, f"Claude API Error {res.status_code}: {res.text}"
         except: time.sleep(2)
     return None, "Claude API failed after retries"
+
+# ============================================================
+# --- OPENAI API FUNCTION (NEW) ---
+# ============================================================
+def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-4o"):
+    """Call OpenAI API for Text/SEO tasks with optional image support"""
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"}
+    
+    content = []
+    if img_pil_list:
+        for img in img_pil_list:
+            content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_to_base64(img)}"}})
+    content.append({"type": "text", "text": prompt})
+    
+    payload = {
+        "model": model_id, 
+        "max_tokens": 4096, 
+        "messages": [{"role": "user", "content": content}]
+    }
+    
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json=payload, headers=headers, timeout=120)
+            if res.status_code == 200:
+                return res.json().get("choices", [{}])[0].get("message", {}).get("content", ""), None
+            elif res.status_code == 429: time.sleep(3); continue
+            else: return None, f"OpenAI API Error {res.status_code}: {res.text}"
+        except: time.sleep(2)
+    return None, "OpenAI API failed after retries"
 
 # ============================================================
 # --- AI FUNCTIONS (GEMINI & CLAUDE) ---
@@ -337,9 +378,20 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
-def generate_seo_tags_smart(gemini_key, claude_key, selected_model, context, product_url=""):
+def generate_seo_tags_smart(gemini_key, claude_key, openai_key, selected_model, context, product_url=""):
     prompt = SEO_PROMPT_SMART_GEN.replace("{context}", context).replace("{product_url}", product_url)
-    if selected_model == "Claude" and claude_key: return call_claude_api(claude_key, prompt)
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, model_id=model_id)
+    
+    # Default: Gemini
     key = clean_key(gemini_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
@@ -352,9 +404,20 @@ def generate_seo_tags_smart(gemini_key, claude_key, selected_model, context, pro
         except: time.sleep(1)
     return None, "Failed"
 
-def generate_seo_for_existing_image(gemini_key, claude_key, selected_model, img_pil, product_url):
+def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected_model, img_pil, product_url):
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
-    if selected_model == "Claude" and claude_key: return call_claude_api(claude_key, prompt, [img_pil])
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, [img_pil], model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, [img_pil], model_id=model_id)
+    
+    # Default: Gemini
     key = clean_key(gemini_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
@@ -367,11 +430,22 @@ def generate_seo_for_existing_image(gemini_key, claude_key, selected_model, img_
         except: time.sleep(1)
     return None, "Failed"
 
-def generate_full_product_content(gemini_key, claude_key, selected_model, img_pil_list, raw_input):
+def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0: prompt += f"\n\nCRITICAL: You received {num_images} images. Return exactly {num_images} objects in 'image_seo' array."
-    if selected_model == "Claude" and claude_key: return call_claude_api(claude_key, prompt, img_pil_list)
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, img_pil_list, model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, img_pil_list, model_id=model_id)
+    
+    # Default: Gemini
     key = clean_key(gemini_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
     parts = [{"text": prompt}]
@@ -387,7 +461,7 @@ def generate_full_product_content(gemini_key, claude_key, selected_model, img_pi
         except: time.sleep(1)
     return None, "Failed"
 
-def generate_seo_name_slug(gemini_key, claude_key, selected_model, img_list, user_desc):
+def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, img_list, user_desc):
     prompt = SEO_PROMPT_NAME_SLUG.replace("{user_desc}", user_desc)
     pil_images = []
     if img_list:
@@ -396,7 +470,18 @@ def generate_seo_name_slug(gemini_key, claude_key, selected_model, img_list, use
                 try: pil_images.append(Image.open(BytesIO(item)))
                 except: pass
             elif isinstance(item, Image.Image): pil_images.append(item)
-    if selected_model == "Claude" and claude_key: return call_claude_api(claude_key, prompt, pil_images if pil_images else None)
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, pil_images if pil_images else None, model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, pil_images if pil_images else None, model_id=model_id)
+    
+    # Default: Gemini
     key = clean_key(gemini_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
     parts = [{"text": prompt}]
@@ -441,8 +526,30 @@ with st.sidebar:
     
     # MODEL SELECTOR
     st.subheader("🤖 AI Model Selection")
-    selected_text_model = st.selectbox("Text/SEO Model:", ["Gemini", "Claude"], index=0, help="เลือก Model สำหรับงาน SEO Writing", key="sidebar_model_select")
+    
+    # Provider selection
+    all_models = ["Gemini"] + list(CLAUDE_MODELS.keys()) + list(OPENAI_MODELS.keys())
+    selected_text_model = st.selectbox(
+        "Text/SEO Model:", 
+        all_models, 
+        index=0, 
+        help="เลือก Model สำหรับงาน SEO Writing", 
+        key="sidebar_model_select"
+    )
     st.session_state['selected_text_model'] = selected_text_model
+    
+    # Show model info
+    if selected_text_model == "Gemini":
+        st.caption("🔹 Google Gemini - Fast & Free tier available")
+    elif selected_text_model in CLAUDE_MODELS:
+        model_id = CLAUDE_MODELS[selected_text_model]
+        st.caption(f"🔹 Anthropic - `{model_id}`")
+        if "Opus" in selected_text_model:
+            st.caption("⚠️ Opus = Higher quality but more expensive")
+    elif selected_text_model in OPENAI_MODELS:
+        model_id = OPENAI_MODELS[selected_text_model]
+        st.caption(f"🔹 OpenAI - `{model_id}`")
+    
     st.caption("📸 Image Gen: Gemini (Fixed)")
     st.divider()
     
@@ -465,11 +572,22 @@ with st.sidebar:
         claude_key = clean_key(st.secrets["CLAUDE_API_KEY"])
         st.success("✅ Claude Key Loaded")
     else:
-        claude_key = st.text_input("Claude API Key (Optional)", type="password", key="sidebar_claude_key")
+        claude_key = st.text_input("Claude API Key", type="password", key="sidebar_claude_key")
         claude_key = clean_key(claude_key)
     
-    if selected_text_model == "Claude" and not claude_key:
+    # OpenAI Key
+    if "OPENAI_API_KEY" in st.secrets:
+        openai_key = clean_key(st.secrets["OPENAI_API_KEY"])
+        st.success("✅ OpenAI Key Loaded")
+    else:
+        openai_key = st.text_input("OpenAI API Key", type="password", key="sidebar_openai_key")
+        openai_key = clean_key(openai_key)
+    
+    # Validation warnings
+    if selected_text_model in CLAUDE_MODELS and not claude_key:
         st.warning("⚠️ Claude selected but no API Key!")
+    if selected_text_model in OPENAI_MODELS and not openai_key:
+        st.warning("⚠️ OpenAI selected but no API Key!")
     
     st.divider()
     if "JSONBIN_API_KEY" in st.secrets: st.caption("✅ Database Connected")
@@ -607,7 +725,7 @@ with tab1:
                             st.session_state.current_generated_image = d
                             st.session_state.image_generated_success = True
                             current_url = url_input
-                            tags_json, _ = generate_seo_tags_smart(gemini_key, claude_key, current_text_model, prompt_edit, current_url)
+                            tags_json, _ = generate_seo_tags_smart(gemini_key, claude_key, openai_key, current_text_model, prompt_edit, current_url)
                             if tags_json:
                                 parsed_tags = parse_json_response(tags_json)
                                 st.session_state.gen_tags_result = parsed_tags if parsed_tags else {}
@@ -817,7 +935,7 @@ with tab_retouch:
             elif not user_product_desc: st.warning("Enter description.")
             else:
                 with st.spinner("Analyzing..."):
-                    seo_json, seo_err = generate_seo_name_slug(gemini_key, claude_key, current_text_model, target_images_for_seo, user_product_desc)
+                    seo_json, seo_err = generate_seo_name_slug(gemini_key, claude_key, openai_key, current_text_model, target_images_for_seo, user_product_desc)
                     if seo_json:
                         res_dict = parse_json_response(seo_json)
                         if res_dict: st.session_state.seo_name_result = res_dict
@@ -848,13 +966,19 @@ with tab2:
         if c_btn2.button("🔄 Start Over", key=f"bulk_startover_btn_{bulk_key_id}"):
             st.session_state.bulk_results = None; st.session_state.bulk_key_counter += 1; st.rerun()
         if run_batch:
-            if (current_text_model == "Gemini" and not gemini_key) or (current_text_model == "Claude" and not claude_key): st.error("Missing API Key")
+            # Check API key based on selected model
+            missing_key = False
+            if current_text_model == "Gemini" and not gemini_key: missing_key = True
+            elif current_text_model in CLAUDE_MODELS and not claude_key: missing_key = True
+            elif current_text_model in OPENAI_MODELS and not openai_key: missing_key = True
+            
+            if missing_key: st.error("Missing API Key")
             elif not burl: st.error("Missing URL")
             else:
                 pbar = st.progress(0); temp_results = []
                 for i, img in enumerate(bimgs):
                     with st.spinner(f"Processing #{i+1}..."):
-                        txt, err = generate_seo_for_existing_image(gemini_key, claude_key, current_text_model, img, burl)
+                        txt, err = generate_seo_for_existing_image(gemini_key, claude_key, openai_key, current_text_model, img, burl)
                         pbar.progress((i+1)/len(bimgs))
                         if txt:
                             d = parse_json_response(txt)
@@ -918,11 +1042,17 @@ with tab3:
             st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_key_counter += 1; st.rerun()
     with c2:
         if run_write:
-            if (current_text_model == "Gemini" and not gemini_key) or (current_text_model == "Claude" and not claude_key): st.error("Missing API Key")
+            # Check API key based on selected model
+            missing_key = False
+            if selected_text_model == "Gemini" and not gemini_key: missing_key = True
+            elif selected_text_model in CLAUDE_MODELS and not claude_key: missing_key = True
+            elif selected_text_model in OPENAI_MODELS and not openai_key: missing_key = True
+            
+            if missing_key: st.error("Missing API Key")
             elif not raw: st.error("Missing details")
             else:
                 with st.spinner(f"Writing with {current_text_model}..."):
-                    json_txt, err = generate_full_product_content(gemini_key, claude_key, current_text_model, writer_imgs, raw)
+                    json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw)
                     if json_txt:
                         d = parse_json_response(json_txt)
                         if isinstance(d, list) and d: d = d[0]
@@ -1035,13 +1165,33 @@ with tab5:
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Current Configuration:**")
-        st.json({"Image Generation": "Gemini (gemini-3-pro-image-preview)", "Text/SEO Model": st.session_state.get('selected_text_model', 'Gemini'), "Claude Model": MODEL_TEXT_CLAUDE, "Gemini Text Model": MODEL_TEXT_GEMINI})
+        current_model = st.session_state.get('selected_text_model', 'Gemini')
+        model_info = {
+            "Image Generation": "Gemini (gemini-3-pro-image-preview)", 
+            "Text/SEO Model": current_model,
+            "Gemini Text": MODEL_TEXT_GEMINI
+        }
+        if current_model in CLAUDE_MODELS:
+            model_info["Claude Model ID"] = CLAUDE_MODELS[current_model]
+        if current_model in OPENAI_MODELS:
+            model_info["OpenAI Model ID"] = OPENAI_MODELS[current_model]
+        st.json(model_info)
+        
+        st.write("**Available Models:**")
+        st.write("🔹 **Gemini** - Google AI (Free tier available)")
+        st.write("🔹 **Claude Sonnet 4** - Anthropic (Balanced)")
+        st.write("🔹 **Claude Opus 4** - Anthropic (Highest quality)")
+        st.write("🔹 **GPT-5.2** - OpenAI (Flagship model)")
+        st.write("🔹 **GPT-5.2 Pro** - OpenAI (Maximum accuracy)")
+        
     with col2:
         st.write("**API Status:**")
         if gemini_key: st.success("✅ Gemini API Key: Configured")
         else: st.error("❌ Gemini API Key: Missing")
         if claude_key: st.success("✅ Claude API Key: Configured")
         else: st.warning("⚠️ Claude API Key: Not Set")
+        if openai_key: st.success("✅ OpenAI API Key: Configured")
+        else: st.warning("⚠️ OpenAI API Key: Not Set")
     st.divider()
     if st.button("📡 Scan Gemini Models", key="models_scan_btn"):
         if not gemini_key: st.error("No Key")
