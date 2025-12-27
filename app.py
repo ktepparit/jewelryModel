@@ -559,12 +559,12 @@ with tab1:
             # Get current style id
             current_style_id = sel_style.get('id', 'default')
             
-            # Session state key for this style's prompt
-            prompt_state_key = f"gen_prompt_state_{gen_key_id}_{current_style_id}"
+            # Widget key for the text_area
+            prompt_widget_key = f"gen_prompt_display_{gen_key_id}_{current_style_id}"
             
-            # Initialize prompt state with template if not exists
-            if prompt_state_key not in st.session_state:
-                st.session_state[prompt_state_key] = sel_style.get('template','')
+            # Initialize with template if widget key not exists
+            if prompt_widget_key not in st.session_state:
+                st.session_state[prompt_widget_key] = sel_style.get('template','')
             
             # Variables input
             vars_list = [v.strip() for v in sel_style.get('variables','').split(",") if v.strip()]
@@ -582,11 +582,11 @@ with tab1:
                 for k, val in user_vals.items(): 
                     current_prompt = current_prompt.replace(f"{{{k}}}", val)
                 
-                # Update session state with new prompt (variables filled in)
-                st.session_state[prompt_state_key] = current_prompt
+                # Update the text_area widget key directly
+                st.session_state[prompt_widget_key] = current_prompt
             
-            # Editable text area - shows template with variables filled in
-            prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", value=st.session_state[prompt_state_key], height=100, key=f"gen_prompt_display_{gen_key_id}_{current_style_id}")
+            # Editable text area - value comes from session state key automatically
+            prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", height=100, key=prompt_widget_key)
             
             # Product URL - auto-filled when Fetch from Shopify (value set directly to session state key)
             url_input = st.text_input("Product URL (Optional):", key=f"gen_post_url_{gen_key_id}", help="Auto-filled from Shopify. AI will use URL context for tags")
@@ -699,12 +699,12 @@ with tab_retouch:
             # Get current style id for dynamic key
             current_rt_style_id = rt_style.get('id', 'default')
             
-            # Session state key for this style's prompt
-            rt_prompt_state_key = f"rt_prompt_state_{rt_key_id}_{current_rt_style_id}"
+            # Widget key for the text_area
+            rt_prompt_widget_key = f"rt_prompt_display_{rt_key_id}_{current_rt_style_id}"
             
-            # Initialize prompt state with template if not exists
-            if rt_prompt_state_key not in st.session_state:
-                st.session_state[rt_prompt_state_key] = rt_style.get('template','')
+            # Initialize with template if widget key not exists
+            if rt_prompt_widget_key not in st.session_state:
+                st.session_state[rt_prompt_widget_key] = rt_style.get('template','')
             
             # Variables input
             rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
@@ -722,11 +722,11 @@ with tab_retouch:
                 for k, val in rt_user_vals.items(): 
                     current_rt_prompt = current_rt_prompt.replace(f"{{{k}}}", val)
                 
-                # Update session state with new prompt (variables filled in)
-                st.session_state[rt_prompt_state_key] = current_rt_prompt
+                # Update the text_area widget key directly
+                st.session_state[rt_prompt_widget_key] = current_rt_prompt
             
-            # Editable text area - shows template with variables filled in
-            rt_prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", value=st.session_state[rt_prompt_state_key], height=100, key=f"rt_prompt_display_{rt_key_id}_{current_rt_style_id}")
+            # Editable text area - value comes from session state key automatically
+            rt_prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", height=100, key=rt_prompt_widget_key)
             
             c_rt1, c_rt2 = st.columns([1, 1])
             run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs), key=f"rt_run_btn_{rt_key_id}")
