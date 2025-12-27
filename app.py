@@ -562,6 +562,9 @@ with tab1:
             # Widget key for the text_area
             prompt_widget_key = f"gen_prompt_display_{gen_key_id}_{current_style_id}"
             
+            # Key to track last variable values
+            vars_tracker_key = f"gen_vars_tracker_{gen_key_id}_{current_style_id}"
+            
             # Initialize with template if widget key not exists
             if prompt_widget_key not in st.session_state:
                 st.session_state[prompt_widget_key] = sel_style.get('template','')
@@ -577,13 +580,17 @@ with tab1:
                     with cols_vars[idx % len(cols_vars)]:
                         user_vals[v] = st.text_input(v, key=f"gen_var_{v}_{gen_key_id}_{current_style_id}")
                 
-                # Build prompt from template with current variable values
-                current_prompt = sel_style.get('template','')
-                for k, val in user_vals.items(): 
-                    current_prompt = current_prompt.replace(f"{{{k}}}", val)
+                # Check if variables changed from last time
+                last_vars = st.session_state.get(vars_tracker_key, {})
+                vars_changed = (user_vals != last_vars)
                 
-                # Update the text_area widget key directly
-                st.session_state[prompt_widget_key] = current_prompt
+                # Only update prompt if variables changed
+                if vars_changed:
+                    current_prompt = sel_style.get('template','')
+                    for k, val in user_vals.items(): 
+                        current_prompt = current_prompt.replace(f"{{{k}}}", val)
+                    st.session_state[prompt_widget_key] = current_prompt
+                    st.session_state[vars_tracker_key] = user_vals.copy()
             
             # Editable text area - value comes from session state key automatically
             prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", height=100, key=prompt_widget_key)
@@ -702,6 +709,9 @@ with tab_retouch:
             # Widget key for the text_area
             rt_prompt_widget_key = f"rt_prompt_display_{rt_key_id}_{current_rt_style_id}"
             
+            # Key to track last variable values
+            rt_vars_tracker_key = f"rt_vars_tracker_{rt_key_id}_{current_rt_style_id}"
+            
             # Initialize with template if widget key not exists
             if rt_prompt_widget_key not in st.session_state:
                 st.session_state[rt_prompt_widget_key] = rt_style.get('template','')
@@ -717,13 +727,17 @@ with tab_retouch:
                     with cols_vars[idx % len(cols_vars)]:
                         rt_user_vals[v] = st.text_input(v, key=f"rt_var_{v}_{rt_key_id}_{current_rt_style_id}")
                 
-                # Build prompt from template with current variable values
-                current_rt_prompt = rt_style.get('template','')
-                for k, val in rt_user_vals.items(): 
-                    current_rt_prompt = current_rt_prompt.replace(f"{{{k}}}", val)
+                # Check if variables changed from last time
+                last_rt_vars = st.session_state.get(rt_vars_tracker_key, {})
+                rt_vars_changed = (rt_user_vals != last_rt_vars)
                 
-                # Update the text_area widget key directly
-                st.session_state[rt_prompt_widget_key] = current_rt_prompt
+                # Only update prompt if variables changed
+                if rt_vars_changed:
+                    current_rt_prompt = rt_style.get('template','')
+                    for k, val in rt_user_vals.items(): 
+                        current_rt_prompt = current_rt_prompt.replace(f"{{{k}}}", val)
+                    st.session_state[rt_prompt_widget_key] = current_rt_prompt
+                    st.session_state[rt_vars_tracker_key] = rt_user_vals.copy()
             
             # Editable text area - value comes from session state key automatically
             rt_prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", height=100, key=rt_prompt_widget_key)
