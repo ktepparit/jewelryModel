@@ -18,8 +18,8 @@ MODEL_TEXT_GEMINI = "models/gemini-3-pro-preview"
 
 # Claude Models
 CLAUDE_MODELS = {
-    "Claude Sonnet 4": "claude-sonnet-4-20250514",
-    "Claude Opus 4": "claude-opus-4-20250514",
+    "Claude Sonnet 4.5": "claude-sonnet-4-5-20250929",
+    "Claude Opus 4.5": "claude-opus-4-5-20251101",
 }
 
 # OpenAI Models
@@ -1179,8 +1179,8 @@ with tab5:
         
         st.write("**Available Models:**")
         st.write("🔹 **Gemini** - Google AI (Free tier available)")
-        st.write("🔹 **Claude Sonnet 4** - Anthropic (Balanced)")
-        st.write("🔹 **Claude Opus 4** - Anthropic (Highest quality)")
+        st.write("🔹 **Claude Sonnet 4.5** - Anthropic (Balanced)")
+        st.write("🔹 **Claude Opus 4.5** - Anthropic (Highest quality)")
         st.write("🔹 **GPT-5.2** - OpenAI (Flagship model)")
         st.write("🔹 **GPT-5.2 Pro** - OpenAI (Maximum accuracy)")
         
