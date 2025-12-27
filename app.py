@@ -557,24 +557,34 @@ with tab1:
             # Get current style id
             current_style_id = sel_style.get('id', 'default')
             
+            # Session state key for this style's prompt
+            prompt_state_key = f"gen_prompt_state_{gen_key_id}_{current_style_id}"
+            
+            # Initialize prompt state with template if not exists
+            if prompt_state_key not in st.session_state:
+                st.session_state[prompt_state_key] = sel_style.get('template','')
+            
             # Variables input
             vars_list = [v.strip() for v in sel_style.get('variables','').split(",") if v.strip()]
-            user_vals = {}
-            for v in vars_list:
-                user_vals[v] = st.text_input(v, key=f"gen_var_{v}_{gen_key_id}_{current_style_id}")
             
-            # Build final prompt from template
-            final_prompt = sel_style.get('template','')
-            for k, val in user_vals.items(): 
-                final_prompt = final_prompt.replace(f"{{{k}}}", val)
+            if vars_list:
+                st.write("**Variables:**")
+                cols_vars = st.columns(len(vars_list)) if len(vars_list) <= 3 else st.columns(3)
+                user_vals = {}
+                for idx, v in enumerate(vars_list):
+                    with cols_vars[idx % len(cols_vars)]:
+                        user_vals[v] = st.text_input(v, key=f"gen_var_{v}_{gen_key_id}_{current_style_id}")
+                
+                # Build prompt from template with current variable values
+                current_prompt = sel_style.get('template','')
+                for k, val in user_vals.items(): 
+                    current_prompt = current_prompt.replace(f"{{{k}}}", val)
+                
+                # Update session state with new prompt (variables filled in)
+                st.session_state[prompt_state_key] = current_prompt
             
-            st.write("✏️ **Edit Prompt:**")
-            # Display the computed prompt (read-only style but editable)
-            # Show current template with variables filled in
-            st.info(f"📝 Template preview: {final_prompt[:100]}..." if len(final_prompt) > 100 else f"📝 Template: {final_prompt}")
-            
-            # Editable text area - user can modify if needed
-            prompt_edit = st.text_area("Custom Instruction (edit if needed)", value=final_prompt, height=100, key=f"gen_prompt_{gen_key_id}_{current_style_id}")
+            # Editable text area - shows template with variables filled in
+            prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", value=st.session_state[prompt_state_key], height=100, key=f"gen_prompt_display_{gen_key_id}_{current_style_id}")
             
             url_input = st.text_input("Product URL (Optional):", key=f"gen_post_url_{gen_key_id}", help="AI will use URL context for tags")
 
@@ -686,23 +696,34 @@ with tab_retouch:
             # Get current style id for dynamic key
             current_rt_style_id = rt_style.get('id', 'default')
             
-            # Variables input - include style_id in key so they reset when style changes
+            # Session state key for this style's prompt
+            rt_prompt_state_key = f"rt_prompt_state_{rt_key_id}_{current_rt_style_id}"
+            
+            # Initialize prompt state with template if not exists
+            if rt_prompt_state_key not in st.session_state:
+                st.session_state[rt_prompt_state_key] = rt_style.get('template','')
+            
+            # Variables input
             rt_vars = [v.strip() for v in rt_style.get('variables','').split(",") if v.strip()]
-            rt_user_vals = {}
-            for v in rt_vars:
-                rt_user_vals[v] = st.text_input(v, key=f"rt_var_{v}_{rt_key_id}_{current_rt_style_id}")
             
-            # Build final prompt from template
-            rt_final_prompt = rt_style.get('template','')
-            for k, val in rt_user_vals.items(): 
-                rt_final_prompt = rt_final_prompt.replace(f"{{{k}}}", val)
+            if rt_vars:
+                st.write("**Variables:**")
+                cols_vars = st.columns(len(rt_vars)) if len(rt_vars) <= 3 else st.columns(3)
+                rt_user_vals = {}
+                for idx, v in enumerate(rt_vars):
+                    with cols_vars[idx % len(cols_vars)]:
+                        rt_user_vals[v] = st.text_input(v, key=f"rt_var_{v}_{rt_key_id}_{current_rt_style_id}")
+                
+                # Build prompt from template with current variable values
+                current_rt_prompt = rt_style.get('template','')
+                for k, val in rt_user_vals.items(): 
+                    current_rt_prompt = current_rt_prompt.replace(f"{{{k}}}", val)
+                
+                # Update session state with new prompt (variables filled in)
+                st.session_state[rt_prompt_state_key] = current_rt_prompt
             
-            st.write("✏️ **Retouch Instruction:**")
-            # Show template preview
-            st.info(f"📝 Template preview: {rt_final_prompt[:100]}..." if len(rt_final_prompt) > 100 else f"📝 Template: {rt_final_prompt}")
-            
-            # Editable text area
-            rt_prompt_edit = st.text_area("Custom Instruction (edit if needed)", value=rt_final_prompt, height=100, key=f"rt_prompt_{rt_key_id}_{current_rt_style_id}")
+            # Editable text area - shows template with variables filled in
+            rt_prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", value=st.session_state[rt_prompt_state_key], height=100, key=f"rt_prompt_display_{rt_key_id}_{current_rt_style_id}")
             
             c_rt1, c_rt2 = st.columns([1, 1])
             run_retouch = c_rt1.button("🚀 Run Batch", type="primary", disabled=(not rt_imgs), key=f"rt_run_btn_{rt_key_id}")
