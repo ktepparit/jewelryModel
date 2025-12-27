@@ -508,7 +508,8 @@ with tab1:
                                 if handle:
                                     clean_shop = sh_secret_shop.replace("https://", "").replace("http://", "").strip()
                                     if not clean_shop.endswith(".myshopify.com"): clean_shop += ".myshopify.com"
-                                    st.session_state['post_url'] = f"https://{clean_shop}/products/{handle}"
+                                    # Save URL to session state for auto-fill
+                                    st.session_state['gen_product_url'] = f"https://{clean_shop.replace('.myshopify.com', '.com')}/products/{handle}"
                                 st.session_state.gen_shopify_imgs = imgs
                                 st.session_state['gen_upload_id'] = sh_gen_id
                                 st.success(f"Loaded {len(imgs)} images"); st.rerun()
@@ -519,7 +520,7 @@ with tab1:
                     st.session_state.image_generated_success = False
                     st.session_state.current_generated_image = None
                     st.session_state.gen_tags_result = {}
-                    if 'post_url' in st.session_state: st.session_state['post_url'] = ""
+                    st.session_state['gen_product_url'] = ""  # Clear product URL
                     st.rerun()
             else: st.info("Set Secrets to use Import")
 
@@ -586,7 +587,9 @@ with tab1:
             # Editable text area - shows template with variables filled in
             prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", value=st.session_state[prompt_state_key], height=100, key=f"gen_prompt_display_{gen_key_id}_{current_style_id}")
             
-            url_input = st.text_input("Product URL (Optional):", key=f"gen_post_url_{gen_key_id}", help="AI will use URL context for tags")
+            # Get URL from session state (auto-filled when Fetch from Shopify)
+            default_url = st.session_state.get('gen_product_url', '')
+            url_input = st.text_input("Product URL (Optional):", value=default_url, key=f"gen_post_url_{gen_key_id}", help="Auto-filled from Shopify. AI will use URL context for tags")
 
             if st.button("🚀 GENERATE", type="primary", use_container_width=True, key=f"gen_run_btn_{gen_key_id}"):
                 if not gemini_key or not images_to_send: st.error("Check Key & Images")
