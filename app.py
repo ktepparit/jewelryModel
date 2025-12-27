@@ -70,6 +70,35 @@ IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backt
 Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
+SEO_PROMPT_IMAGE_ANALYSIS = """
+You are an SEO & Visual Content Specialist for Jewelry e-commerce with 15-20 years of experience.
+Your task is to analyze the GENERATED IMAGE provided and create SEO-optimized **Image File Name** and **Alt Tag**.
+
+**Product Reference URL:** "{product_url}"
+
+**Instructions:**
+1. **ANALYZE THE IMAGE** - Look at the actual generated image and describe what you see:
+   - Type of jewelry (ring, necklace, bracelet, earrings, etc.)
+   - Materials visible (gold, silver, platinum, etc.)
+   - Gemstones (diamond, sapphire, ruby, etc.)
+   - Style (modern, vintage, minimalist, luxury, etc.)
+   - Visual elements (model wearing it, product shot, lifestyle, etc.)
+   - Background and lighting style
+
+2. **File Name:** Create a lowercase, hyphenated file name ending in .jpg
+   - COMBINE product keywords from URL with VISUAL details from the image
+   - Include: material, product type, style, and visual context
+   - Example: `gold-diamond-ring-elegant-hand-model-lifestyle.jpg`
+
+3. **Alt Tag:** Write a natural English sentence describing exactly what is shown in the image
+   - Be specific about what you SEE in the image
+   - Mention materials, style, and context visible
+   - Good for accessibility and SEO
+
+IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
+Structure: {"file_name": "...", "alt_tag": "..."}
+"""
+
 SEO_PROMPT_BULK_EXISTING = """
 คุณคือ SEO specialist ที่มีประสบการณ์ 15-20 ปี ช่วยเขียน SEO-optimized image file name with image alt tags เป็นภาษาอังกฤษ สำหรับสินค้าของฉันตามแต่ละรูปที่แนบมาให้ {product_url} เพื่อให้ได้ติดอันดับที่ดีบน organic search engine โดยกลุ่มลูกค้าเป็นผู้สนใจสินค้าชนิดนี้
 IMPORTANT: You MUST return the result in raw JSON format ONLY (no markdown backticks).
@@ -404,6 +433,40 @@ def generate_seo_tags_smart(gemini_key, claude_key, openai_key, selected_model, 
         except: time.sleep(1)
     return None, "Failed"
 
+def generate_seo_from_generated_image(gemini_key, claude_key, openai_key, selected_model, generated_image_bytes, product_url=""):
+    """Analyze the generated image and create SEO tags based on visual content + product URL"""
+    prompt = SEO_PROMPT_IMAGE_ANALYSIS.replace("{product_url}", product_url if product_url else "No URL provided")
+    
+    # Convert bytes to PIL Image
+    try:
+        img_pil = Image.open(BytesIO(generated_image_bytes))
+    except:
+        return None, "Failed to process generated image"
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, [img_pil], model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, [img_pil], model_id=model_id)
+    
+    # Default: Gemini
+    key = clean_key(gemini_key)
+    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    parts = [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
+    for attempt in range(3):
+        try:
+            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+            if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+            elif res.status_code == 503: time.sleep(2); continue
+            else: return None, f"Error {res.status_code}"
+        except: time.sleep(1)
+    return None, "Failed"
+
 def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected_model, img_pil, product_url):
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
     
@@ -714,22 +777,28 @@ with tab1:
             prompt_edit = st.text_area("✏️ Custom Instruction (edit if needed)", height=100, key=prompt_widget_key)
             
             # Product URL - auto-filled when Fetch from Shopify (value set directly to session state key)
-            url_input = st.text_input("Product URL (Optional):", key=f"gen_post_url_{gen_key_id}", help="Auto-filled from Shopify. AI will use URL context for tags")
+            url_input = st.text_input("Product URL (Optional):", key=f"gen_post_url_{gen_key_id}", help="Auto-filled from Shopify. AI will use URL context for SEO tags")
 
             if st.button("🚀 GENERATE", type="primary", use_container_width=True, key=f"gen_run_btn_{gen_key_id}"):
                 if not gemini_key or not images_to_send: st.error("Check Key & Images")
                 else:
-                    with st.spinner("Generating Image & Smart Tags..."):
+                    with st.spinner("Generating Image..."):
                         d, e = generate_image(gemini_key, images_to_send, prompt_edit)
                         if d:
                             st.session_state.current_generated_image = d
                             st.session_state.image_generated_success = True
+                            # Increment tags counter to force refresh of file name/alt tag fields
+                            if "gen_tags_counter" not in st.session_state: st.session_state.gen_tags_counter = 0
+                            st.session_state.gen_tags_counter += 1
+                            
+                            # Generate SEO tags by analyzing the GENERATED IMAGE + Product URL
                             current_url = url_input
-                            tags_json, _ = generate_seo_tags_smart(gemini_key, claude_key, openai_key, current_text_model, prompt_edit, current_url)
-                            if tags_json:
-                                parsed_tags = parse_json_response(tags_json)
-                                st.session_state.gen_tags_result = parsed_tags if parsed_tags else {}
-                            else: st.session_state.gen_tags_result = {}
+                            with st.spinner("Analyzing image for SEO tags..."):
+                                tags_json, _ = generate_seo_from_generated_image(gemini_key, claude_key, openai_key, current_text_model, d, current_url)
+                                if tags_json:
+                                    parsed_tags = parse_json_response(tags_json)
+                                    st.session_state.gen_tags_result = parsed_tags if parsed_tags else {}
+                                else: st.session_state.gen_tags_result = {}
                             st.rerun()
                         else: st.error(e)
 
@@ -740,9 +809,11 @@ with tab1:
                 st.divider(); st.subheader("☁️ Upload to Shopify")
                 with st.container(border=True):
                     tags_data = st.session_state.get("gen_tags_result", {})
+                    tags_counter = st.session_state.get("gen_tags_counter", 0)
                     col_tags1, col_tags2 = st.columns(2)
-                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""), key=f"gen_filename_{gen_key_id}")
-                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key=f"gen_alt_{gen_key_id}")
+                    # Use tags_counter in key to force refresh when new image is generated
+                    final_filename = col_tags1.text_input("File Name", value=tags_data.get("file_name", ""), key=f"gen_filename_{gen_key_id}_{tags_counter}")
+                    final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key=f"gen_alt_{gen_key_id}_{tags_counter}")
                     s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
                     s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
                     # Get Product ID from fetch input (auto-fill)
