@@ -1104,10 +1104,15 @@ with tab3:
                             desc_html, _, _, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             if imgs: st.session_state.writer_shopify_imgs = imgs
                             if desc_html: st.session_state[text_area_key] = remove_html_tags(desc_html)
+                            # Save fetched Product ID and increment publish counter
+                            st.session_state['writer_fetched_prod_id'] = sh_writer_id
+                            if "writer_publish_counter" not in st.session_state: st.session_state.writer_publish_counter = 0
+                            st.session_state.writer_publish_counter += 1
                             st.success("Loaded!"); st.rerun()
                 if col_w_clear.button("❌ Clear", key=f"writer_clear_btn_{writer_key_id}"):
                     st.session_state.writer_shopify_imgs = []
                     st.session_state.writer_result = None
+                    st.session_state.writer_fetched_prod_id = ""
                     st.session_state.writer_key_counter += 1  # Reset all widgets including Product ID
                     st.rerun()
         writer_imgs = st.session_state.writer_shopify_imgs if st.session_state.writer_shopify_imgs else []
@@ -1122,7 +1127,7 @@ with tab3:
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate Content", type="primary", key=f"writer_run_btn_{writer_key_id}")
         if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
-            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_key_counter += 1; st.rerun()
+            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_key_counter += 1; st.rerun()
     with c2:
         if run_write:
             # Check API key based on selected model
@@ -1168,15 +1173,22 @@ with tab3:
                 secret_shop = st.secrets.get("SHOPIFY_SHOP_URL")
                 secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN")
                 s_shop, s_token, s_prod_id = None, None, None
-                # Get Product ID from fetch input (auto-fill)
-                fetched_writer_id = st.session_state.get(f"writer_shopify_id_{writer_key_id}", "")
+                # Get Product ID from fetched value (updates on each Fetch)
+                fetched_writer_id = st.session_state.get("writer_fetched_prod_id", "")
+                writer_publish_counter = st.session_state.get("writer_publish_counter", 0)
                 if secret_shop and secret_token:
                     col_info, col_input = st.columns([1, 1])
                     with col_info: st.success("✅ Credentials Loaded"); s_shop = secret_shop; s_token = secret_token
-                    with col_input: s_prod_id = st.text_input("Product ID", value=fetched_writer_id, key=f"writer_prod_id_{writer_key_id}")
-                else: st.warning("⚠️ Credentials Required"); c_x1, c_x2, c_x3 = st.columns(3); s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}"); s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}"); s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}")
+                    # Use publish_counter in key so widget refreshes when Fetch is clicked
+                    with col_input: s_prod_id = st.text_input("Product ID", value=fetched_writer_id, key=f"writer_prod_id_{writer_key_id}_{writer_publish_counter}")
+                else: 
+                    st.warning("⚠️ Credentials Required")
+                    c_x1, c_x2, c_x3 = st.columns(3)
+                    s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}")
+                    s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}")
+                    s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}_{writer_publish_counter}")
                 enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
-                if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}"):
+                if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}_{writer_publish_counter}"):
                     if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
                     else:
                         with st.spinner("Updating..."):
