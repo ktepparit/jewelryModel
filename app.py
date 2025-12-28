@@ -22,10 +22,9 @@ CLAUDE_MODELS = {
     "Claude Opus 4.5": "claude-opus-4-5-20251101",
 }
 
-# OpenAI Models
+# OpenAI Models (Chat Completions API compatible)
 OPENAI_MODELS = {
     "GPT-5.2": "gpt-5.2",
-    "GPT-5.2 Pro": "gpt-5.2-pro",
 }
 
 # --- HELPER: CLEANER ---
@@ -1266,7 +1265,6 @@ with tab5:
         st.write("🔹 **Claude Sonnet 4.5** - Anthropic (Balanced)")
         st.write("🔹 **Claude Opus 4.5** - Anthropic (Highest quality)")
         st.write("🔹 **GPT-5.2** - OpenAI (Flagship model)")
-        st.write("🔹 **GPT-5.2 Pro** - OpenAI (Maximum accuracy)")
         
     with col2:
         st.write("**API Status:**")
