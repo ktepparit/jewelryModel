@@ -693,7 +693,10 @@ with tab1:
                                     product_url = f"https://{clean_shop.replace('.myshopify.com', '.com')}/products/{handle}"
                                     st.session_state[f"gen_post_url_{gen_key_id}"] = product_url
                                 st.session_state.gen_shopify_imgs = imgs
-                                st.session_state['gen_upload_id'] = sh_gen_id
+                                # Save fetched Product ID and increment upload counter to refresh Upload section
+                                st.session_state['gen_fetched_prod_id'] = sh_gen_id
+                                if "gen_upload_counter" not in st.session_state: st.session_state.gen_upload_counter = 0
+                                st.session_state.gen_upload_counter += 1
                                 st.success(f"Loaded {len(imgs)} images"); st.rerun()
                             else: st.error(err)
                 if col_clear.button("❌ Clear", key=f"gen_clear_btn_{gen_key_id}"):
@@ -701,6 +704,7 @@ with tab1:
                     st.session_state.image_generated_success = False
                     st.session_state.current_generated_image = None
                     st.session_state.gen_tags_result = {}
+                    st.session_state.gen_fetched_prod_id = ""
                     # Clear URL by incrementing key counter (creates new widget)
                     st.session_state.gen_key_counter += 1
                     st.rerun()
@@ -816,11 +820,13 @@ with tab1:
                     final_alt = col_tags2.text_input("Alt Tag", value=tags_data.get("alt_tag", ""), key=f"gen_alt_{gen_key_id}_{tags_counter}")
                     s_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
                     s_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-                    # Get Product ID from fetch input (auto-fill)
-                    fetched_prod_id = st.session_state.get(f"gen_shopify_id_{gen_key_id}", "")
+                    # Get Product ID from fetched value (updates on each Fetch)
+                    fetched_prod_id = st.session_state.get("gen_fetched_prod_id", "")
+                    upload_counter = st.session_state.get("gen_upload_counter", 0)
                     col_u1, col_u2 = st.columns([3, 1])
-                    u_prod_id = col_u1.text_input("Product ID", value=fetched_prod_id, key=f"gen_upload_prodid_{gen_key_id}")
-                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True, key=f"gen_upload_btn_{gen_key_id}"):
+                    # Use upload_counter in key so widget refreshes when Fetch is clicked
+                    u_prod_id = col_u1.text_input("Product ID", value=fetched_prod_id, key=f"gen_upload_prodid_{gen_key_id}_{upload_counter}")
+                    if col_u2.button("🚀 Upload", type="primary", use_container_width=True, key=f"gen_upload_btn_{gen_key_id}_{upload_counter}"):
                         if not s_shop or not s_token: st.error("Missing Shopify Secrets")
                         elif not u_prod_id: st.warning("Enter Product ID")
                         else:
@@ -852,13 +858,17 @@ with tab_retouch:
                             imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_imp_id)
                             if imgs:
                                 st.session_state.shopify_fetched_imgs = imgs
-                                st.session_state['rt_upload_id'] = sh_imp_id
+                                # Save fetched Product ID and increment upload counter
+                                st.session_state['rt_fetched_prod_id'] = sh_imp_id
+                                if "rt_upload_counter" not in st.session_state: st.session_state.rt_upload_counter = 0
+                                st.session_state.rt_upload_counter += 1
                                 st.success(f"Loaded {len(imgs)} images!"); st.rerun()
                             else: st.error(err)
                 if c_clear.button("❌ Clear", key=f"rt_clear_btn_{rt_key_id}"):
                     st.session_state.shopify_fetched_imgs = []
                     st.session_state.retouch_results = None
                     st.session_state.seo_name_result = None
+                    st.session_state.rt_fetched_prod_id = ""
                     st.session_state.retouch_key_counter += 1  # Reset all widgets including Product ID
                     st.rerun()
             else: st.info("Set Secrets to use.")
@@ -975,10 +985,13 @@ with tab_retouch:
         with st.container(border=True):
             rt_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             rt_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
-            current_imp_id = st.session_state.get(f"rt_imp_id_{rt_key_id}", "")
+            # Get Product ID from fetched value (updates on each Fetch)
+            fetched_rt_prod_id = st.session_state.get("rt_fetched_prod_id", "")
+            rt_upload_counter = st.session_state.get("rt_upload_counter", 0)
             col_rt_u1, col_rt_u2 = st.columns([2, 1])
-            rt_prod_id = col_rt_u1.text_input("Product ID", value=current_imp_id, key=f"rt_upload_id_{rt_key_id}")
-            if col_rt_u2.button("☁️ Upload & Replace", type="primary", use_container_width=True, key=f"rt_upload_btn_{rt_key_id}"):
+            # Use upload_counter in key so widget refreshes when Fetch is clicked
+            rt_prod_id = col_rt_u1.text_input("Product ID", value=fetched_rt_prod_id, key=f"rt_upload_id_{rt_key_id}_{rt_upload_counter}")
+            if col_rt_u2.button("☁️ Upload & Replace", type="primary", use_container_width=True, key=f"rt_upload_btn_{rt_key_id}_{rt_upload_counter}"):
                 if not rt_shop or not rt_token: st.error("Missing Secrets")
                 elif not rt_prod_id: st.warning("Enter ID")
                 elif not any(st.session_state.retouch_results): st.warning("No images")
