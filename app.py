@@ -358,7 +358,7 @@ def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonn
 # ============================================================
 # --- OPENAI API FUNCTION (NEW) ---
 # ============================================================
-def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-4o"):
+def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-5.2"):
     """Call OpenAI API for Text/SEO tasks with optional image support"""
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"}
@@ -371,7 +371,7 @@ def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-4o"):
     
     payload = {
         "model": model_id, 
-        "max_tokens": 4096, 
+        "max_completion_tokens": 4096,  # GPT-5.2 uses max_completion_tokens instead of max_tokens
         "messages": [{"role": "user", "content": content}]
     }
     
