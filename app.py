@@ -808,6 +808,47 @@ with tab1:
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider(); st.subheader("✨ Result")
                 st.image(st.session_state.current_generated_image, use_column_width=True)
+                
+                # Edit/Refine section
+                with st.container(border=True):
+                    st.write("🔄 **Edit / Refine Image**")
+                    edit_counter = st.session_state.get("gen_edit_counter", 0)
+                    edit_prompt = st.text_input(
+                        "Edit Instruction:", 
+                        placeholder="เช่น: ให้ใส่แหวนในนิ้วนางแทน, ให้มือขาวกว่าในรูป, ให้แหวนวงเล็กกว่านี้ 30%",
+                        key=f"gen_edit_prompt_{gen_key_id}_{edit_counter}"
+                    )
+                    if st.button("🔄 Regenerate", type="secondary", use_container_width=True, key=f"gen_edit_btn_{gen_key_id}_{edit_counter}"):
+                        if not edit_prompt:
+                            st.warning("กรุณาใส่คำสั่งแก้ไข")
+                        elif not gemini_key:
+                            st.error("Missing Gemini API Key")
+                        else:
+                            with st.spinner("Regenerating with edit..."):
+                                # Convert current generated image bytes to PIL
+                                current_img = Image.open(BytesIO(st.session_state.current_generated_image))
+                                # Generate with edit prompt using the current generated image
+                                d, e = generate_image(gemini_key, [current_img], edit_prompt)
+                                if d:
+                                    st.session_state.current_generated_image = d
+                                    # Increment counters to refresh widgets
+                                    if "gen_tags_counter" not in st.session_state: st.session_state.gen_tags_counter = 0
+                                    st.session_state.gen_tags_counter += 1
+                                    if "gen_edit_counter" not in st.session_state: st.session_state.gen_edit_counter = 0
+                                    st.session_state.gen_edit_counter += 1
+                                    
+                                    # Regenerate SEO tags for edited image
+                                    current_url = st.session_state.get(f"gen_post_url_{gen_key_id}", "")
+                                    with st.spinner("Analyzing edited image for SEO tags..."):
+                                        tags_json, _ = generate_seo_from_generated_image(gemini_key, claude_key, openai_key, current_text_model, d, current_url)
+                                        if tags_json:
+                                            parsed_tags = parse_json_response(tags_json)
+                                            st.session_state.gen_tags_result = parsed_tags if parsed_tags else {}
+                                        else: st.session_state.gen_tags_result = {}
+                                    st.rerun()
+                                else:
+                                    st.error(e)
+                
                 st.download_button("💾 Download Image", st.session_state.current_generated_image, "gen.jpg", "image/jpeg", type="secondary", key=f"gen_dl_img_{gen_key_id}")
                 st.divider(); st.subheader("☁️ Upload to Shopify")
                 with st.container(border=True):
