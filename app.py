@@ -106,32 +106,26 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง <h1><h2> with human-written style that pass AI Content detector app https://undetectable.ai 
-Act as an expert E-commerce Copywriter and SEO Specialist who understands how Search Generative Experience (SGE) and AI search algorithms work.
+Act as an expert E-commerce Copywriter and SEO Specialist who masters Semantic SEO, Query Fan-out, and Google's E-E-A-T principles.
 เป้าหมายเพื่อเพิ่มอันดับบน organic search engine และ AI search แนะนำ product ของฉันให้กับลูกค้า
 
-ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้:
+**Strategic Instructions:**
 
-1. ย่อหน้าแรก (Opening Paragraph) - คีย์เวิร์ดหลัก + Semantic Keyword 1-2 คำ
-2. ส่วนกลางของเนื้อหา (Body) - กระจาย Semantic Keywords
-3. ส่วนคุณสมบัติ (Specifications) - วัสดุ เช่น 925 sterling silver, handcrafted
-4. ส่วน FAQ - Long-tail keywords
-
-โครงสร้าง: Product Overview, Key Features, FAQ
-
-**Core Instructions (Based on Semantic SEO Principles):**
-
-1.  **Shift from Keywords to Topics:** Do not just stuff keywords. Instead, focus on the **context** and **semantics** surrounding the product. Describe the "lifestyle" and "usage situations" associated with the item.
-2.  **Focus on User Intent & Solutions:** Address the user's pain points directly. Explain *why* they need this product and *how* it solves their specific problems.
-3.  **Adopt a Q&A Format:** AI search engines prioritize content that directly answers questions. Include a section with headers formatted as questions (e.g., "Is this suitable for...?", "How does it help with...?") and provide clear, conversational answers.
-4.  **Natural & Opinionated Tone:** Write as if you are a knowledgeable friend reviewing the product. Use natural language that implies an "opinion" or "experience" (e.g., "You will love how...", "It feels incredibly...").
-5.  **Semantic Associations:** Include semantically related terms. (For example, if the product is an "Ergonomic Chair," also discuss "back pain relief," "lumbar support," "productivity," and "office syndrome").
+1.  **Query Fan-out Strategy:** Identify 3 distinct user sub-intents (e.g., specific problems, usage occasions, or user types) and address them specifically in the body content.
+2.  **Demonstrate "Experience" (E-E-A-T):** Write as if you have physically tested the product. Include *sensory details* to prove experience (e.g., describe the texture, the sound of the click, the weight in hand, or the setup process). Avoid generic fluff.
+3.  **Semantic & NLP Optimization:** Use related entities and semantically relevant topics, not just keywords. Focus on the "solution" rather than just the "spec."
+4.  **Structured Data for AI (The Table):** At the end of the description, create a summary table named "Quick Specs & Real-World Performance" that maps technical specs to actual user benefits.
 
 **Output Structure:**
 
-* **Catchy Headline:** Focus on the main benefit/outcome.
-* **The "Why You Need This" Intro:** A scenario-based introduction connecting the product to the user's daily life.
+* **Catchy Headline:** Benefit-driven and catchy. Focus on the main benefit/outcome
+* **The "Hands-On" Intro:** Introduce the product with a focus on the feeling/experience of using it.
+* **Detailed Usage Scenarios (Fan-out):** Use sub-headers for different user needs.
 * **Key Specs (Contextualized):** List the specs but explain the *benefit* of each spec immediately (e.g., "30W Fast Charge: Get 50% battery in just coffee-break time").
-* **Q&A Section (The AI Magnet):** 3-4 common questions users might ask about this product type, answered with the product's benefits.
+* **Q&A Section:** Answer 3 common questions related to buying decisions.
+* **Summary Table:** A 2-column table: [Feature/Spec] | [Real-World Benefit].
+
+**Tone:** Authentic, Experienced, Helpful, and Human.
 
 
 รวมทั้งช่วยเขียน:
@@ -1354,5 +1348,6 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
