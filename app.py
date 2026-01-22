@@ -106,7 +106,7 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 
 SEO_PRODUCT_WRITER_PROMPT = """
 คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง <h1><h2> with human-written style that pass AI Content detector app https://undetectable.ai 
-
+Act as an expert E-commerce Copywriter and SEO Specialist who understands how Search Generative Experience (SGE) and AI search algorithms work.
 เป้าหมายเพื่อเพิ่มอันดับบน organic search engine และ AI search แนะนำ product ของฉันให้กับลูกค้า
 
 ให้คุณแบ่งการวางคีย์เวิร์ดตามโครงสร้างของ Product Description ดังนี้:
@@ -117,6 +117,21 @@ SEO_PRODUCT_WRITER_PROMPT = """
 4. ส่วน FAQ - Long-tail keywords
 
 โครงสร้าง: Product Overview, Key Features, FAQ
+
+**Core Instructions (Based on Semantic SEO Principles):**
+
+1.  **Shift from Keywords to Topics:** Do not just stuff keywords. Instead, focus on the **context** and **semantics** surrounding the product. Describe the "lifestyle" and "usage situations" associated with the item.
+2.  **Focus on User Intent & Solutions:** Address the user's pain points directly. Explain *why* they need this product and *how* it solves their specific problems.
+3.  **Adopt a Q&A Format:** AI search engines prioritize content that directly answers questions. Include a section with headers formatted as questions (e.g., "Is this suitable for...?", "How does it help with...?") and provide clear, conversational answers.
+4.  **Natural & Opinionated Tone:** Write as if you are a knowledgeable friend reviewing the product. Use natural language that implies an "opinion" or "experience" (e.g., "You will love how...", "It feels incredibly...").
+5.  **Semantic Associations:** Include semantically related terms. (For example, if the product is an "Ergonomic Chair," also discuss "back pain relief," "lumbar support," "productivity," and "office syndrome").
+
+**Output Structure:**
+
+* **Catchy Headline:** Focus on the main benefit/outcome.
+* **The "Why You Need This" Intro:** A scenario-based introduction connecting the product to the user's daily life.
+* **Q&A Section (The AI Magnet):** 3-4 common questions users might ask about this product type, answered with the product's benefits.
+* **Key Specs (Contextualized):** List the specs but explain the *benefit* of each spec immediately (e.g., "30W Fast Charge: Get 50% battery in just coffee-break time").
 
 รวมทั้งช่วยเขียน:
 - Google SEO-optimized meta title (approximately 60 characters)
@@ -1338,3 +1353,4 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
