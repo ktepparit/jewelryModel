@@ -130,8 +130,9 @@ Act as an expert E-commerce Copywriter and SEO Specialist who understands how Se
 
 * **Catchy Headline:** Focus on the main benefit/outcome.
 * **The "Why You Need This" Intro:** A scenario-based introduction connecting the product to the user's daily life.
-* **Q&A Section (The AI Magnet):** 3-4 common questions users might ask about this product type, answered with the product's benefits.
 * **Key Specs (Contextualized):** List the specs but explain the *benefit* of each spec immediately (e.g., "30W Fast Charge: Get 50% battery in just coffee-break time").
+* **Q&A Section (The AI Magnet):** 3-4 common questions users might ask about this product type, answered with the product's benefits.
+
 
 รวมทั้งช่วยเขียน:
 - Google SEO-optimized meta title (approximately 60 characters)
@@ -1353,4 +1354,5 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
