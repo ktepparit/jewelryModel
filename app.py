@@ -371,7 +371,7 @@ Examples:
 
 ### ## META (for CMS use — do not publish on page)
 
-**Meta Title:** `[Brand] [Product Name] — [One Key Benefit] | [Store Name]`
+**Meta Title:** `[Product Name] — [One Key Benefit] | [Bikerringshop]`
 Keep under 60 characters. Lead with product name, not benefit.
 
 **Meta Description:** Under 155 characters. Include one sensory detail
@@ -1646,6 +1646,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
