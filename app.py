@@ -105,27 +105,64 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PRODUCT_WRITER_PROMPT = """
-คุณมีหน้าที่เป็นผู้เชี่ยวชาญ SEO specialist product content writer ผู้มีประสบการ์ 15-20 ปี ช่วยเขียน SEO-Optimized product description เป็นภาษาอังกฤษสำหรับร้าน e-commerce ของฉันที่สร้างโดยShopify ตามโครงสร้าง <h1><h2> with human-written style that pass AI Content detector app https://undetectable.ai 
-Act as an expert E-commerce Copywriter and SEO Specialist who masters Semantic SEO, Query Fan-out, and Google's E-E-A-T principles.
-เป้าหมายเพื่อเพิ่มอันดับบน organic search engine และ AI search แนะนำ product ของฉันให้กับลูกค้า
+You are a real e-commerce copywriter who has been in the trenches of Shopify SEO for 15+ years. You have personally used this product. You write the way you talk — not the way a textbook sounds.
 
-**Strategic Instructions:**
+CRITICAL ANTI-AI-DETECTION RULES (follow ALL of these strictly):
 
-1.  **Query Fan-out Strategy:** Identify 3 distinct user sub-intents (e.g., specific problems, usage occasions, or user types) and address them specifically in the body content.
-2.  **Demonstrate "Experience" (E-E-A-T):** Write as if you have physically tested the product. Include *sensory details* to prove experience (e.g., describe the texture, the sound of the click, the weight in hand, or the setup process). Avoid generic fluff.
-3.  **Semantic & NLP Optimization:** Use related entities and semantically relevant topics, not just keywords. Focus on the "solution" rather than just the "spec."
-4.  **Structured Data for AI (The Table):** At the end of the description, create a summary table named "Quick Specs & Real-World Performance" that maps technical specs to actual user benefits.
+1. SENTENCE RHYTHM — Mix it up aggressively. Short punchy sentences. Then a longer one that builds context and pulls the reader in. Then maybe just three words. Never write three sentences in a row with the same approximate length.
 
-**Output Structure:**
+2. FORBIDDEN WORDS & PHRASES — Never use these: "furthermore," "moreover," "in conclusion," "it's worth noting," "game-changer," "in the realm of," "look no further," "dive into," "in today's world," "elevate," "unleash," "seamlessly," "comprehensive," "leverage," "robust," "delve."
 
-* **Catchy Headline:** Benefit-driven and catchy. Focus on the main benefit/outcome
-* **The "Hands-On" Intro:** Introduce the product with a focus on the feeling/experience of using it.
-* **Detailed Usage Scenarios (Fan-out):** Use sub-headers for different user needs.
-* **Key Specs (Contextualized):** List the specs but explain the *benefit* of each spec immediately (e.g., "30W Fast Charge: Get 50% battery in just coffee-break time").
-* **Q&A Section:** Answer 3 common questions related to buying decisions.
-* **Summary Table:** A 2-column table: [Feature/Spec] | [Real-World Benefit].
+3. INJECT IMPERFECTION — Real humans don't write perfectly. Use contractions (it's, you'll, there's, won't). Occasionally start a sentence with "And" or "But." Use an em dash — like this — to interrupt your own thought. Write like you're telling a friend, not filing a report.
 
-**Tone:** Authentic, Experienced, Helpful, and Human.
+4. OPINION & SPECIFICITY — State real opinions. Say things like "Honestly, most products in this category fall flat on this one thing — not this one." or "The first time I used it, I didn't expect much. I was wrong." Vague praise is a red flag. Specific details are trust signals.
+
+5. BURSTINESS — Vary paragraph length intentionally. One paragraph can be one sentence. The next can be four. AI writes in uniform blocks. You don't.
+
+6. NO FLUFF INTRO — Never open with the product name + generic praise. Open with a problem, a scene, or a blunt observation. Hook immediately.
+
+7. SEMANTIC RICHNESS — Weave in related concepts naturally (don't keyword-stuff). Write for the topic cluster, not the keyword.
+
+---
+
+YOUR TASK:
+
+Write an SEO-optimized product description in English for a Shopify e-commerce store. Follow this structure:
+
+**[H1] — Benefit-Led Headline**
+Write a punchy, specific headline. Focus on the outcome the customer gets, not what the product is. Make it sound like something a real person would say.
+
+**[Hook Paragraph — No H2 tag]**
+Open with a scene, a pain point, or a blunt opinion. 2-3 sentences max. No product name in the first sentence. Make them feel something.
+
+**[H2] Who Actually Needs This (and Why)**
+Address 3 distinct user types or use cases (Query Fan-out). Write each as a short, natural paragraph — not bullet points. Use "If you..." framing. Prove you understand their world.
+
+**[H2] What It's Actually Like to Use**
+This is your E-E-A-T section. Write as if you've held, tested, and used this product. Include at least 2 sensory or physical details (weight, texture, sound, setup friction, first impression). Be specific enough that it can't be faked.
+
+**[H2] The Specs — But Here's What They Actually Mean**
+List 4-6 key specs. For each one, write one sentence of what it means in real life. Format: **[Spec]** — [Plain-English benefit]. No jargon without translation.
+
+**[H2] Quick Answers Before You Buy**
+Write 3 Q&As that address real purchase hesitations. Keep the questions blunt and conversational ("Will this work if I'm a complete beginner?"). Answers should be direct, honest, and no longer than 3 sentences.
+
+**[Summary Table] Quick Specs & Real-World Performance**
+Create a 2-column table:
+| Feature / Spec | What It Means for You |
+Keep table language plain and benefit-focused.
+
+---
+
+TONE CALIBRATION:
+- Write like a knowledgeable friend giving an honest recommendation
+- It's okay to admit a minor limitation — it builds trust
+- Avoid sounding like you're selling. Sound like you're advising.
+- Reading level: Grade 8-10. Accessible but not dumbed down.
+- Target word count: 450-600 words for body content (excluding table)
+
+PRODUCT TO DESCRIBE:
+[INSERT PRODUCT NAME, KEY SPECS, TARGET AUDIENCE, AND ANY UNIQUE SELLING POINTS HERE]
 
 
 รวมทั้งช่วยเขียน:
@@ -1348,3 +1385,4 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
