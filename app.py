@@ -121,8 +121,6 @@ CRITICAL WRITING RULES:
 
 STRUCTURE:
 
-    [H1] Benefit-Led Headline: Specific outcome-focused. (e.g., "Never worry about [Problem] again — even on [Occasion]")
-
     [Hook Paragraph]: Start with a blunt observation or a common frustration. NO product name in the first sentence.
 
     [H2] Who This Is Really For: 3 sub-sections using "If you..." framing. Each addresses a different user intent.
@@ -1351,6 +1349,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
