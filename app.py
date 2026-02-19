@@ -205,7 +205,7 @@ availability badges) in search results.
 
 Ensure the description naturally includes:
 
-- **Product name + brand** — must appear clearly within the first
+- **Product name** — must appear clearly within the first
   2 paragraphs. Don't bury it in metaphor.
 - **Category context** — mention what type of product this is in
   plain language (e.g., "wireless noise-cancelling headphones")
@@ -250,22 +250,22 @@ Before writing any content, analyze the provided product description
 and extract the following keywords:
 
 - **Main Keyword:** Identify the most searchable combination of
-  [Brand] + [Product Name] + [Product Category].
-  Example: "Sony WF-1000XM5 wireless noise-cancelling earbuds"
+  [Product Name] + [Product Category].
+  Example: "skull flame stainless steel ring"
 
 - **Secondary Keywords (2-3):** Identify feature-based or
   attribute-based keyword variations from the product specs.
-  Example: "Sony earbuds with ANC", "wireless earbuds Bluetooth 5.3"
+  Example: "biker skull ring", "stainless steel gothic ring"
 
 - **Long-tail Keywords (2-3):** Infer what real buyers would
   search based on the product's use cases and target audience.
   Think in terms of [product type] + [for whom / for what purpose].
-  Example: "noise-cancelling earbuds for open office",
-  "wireless earbuds for commuting"
+  Example: "men's skull ring for bikers",
+  "heavy stainless steel ring that won't tarnish"
 
 - **Comparison Phrase (1):** Create a natural category comparison
   that positions this product without naming competitors.
-  Example: "unlike most budget ANC earbuds"
+  Example: "unlike most mass-produced biker rings"
 
 Keep this analysis in memory for Step 2. Then output it at the
 very end of your content as an HTML comment block (see OUTPUT
@@ -404,7 +404,7 @@ Examples:
 
 ### ## META (for CMS use — do not publish on page)
 
-**Meta Title:** `[Brand] [Product Name] — [One Key Benefit] | [Store Name]`
+**Meta Title:** `[Product Name] — [One Key Benefit] | Bikerringshop`
 Keep under 60 characters. Lead with product name, not benefit.
 Must include the Main Keyword (Rule 9).
 
@@ -414,7 +414,7 @@ No "shop now" or "buy today" CTAs — those waste characters and
 don't improve CTR.
 
 Example:
-> Meta Title: Sony WF-1000XM5 — Noise Cancelling That Actually Works | TechShop
+> Meta Title: Skull Flame Ring — Heavy Stainless Steel That Lasts | Bikerringshop
 > Meta Description: Slightly heavier than the XM4, but the ANC blocks out open-office chatter completely. Setup takes 3 minutes flat.
 
 ---
@@ -1711,6 +1711,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
