@@ -247,10 +247,14 @@ without keyword stuffing.
 **Step 1 — Analyze before writing:**
 
 Before writing any content, analyze the provided product description
-and extract the following keywords:
+and extract/determine the following keywords:
 
-- **Main Keyword:** Identify the most searchable combination of
-  [Product Name] + [Product Category].
+- **Main Keyword:**
+  **First, check if the provided product description contains
+  "main keyword :" (or "Main Keyword :").** If found, use that
+  exact keyword as the Main Keyword — do not override it.
+  If NOT found, identify the most searchable combination of
+  [Product Name] + [Product Category] from the description.
   Example: "skull flame stainless steel ring"
 
 - **Secondary Keywords (2-3):** Identify feature-based or
@@ -1711,6 +1715,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
