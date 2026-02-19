@@ -267,16 +267,9 @@ and extract the following keywords:
   that positions this product without naming competitors.
   Example: "unlike most budget ANC earbuds"
 
-Present this keyword analysis as a brief internal note at the top
-of your output, formatted as:
-
----
-**🔍 Keyword Analysis (internal use — do not publish):**
-- Main: [keyword]
-- Secondary: [keyword 1], [keyword 2]
-- Long-tail: [keyword 1], [keyword 2]
-- Comparison: [phrase]
----
+Keep this analysis in memory for Step 2. Then output it at the
+very end of your content as an HTML comment block (see OUTPUT
+STRUCTURE — Keyword Analysis Note at bottom).
 
 **Step 2 — Integrate naturally:**
 
@@ -309,12 +302,6 @@ without dating it too fast:
 ---
 
 ## OUTPUT STRUCTURE:
-
-### 🔍 Keyword Analysis (internal use — do not publish)
-
-Present the keyword analysis from Rule 9, Step 1 here.
-
----
 
 ### [Hook — no H2 tag]
 
@@ -417,7 +404,7 @@ Examples:
 
 ### ## META (for CMS use — do not publish on page)
 
-**Meta Title:** `[Product Name] — [One Key Benefit] | [Bikerringshop]`
+**Meta Title:** `[Brand] [Product Name] — [One Key Benefit] | [Store Name]`
 Keep under 60 characters. Lead with product name, not benefit.
 Must include the Main Keyword (Rule 9).
 
@@ -429,6 +416,37 @@ don't improve CTR.
 Example:
 > Meta Title: Sony WF-1000XM5 — Noise Cancelling That Actually Works | TechShop
 > Meta Description: Slightly heavier than the XM4, but the ANC blocks out open-office chatter completely. Setup takes 3 minutes flat.
+
+---
+
+### ## Keyword Analysis Note (HTML comment — hidden from visitors)
+
+At the very end of the content, output the keyword analysis as an
+HTML comment. This will be invisible to visitors but useful for
+the SEO/content team to review.
+
+Format:
+```html
+<!--
+🔍 Keyword Analysis:
+- Main: [keyword]
+- Secondary: [keyword 1], [keyword 2]
+- Long-tail: [keyword 1], [keyword 2]
+- Comparison: [phrase]
+- Placement check:
+  - Main in Hook: ✅/❌
+  - Main in H2: ✅/❌
+  - Main in Meta Title: ✅/❌
+  - Secondary spread across sections: ✅/❌
+  - Long-tail in "Who This Is For" or Q&A: ✅/❌
+  - Comparison in "Honest Take": ✅/❌
+-->
+```
+
+> This HTML comment is invisible on the published page but remains
+> in the source code for internal review. The placement checklist
+> helps the team verify keyword integration without re-reading
+> the entire description.
 
 ---
 
@@ -1693,6 +1711,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
