@@ -70,7 +70,7 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PROMPT_IMAGE_ANALYSIS = """
-You are an SEO & Visual Content Specialist for Jewelry e-commerce with 15-20 years of experience.
+You are an SEO & Visual Content Specialist for Jewelry & Leather Product e-commerce with 15-20 years of experience.
 Your task is to analyze the GENERATED IMAGE provided and create SEO-optimized **Image File Name** and **Alt Tag**.
 
 **Product Reference URL:** "{product_url}"
@@ -105,7 +105,7 @@ Structure: {"file_name": "...", "alt_tag": "..."}
 """
 
 SEO_PRODUCT_WRITER_PROMPT = """
-# Product Description Prompt v2.0
+# Product Description Prompt v2.1
 ## Optimized for Google Search Organic — Updated for 2026 Algorithm
 
 ---
@@ -242,19 +242,57 @@ Examples:
 This helps Google match the page to comparative/transactional queries
 without keyword stuffing.
 
-### [RULE 9 — NATURAL KEYWORD INTEGRATION]
+### [RULE 9 — KEYWORD ANALYSIS & NATURAL INTEGRATION]
 
-Do NOT keyword-stuff. Instead, naturally weave in:
+**Step 1 — Analyze before writing:**
 
-- **Primary keyword** (product name + category) — 2-3 times total
-- **1-2 long-tail variations** that real buyers actually search
-  (e.g., "wireless earbuds for running" not just "wireless earbuds")
-- **One comparison phrase** ("compared to most [product type]" or
-  "unlike typical [category]")
+Before writing any content, analyze the provided product description
+and extract the following keywords:
 
-These should feel invisible — embedded in genuine observations,
+- **Main Keyword:** Identify the most searchable combination of
+  [Brand] + [Product Name] + [Product Category].
+  Example: "Sony WF-1000XM5 wireless noise-cancelling earbuds"
+
+- **Secondary Keywords (2-3):** Identify feature-based or
+  attribute-based keyword variations from the product specs.
+  Example: "Sony earbuds with ANC", "wireless earbuds Bluetooth 5.3"
+
+- **Long-tail Keywords (2-3):** Infer what real buyers would
+  search based on the product's use cases and target audience.
+  Think in terms of [product type] + [for whom / for what purpose].
+  Example: "noise-cancelling earbuds for open office",
+  "wireless earbuds for commuting"
+
+- **Comparison Phrase (1):** Create a natural category comparison
+  that positions this product without naming competitors.
+  Example: "unlike most budget ANC earbuds"
+
+Present this keyword analysis as a brief internal note at the top
+of your output, formatted as:
+
+---
+**🔍 Keyword Analysis (internal use — do not publish):**
+- Main: [keyword]
+- Secondary: [keyword 1], [keyword 2]
+- Long-tail: [keyword 1], [keyword 2]
+- Comparison: [phrase]
+---
+
+**Step 2 — Integrate naturally:**
+
+- **Main Keyword** must appear in: Hook section (first 2 paragraphs),
+  at least 1 H2 heading, and the Meta Title.
+  Total: 2-3 natural mentions across the body.
+- **Secondary Keywords** should appear 1 time each, spread across
+  different sections.
+- **Long-tail Keywords** should appear in the "Who This Is Actually For"
+  section or the Q&A section — embedded in natural sentences.
+- **Comparison Phrase** should appear once in the "What It's Like to Use"
+  section.
+
+All keywords must feel invisible — embedded in genuine observations,
 not bolted on. If a keyword feels forced when you read it aloud,
-rewrite the sentence.
+rewrite the sentence. Do NOT keyword-stuff.
 
 ### [RULE 10 — FRESHNESS WITHOUT EXPIRY]
 
@@ -272,13 +310,19 @@ without dating it too fast:
 
 ## OUTPUT STRUCTURE:
 
+### 🔍 Keyword Analysis (internal use — do not publish)
+
+Present the keyword analysis from Rule 9, Step 1 here.
+
+---
+
 ### [Hook — no H2 tag]
 
 2-3 sentences. Open with a pain point or a scene.
 Make the reader feel recognized before you sell anything.
 
-> The product name + category must appear naturally within this section
-> (Rule 7).
+> The product name + category (Main Keyword) must appear naturally
+> within this section (Rule 7 + Rule 9).
 
 ---
 
@@ -300,7 +344,7 @@ this product:
 
 - Include your **2 sensory details** here (Rule 3).
 - Include your **1 honest observation** here (Rule 4).
-- Include your **1 category positioning sentence** here (Rule 8).
+- Include your **1 comparison phrase** here (Rule 8 + Rule 9).
 
 Write 3-5 short paragraphs. Vary rhythm aggressively (Rule 1).
 
@@ -318,6 +362,7 @@ mid-commute. It just runs.
 > These specs should contain measurable data that maps to Product
 > schema properties (Rule 7): weight, dimensions, material,
 > battery capacity, connectivity standard, etc.
+> Include secondary keywords naturally where relevant (Rule 9).
 
 ---
 
@@ -337,6 +382,7 @@ THEN elaborate in 2-3 sentences max.
 
 > These are buyer-objection handlers, not FAQ schema entries.
 > They should reduce purchase hesitation on the page itself.
+> Include long-tail keywords naturally in questions or answers (Rule 9).
 
 ---
 
@@ -373,10 +419,12 @@ Examples:
 
 **Meta Title:** `[Product Name] — [One Key Benefit] | [Bikerringshop]`
 Keep under 60 characters. Lead with product name, not benefit.
+Must include the Main Keyword (Rule 9).
 
-**Meta Description:** Under 155 characters. Include one sensory detail
-or the honest caveat to stand out in SERPs. No "shop now" or
-"buy today" CTAs — those waste characters and don't improve CTR.
+**Meta Description:** Under 155 characters. Include the Main Keyword
++ one sensory detail or the honest caveat to stand out in SERPs.
+No "shop now" or "buy today" CTAs — those waste characters and
+don't improve CTR.
 
 Example:
 > Meta Title: Sony WF-1000XM5 — Noise Cancelling That Actually Works | TechShop
@@ -426,10 +474,9 @@ Grade 8-10. Clear, not dumbed down.
   an authority on everything, just on what it covers.
 
 **What this prompt is NOT for:**
-- Blog posts or informational content (use Article schema instead)
+- Blog posts or informational content (use Blog Post Prompt v2.1)
 - Category/collection pages (different optimization approach)
 - Landing pages for ads (different conversion strategy)
-
 ---
 
 Input Data: {raw_input}
@@ -1646,6 +1693,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
