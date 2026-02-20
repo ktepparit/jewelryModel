@@ -629,6 +629,55 @@ You MUST return the result in RAW JSON format ONLY. Do not include markdown back
   ]
 }
 
+### URL SLUG RULES (for the url_slug field):
+### Updated for Google's 2026 URL Best Practices
+
+Google uses words in the URL as a lightweight ranking signal when first discovering
+a page. A well-structured slug also improves CTR from SERPs and helps AI systems
+(Google AI Mode, Perplexity, ChatGPT) understand page topic before reading content.
+
+**Structure Rules:**
+- Lowercase only — never use uppercase (case-sensitive servers treat them differently,
+  causing duplicate content issues).
+- Hyphens (-) only — never underscores (_). Google treats hyphens as word separators
+  but underscores as word joiners.
+- No special characters — no ?, %, #, &, @, or non-ASCII characters.
+- No trailing slashes or file extensions.
+- No stop words (a, an, the, of, for, and, in, on, with, to, is, by) unless
+  removing them makes the slug confusing or unreadable.
+
+**Content Rules:**
+- Lead with the Main Keyword — place it at the beginning of the slug.
+  Google weighs words at the start of the URL more heavily.
+- Include product name + 1 key attribute (material, style, or category)
+  that differentiates this product from similar ones.
+- Keep it SHORT: 3-6 words (ideally under 60 characters).
+  Google prefers shorter URLs — if two pages have identical metrics,
+  the shorter URL wins as a tiebreaker.
+- Must be UNIQUE — never produce a slug that could match another product.
+  Include a differentiating attribute if the product name alone is too generic.
+- Must match the page content — the slug should accurately describe what's
+  on the page. Misleading slugs hurt bounce rate and trust.
+- Never include dates, years, or version numbers — these expire and
+  prevent long-term slug reuse.
+- Never include prices or quantities — these change over time.
+
+**Ecommerce Product Slug Format:**
+[main-keyword]-[key-attribute]-[differentiator]
+
+GOOD examples:
+- skull-flame-stainless-steel-ring
+- gold-plated-bishop-cross-ring
+- heavy-chain-sterling-silver-bracelet
+- celtic-knot-tungsten-wedding-band
+
+BAD examples:
+- product-98876451 (no description)
+- the-amazing-best-skull-ring-for-men-2026 (stop words, date, too long)
+- SKULL_Ring (uppercase, underscore)
+- skull-ring (too generic — could match dozens of products)
+- ring (no context at all)
+
 ### IMAGE SEO RULES (for the image_seo array):
 ### Updated for Google's 2026 Image SEO Best Practices
 
@@ -693,6 +742,24 @@ You are an SEO expert with 10-15 years of experience.
 Analyze the provided product images and description. Generate:
 1. An attractive, SEO-optimized Product Name.
 2. A suitable, clean URL Slug (using hyphens).
+
+**Product Name Rules:**
+- Clear, descriptive, keyword-rich product name.
+- Include the product type/category and 1-2 key attributes (material, style).
+- Keep under 70 characters.
+
+**URL Slug Rules (2026 SEO Best Practices):**
+- Lowercase only, hyphens only (no underscores, no special characters).
+- Lead with the main keyword at the beginning.
+- Include product name + 1 key differentiating attribute (material, style, or category).
+- Keep SHORT: 3-6 words, under 60 characters.
+- Remove stop words (a, an, the, of, for, and, in, on, with) unless needed for clarity.
+- Must be UNIQUE and specific enough to not match other products.
+- Never include dates, prices, or version numbers.
+- Format: [main-keyword]-[key-attribute]-[differentiator]
+
+GOOD: skull-flame-stainless-steel-ring, gold-plated-bishop-cross-ring
+BAD: product-12345, the-best-skull-ring-2026, SKULL_Ring, ring
 
 User Input Description: "{user_desc}"
 
@@ -924,13 +991,13 @@ def parse_json_response(text):
     # Step 3: Extract JSON object/array from surrounding text
     # Find the first { or [ and match to its closing } or ]
     for start_char, end_char in [('{', '}'), ('[', ']')]:
-        start_idx = text.find(start_char)
+        start_idx = cleaned.find(start_char)
         if start_idx == -1: continue
         depth = 0
         in_string = False
         escape_next = False
-        for i in range(start_idx, len(text)):
-            c = text[i]
+        for i in range(start_idx, len(cleaned)):
+            c = cleaned[i]
             if escape_next:
                 escape_next = False; continue
             if c == '\\' and in_string:
@@ -942,8 +1009,40 @@ def parse_json_response(text):
             elif c == end_char: depth -= 1
             if depth == 0:
                 try:
-                    return json.loads(text[start_idx:i+1])
+                    return json.loads(cleaned[start_idx:i+1])
                 except: break
+    
+    # Step 4: Try to fix truncated JSON (AI response cut off)
+    # Find first { and attempt to repair by closing open braces/brackets
+    for start_char, end_char in [('{', '}'), ('[', ']')]:
+        start_idx = cleaned.find(start_char)
+        if start_idx == -1: continue
+        fragment = cleaned[start_idx:]
+        # Close any unclosed strings
+        in_str = False
+        esc = False
+        for ch in fragment:
+            if esc: esc = False; continue
+            if ch == '\\' and in_str: esc = True; continue
+            if ch == '"': in_str = not in_str
+        if in_str:
+            fragment += '"'
+        # Remove trailing comma before closing
+        fragment = re.sub(r',\s*$', '', fragment)
+        # Count unclosed braces/brackets and close them
+        open_braces = fragment.count('{') - fragment.count('}')
+        open_brackets = fragment.count('[') - fragment.count(']')
+        fragment += ']' * max(0, open_brackets)
+        fragment += '}' * max(0, open_braces)
+        try:
+            return json.loads(fragment)
+        except:
+            # Step 5: Last resort — try to salvage partial fields
+            try:
+                # Fix common issues: trailing commas, unescaped newlines in strings
+                fixed = re.sub(r',(\s*[}\]])', r'\1', fragment)
+                return json.loads(fixed)
+            except: pass
     
     return None
 
@@ -1284,15 +1383,20 @@ def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonn
             content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": img_to_base64(img)}})
     content.append({"type": "text", "text": prompt})
     
-    payload = {"model": model_id, "max_tokens": 4096, "messages": [{"role": "user", "content": content}]}
+    payload = {"model": model_id, "max_tokens": 8192, "messages": [{"role": "user", "content": content}]}
     
     for attempt in range(3):
         try:
-            res = requests.post(url, json=payload, headers=headers, timeout=120)
+            res = requests.post(url, json=payload, headers=headers, timeout=180)
             if res.status_code == 200:
+                data = res.json()
                 text_content = ""
-                for block in res.json().get("content", []):
+                for block in data.get("content", []):
                     if block.get("type") == "text": text_content += block.get("text", "")
+                # Check if response was truncated
+                stop_reason = data.get("stop_reason", "")
+                if stop_reason == "max_tokens":
+                    text_content += "}"  # Try to close truncated JSON
                 return text_content, None
             elif res.status_code == 529: time.sleep(3); continue
             else: return None, f"Claude API Error {res.status_code}: {res.text}"
@@ -1315,15 +1419,21 @@ def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-5.2"):
     
     payload = {
         "model": model_id, 
-        "max_completion_tokens": 4096,  # GPT-5.2 uses max_completion_tokens instead of max_tokens
+        "max_completion_tokens": 8192,  # Increased for product descriptions with many images
         "messages": [{"role": "user", "content": content}]
     }
     
     for attempt in range(3):
         try:
-            res = requests.post(url, json=payload, headers=headers, timeout=120)
+            res = requests.post(url, json=payload, headers=headers, timeout=180)
             if res.status_code == 200:
-                return res.json().get("choices", [{}])[0].get("message", {}).get("content", ""), None
+                data = res.json()
+                choice = data.get("choices", [{}])[0]
+                text = choice.get("message", {}).get("content", "")
+                # Check if response was truncated
+                if choice.get("finish_reason") == "length":
+                    text += "}"  # Try to close truncated JSON
+                return text, None
             elif res.status_code == 429: time.sleep(3); continue
             else: return None, f"OpenAI API Error {res.status_code}: {res.text}"
         except: time.sleep(2)
@@ -1457,8 +1567,8 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
     parts = [{"text": prompt}]
     if img_pil_list:
         for img in img_pil_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
-    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
-    return _call_gemini_text(gemini_key, payload)
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
+    return _call_gemini_text(gemini_key, payload, timeout=120)
 
 def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, img_list, user_desc):
     prompt = SEO_PROMPT_NAME_SLUG.replace("{user_desc}", user_desc)
@@ -1504,7 +1614,7 @@ def generate_collection_content(gemini_key, claude_key, openai_key, selected_mod
     
     # Default: Gemini (with fallback)
     parts = [{"text": prompt}]
-    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
 def update_shopify_collection(shop_url, access_token, collection_id, data, collection_type="custom"):
@@ -2184,7 +2294,21 @@ with tab3:
                         d = parse_json_response(json_txt)
                         if isinstance(d, list) and d: d = d[0]
                         if isinstance(d, dict): st.session_state.writer_result = d; st.rerun()
-                        else: st.code(json_txt)
+                        else:
+                            st.error("⚠️ AI returned content but JSON parsing failed. This usually happens when the response was truncated (too long) or contained invalid characters. Try again — the AI may produce a cleaner output on retry.")
+                            with st.expander("🔍 Raw AI Output (for debugging)", expanded=False):
+                                st.code(json_txt[:3000] if len(json_txt) > 3000 else json_txt)
+                            # Attempt partial recovery — try to extract at least some fields
+                            partial = {}
+                            for field in ['url_slug', 'meta_title', 'meta_description', 'product_title_h1']:
+                                m = re.search(rf'"{field}"\s*:\s*"([^"]*)"', json_txt)
+                                if m: partial[field] = m.group(1)
+                            # Try to get html_content (may contain quotes)
+                            m = re.search(r'"html_content"\s*:\s*"(.*?)(?:"\s*,\s*"image_seo|"\s*})', json_txt, re.DOTALL)
+                            if m: partial['html_content'] = m.group(1).replace('\\"', '"').replace('\\n', '\n')
+                            if partial and len(partial) >= 3:
+                                st.info(f"🔧 Partially recovered {len(partial)} fields. You can use these or regenerate.")
+                                st.session_state.writer_result = partial; st.rerun()
                     else: st.error(err)
         if st.session_state.writer_result:
             d = st.session_state.writer_result
