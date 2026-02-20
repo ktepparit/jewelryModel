@@ -1374,6 +1374,7 @@ def update_shopify_description_only(shop_url, access_token, product_id, data):
         return False, f"Error {response.status_code}: {response.text[:200]}"
     except Exception as e: return False, str(e)
 
+
 # ============================================================
 # --- STORE CATALOG FETCHER (for internal linking) ---
 # ============================================================
@@ -1672,7 +1673,8 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
 def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text=""):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
-    if num_images > 0: prompt += f"\n\nCRITICAL: You received {num_images} images. Return exactly {num_images} objects in 'image_seo' array."
+    if num_images > 0:
+        prompt += f"\n\nCRITICAL: You received {num_images} images. Return exactly {num_images} objects in 'image_seo' array."
     if catalog_text:
         prompt += f"\n\n--- REAL STORE CATALOG DATA (for 'You Might Also Want' section) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
@@ -2833,6 +2835,7 @@ with tab_batch:
                             if result.get("success"):
                                 d = result["data"]
                                 st.write("**H1:**", d.get("product_title_h1", ""))
+                                st.write("**Slug:**", d.get("url_slug", ""))
                                 st.write("**Meta Title:**", d.get("meta_title", ""))
                                 st.write("**Meta Desc:**", d.get("meta_description", ""))
                                 if result.get("updated"):
@@ -2903,6 +2906,12 @@ with tab_colwriter:
             selected_col_idx = st.selectbox("📁 Select Collection:", range(len(col_options)),
                                              format_func=lambda i: col_options[i], key="cw_col_select")
             selected_col = st.session_state.colwriter_collections[selected_col_idx]
+            
+            # Auto-clear result if user selected a different collection
+            if st.session_state.colwriter_result:
+                prev_col_id = st.session_state.colwriter_result.get("_col_id")
+                if prev_col_id and str(prev_col_id) != str(selected_col["id"]):
+                    st.session_state.colwriter_result = None
             
             # Build full URL
             store_domain = cw_shop.replace("https://", "").replace("http://", "").replace(".myshopify.com", "").strip()
