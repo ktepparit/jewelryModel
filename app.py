@@ -451,31 +451,90 @@ IMPORTANT:
 Write 2-3 natural "bridge" sentences pointing to complementary
 or alternative products. Frame as genuine advice, not a sales push.
 
+**CRITICAL — ANTI-PATTERN RULE:**
+Every product description MUST use DIFFERENT sentence structures in this section.
+NEVER reuse these overused AI patterns:
+- ❌ "If you like [X] but want [Y]..." (banned opening)
+- ❌ "A lot of people who grab this end up..." (banned opening)
+- ❌ "And if you want to browse more..." (banned opening)
+- ❌ "If you're stacking/pairing rings..." (banned opening)
+- ❌ Three paragraphs that all follow [context → product link → comparison] structure
+
+Instead, vary your approach. Some alternatives:
+- Start with the COMPLEMENTARY product first: "The [linked product] sits well
+  next to this one — [reason]."
+- Use a direct observation: "Sterling silver tarnishes. Brass doesn't.
+  That's what makes [linked product] a good backup ring for daily wear."
+- Ask a question: "Need something lower-profile for the office?
+  [linked product] has the same build quality without the skull."
+- Reference a use case: "For riding, most guys pair a heavy ring
+  with [linked product] — keeps the look consistent without doubling the weight."
+- State a fact: "This is one of five pieces we make in this brass alloy.
+  [linked product] and [linked product] use the same material."
+
 **CRITICAL — INTERNAL LINKING FROM REAL STORE DATA:**
 
 You will receive REAL STORE CATALOG DATA at the end of this prompt
 containing actual collections and products that exist on the store.
+Each product entry includes [product_type] and {tags} to help you
+find genuinely related items.
 You MUST ONLY link to paths that appear in that catalog data.
 NEVER invent or guess URLs — every href must come from the provided list.
 
+**STEP-BY-STEP: How to choose related items (THIS IS THE MOST IMPORTANT PART):**
+
+Before writing a single word in this section, you MUST complete this analysis:
+
+1. **Identify THIS product's key attributes** from the description you just wrote:
+   - Material (e.g., brass, sterling silver, stainless steel, gold)
+   - Style/Theme (e.g., skull, gothic, Celtic, biker, Christian, tribal)
+   - Product type (e.g., ring, pendant, bracelet, chain, necklace)
+   - Price tier (budget, mid-range, premium)
+
+2. **Scan the CATALOG DATA** and find items that match on at least 2 of these criteria:
+   - **BEST match:** Same material + same style (e.g., another brass skull piece)
+   - **GOOD match:** Same style + different product type (e.g., skull ring → skull pendant)
+   - **GOOD match:** Same material + different style (e.g., brass skull → brass Celtic)
+   - **OK match:** Same category collection (e.g., link to /collections/brass-rings)
+   - **BAD match:** Random popular product with no connection to THIS product
+
+   Use the [product_type] and {tags} in the catalog data to find matches.
+   Search for THIS product's material and style keywords in the catalog titles and tags.
+
+3. **Link MIX rule:** Include at least 1 specific product AND at least 1 collection.
+   The product link shows a specific recommendation; the collection link
+   gives the reader a browsing path.
+
+4. **Now write** the 2-3 sentences using the matched items you found.
+
+**EXAMPLE of the matching process (do NOT output this — just follow it):**
+If you're writing about a "Brass Skull Ring with Red Eyes":
+- Material = brass → scan catalog for "brass" in titles/tags
+- Style = skull → scan catalog for "skull" in titles/tags
+- Type = ring → complement with pendant, bracelet, or chain
+- CHOOSE: a brass skull pendant (same material + style) ✅
+- CHOOSE: /collections/skull-rings or /collections/brass-jewelry ✅
+- DO NOT choose: a random sterling silver Celtic bracelet ❌
+
 **How to write this section:**
-1. First, write the recommendation sentences naturally — as if
-   giving honest advice to a friend. Do NOT write around keywords.
-2. Then, identify which real collection or product from the catalog
-   data best matches your recommendation.
-3. Finally, wrap the most natural phrase in the sentence with a link
-   to that real path. The linked phrase should flow seamlessly in the
-   sentence — it should NOT look like a keyword was inserted.
+1. First, complete the matching analysis above to find 2-3 genuinely
+   related items from the CATALOG DATA.
+2. Write each recommendation sentence with a DIFFERENT structure —
+   no two sentences should open the same way or follow the same pattern.
+3. Wrap the most natural phrase in each sentence with a link to the
+   real catalog path. The linked phrase should flow seamlessly.
 
 **Link format:**
 <a href="[exact path from catalog]" title="[Product or Collection Title from catalog]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[natural phrase from your sentence]</a>
 
-**GOOD — natural sentence first, link added to a phrase that fits:**
-<p>If you like the tribal look but want something for your wrist too, we've got <a href="/collections/bracelets" title="Bracelets" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">a whole section of bracelets</a> that pair well with heavy chains.</p>
-<p>A lot of people who grab this end up coming back for <a href="/products/skull-cross-sterling-silver-wallet-chain" title="Skull Cross Sterling Silver Wallet Chain" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">the skull cross version</a> — different vibe, same solid build.</p>
+**GOOD — each sentence uses a DIFFERENT structure:**
+<p>Sterling silver darkens over time. Brass stays warm. <a href="/products/skull-cross-sterling-silver-wallet-chain" title="Skull Cross Sterling Silver Wallet Chain" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">The skull cross wallet chain</a> is one of the few pieces that mixes both — and it pairs well with this ring.</p>
+<p>Need something for the other hand? <a href="/collections/bracelets" title="Bracelets" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">The bracelet section</a> has a dozen options in the same weight class.</p>
 
-**BAD — keyword-stuffed, unnatural:**
-<p>Check out our <a href="/collections/skull-rings">skull rings collection</a> for more skull rings.</p>
+**BAD — repetitive AI pattern (all follow same structure):**
+<p>If you like this ring but want something for your wrist, check out our bracelets.</p>
+<p>A lot of people who grab this end up coming back for the wallet chain.</p>
+<p>And if you want to browse more, our full rings collection has tons of options.</p>
 
 **RULES:**
 1. ONLY use paths from the provided REAL STORE CATALOG DATA.
@@ -484,6 +543,10 @@ NEVER invent or guess URLs — every href must come from the provided list.
 3. Link 2-3 items total — mix of collections and products when possible.
 4. The linked text must be a natural part of the sentence, NOT a standalone keyword.
 5. The title attribute should match the real product/collection title from the catalog.
+6. Choose DIFFERENT catalog items for each product — do not always link to
+   the same 2-3 "popular" items. Pick items relevant to THIS product's material,
+   style, and category. If this is a brass ring, link to other brass pieces.
+   If this is a gothic pendant, link to gothic-themed items.
 
 > This section creates internal links to related product/collection pages,
 > which strengthens your site's crawlability and topical authority.
@@ -1345,7 +1408,7 @@ def fetch_store_catalog(store_domain="www.bikerringshop.com"):
                         "handle": p.get("handle", ""),
                         "path": f"/products/{p.get('handle', '')}",
                         "type": p.get("product_type", ""),
-                        "tags": ", ".join(p.get("tags", [])[:5]) if p.get("tags") else ""
+                        "tags": ", ".join(p.get("tags", [])[:10]) if p.get("tags") else ""
                     })
                 page += 1
             else: break
@@ -1353,19 +1416,79 @@ def fetch_store_catalog(store_domain="www.bikerringshop.com"):
     
     return catalog
 
-def format_catalog_for_prompt(catalog, max_collections=30, max_products=80):
-    """Format catalog data into a compact string for the AI prompt."""
+def format_catalog_for_prompt(catalog, max_collections=50, max_products=150, product_context=""):
+    """Format catalog data into a compact string for the AI prompt.
+    Includes product tags and type to help AI match related items.
+    
+    If product_context is provided (the raw input description), 
+    products are sorted by relevance to the current product first,
+    so the AI sees the most related items even with a product limit.
+    """
     lines = []
+    
+    # Always include ALL collections — they're small and critical for linking
     if catalog.get("collections"):
         lines.append("=== REAL COLLECTIONS (use these paths) ===")
         for c in catalog["collections"][:max_collections]:
             lines.append(f"- {c['path']}  →  \"{c['title']}\"")
     
     if catalog.get("products"):
-        lines.append("\n=== REAL PRODUCTS (use these paths) ===")
-        for p in catalog["products"][:max_products]:
-            extra = f"  [{p['type']}]" if p.get('type') else ""
-            lines.append(f"- {p['path']}  →  \"{p['title']}\"{extra}")
+        products = catalog["products"]
+        
+        # Smart filtering: if we know what product is being written,
+        # prioritize related items by matching keywords
+        if product_context and len(products) > max_products:
+            context_lower = product_context.lower()
+            
+            # Extract key terms from the product being written
+            # Common material/style keywords to match against
+            match_terms = []
+            material_keywords = ["brass", "sterling silver", "stainless steel", "gold", "silver", 
+                                 "copper", "titanium", "tungsten", "bronze", "platinum", "pewter",
+                                 "925", "316l", "plated", "two-tone", "rhodium"]
+            style_keywords = ["skull", "gothic", "celtic", "biker", "viking", "tribal", "christian",
+                              "cross", "dragon", "snake", "eagle", "lion", "wolf", "crown", "angel",
+                              "demon", "masonic", "freemason", "templar", "steampunk", "punk",
+                              "flame", "skeleton", "death", "pirate", "anchor", "nautical",
+                              "buddha", "om", "zen", "hamsa", "evil eye", "pentagram", "norse",
+                              "odin", "thor", "rune", "samurai", "japanese", "chinese"]
+            type_keywords = ["ring", "pendant", "necklace", "bracelet", "chain", "earring",
+                             "wallet chain", "cuff", "bangle", "charm", "brooch", "pin"]
+            
+            for term in material_keywords + style_keywords + type_keywords:
+                if term in context_lower:
+                    match_terms.append(term)
+            
+            if match_terms:
+                def relevance_score(product):
+                    """Score how related a product is to the current one."""
+                    searchable = (product.get("title", "") + " " + product.get("tags", "") + " " + product.get("type", "")).lower()
+                    score = 0
+                    for term in match_terms:
+                        if term in searchable:
+                            # Material matches are worth more
+                            if term in material_keywords: score += 3
+                            # Style matches are valuable
+                            elif term in style_keywords: score += 2
+                            # Type matches help for cross-selling
+                            elif term in type_keywords: score += 1
+                    return score
+                
+                # Sort by relevance (highest first), then take top N
+                scored = sorted(products, key=relevance_score, reverse=True)
+                products = scored[:max_products]
+            else:
+                products = products[:max_products]
+        else:
+            products = products[:max_products]
+        
+        lines.append(f"\n=== REAL PRODUCTS ({len(products)} of {len(catalog['products'])} shown, sorted by relevance) ===")
+        lines.append("Format: path → \"title\" [product_type] {tags}")
+        for p in products:
+            parts = [f"- {p['path']}  →  \"{p['title']}\""]
+            if p.get('type'): parts.append(f"  [{p['type']}]")
+            if p.get('tags'): parts.append(f"  {{{p['tags']}}}")
+            lines.append("".join(parts))
     
     return "\n".join(lines)
 
@@ -2282,7 +2405,7 @@ with tab3:
                     try:
                         catalog = fetch_store_catalog("www.bikerringshop.com")
                         if catalog.get("collections") or catalog.get("products"):
-                            catalog_text = format_catalog_for_prompt(catalog)
+                            catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
                     except: pass
                     json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text)
                     # Show which Gemini model was actually used
@@ -2615,11 +2738,9 @@ with tab_batch:
                             st.error(f"❌ Missing API Key for {batch_model}")
                         else:
                             # Fetch catalog once for internal linking
-                            catalog_text = ""
+                            catalog = None
                             try:
                                 catalog = fetch_store_catalog("www.bikerringshop.com")
-                                if catalog.get("collections") or catalog.get("products"):
-                                    catalog_text = format_catalog_for_prompt(catalog)
                             except: pass
                             
                             progress_bar = st.progress(0)
@@ -2649,6 +2770,11 @@ with tab_batch:
                                 
                                 # Generate content (text only — no images for batch speed)
                                 try:
+                                    # Smart catalog: filter by this product's context for relevant links
+                                    catalog_text = ""
+                                    if catalog and (catalog.get("collections") or catalog.get("products")):
+                                        catalog_text = format_catalog_for_prompt(catalog, product_context=raw_input)
+                                    
                                     json_txt, err = generate_full_product_content(
                                         gemini_key, claude_key, openai_key, batch_model, 
                                         None, raw_input, catalog_text
@@ -2812,7 +2938,7 @@ with tab_colwriter:
                             try:
                                 catalog = fetch_store_catalog("www.bikerringshop.com")
                                 if catalog.get("collections") or catalog.get("products"):
-                                    catalog_text = format_catalog_for_prompt(catalog)
+                                    catalog_text = format_catalog_for_prompt(catalog, product_context=main_keyword)
                             except: pass
                             
                             json_txt, err = generate_collection_content(
