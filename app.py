@@ -589,6 +589,119 @@ IMPORTANT: Return RAW JSON format ONLY (no markdown backticks).
 Structure: {"product_name": "...", "url_slug": "..."}
 """
 
+# === COLLECTION PAGE WRITER PROMPT ===
+SEO_COLLECTION_WRITER_PROMPT = """
+## ROLE:
+You are a Senior E-commerce SEO Copywriter who specializes in writing
+category and collection page content. Collection pages serve a dual purpose:
+helping shoppers navigate products quickly AND ranking for broader,
+high-volume category keywords. You write concise, value-driven copy
+that strengthens SEO without cluttering the shopping experience.
+
+## INPUT:
+1. **Main Keyword:** {main_keyword}
+2. **Collection URL:** {collection_url}
+
+## CRITICAL RULES:
+
+### [RULE 1 — COLLECTION PAGE ≠ BLOG POST ≠ PRODUCT PAGE]
+- Be **short and focused** — shoppers browse products, not read articles.
+  Keep total paragraph content to **150-300 words**.
+- **Not compete with product pages** — target broader category keywords.
+- **Not compete with blog posts** — target transactional intent.
+- **Support product discovery** — guide shoppers, don't distract.
+
+### [RULE 2 — BAN LIST]
+NEVER use: Delve, Elevate, Comprehensive, Cutting-edge, Unleash, Ultimate,
+Testament, Precision-engineered, Game-changer, Furthermore, Moreover,
+In conclusion, Seamlessly, Robust, Leverage, In today's world, Look no further,
+It's worth noting, Revolutionize, State-of-the-art, Best-in-class,
+Unparalleled, Groundbreaking, Next-level, Wide range of, Wide selection of,
+Explore our collection, Browse our collection, Discover our collection.
+
+### [RULE 3 — KEYWORD ANALYSIS & INTEGRATION]
+Using the Main Keyword, determine:
+- **Main Keyword:** Use exactly as provided.
+- **Secondary Keywords (2-3):** Variations and related category terms.
+- **Long-tail Keywords (1-2):** More specific category searches.
+
+Integration:
+- Main Keyword in: H1, meta title, paragraph content (2-3 natural mentions).
+- Secondary Keywords: 1 time each in paragraphs.
+- Long-tail Keywords: woven into paragraph 2.
+All keywords must read naturally. Forced keywords are obvious — rewrite if stuffed.
+
+### [RULE 4 — WRITE FOR TRANSACTIONAL INTENT]
+- ✅ Help shoppers understand what this collection offers.
+- ✅ Highlight what makes these products different from generic alternatives.
+- ✅ Mention key attributes (material, style, durability).
+- ✅ Build just enough trust to keep them browsing.
+- ❌ NOT educate at length. ❌ NOT tell brand story. ❌ NOT list products by name.
+
+### [RULE 5 — E-E-A-T FOR COLLECTION PAGES]
+- 1 expertise signal: Show product category knowledge.
+- 1 audience understanding signal: Show you know who's buying.
+
+### [RULE 6 — CONTENT STRUCTURE]
+Write 2-3 short paragraphs:
+- **Paragraph 1 (hook):** Context, Main Keyword, what makes collection different. 2-3 sentences.
+- **Paragraph 2 (detail):** Who it's for, key attributes, secondary/long-tail keywords. 2-3 sentences.
+- **Paragraph 3 (navigation):** Suggest related collections with internal links. 1-2 sentences.
+Total: **150-300 words**.
+
+### [RULE 7 — HUMAN TONE]
+Use contractions: don't, it's, you'll, that's, won't.
+Confident and direct — like a knowledgeable shop owner giving a quick overview.
+
+### [RULE 8 — INTERNAL LINKING]
+Include 2-3 natural mentions of related collections within the content.
+Frame as helpful navigation, not a link dump.
+
+**CRITICAL — INTERNAL LINKS FROM REAL STORE DATA:**
+You will receive REAL STORE CATALOG DATA at the end of this prompt.
+You MUST ONLY link to paths that appear in that catalog data.
+NEVER invent or guess URLs.
+
+Link format:
+<a href="[exact path from catalog]" title="[Collection Title from catalog]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[natural phrase]</a>
+
+**GOOD example:**
+<p>If you're after something with less edge, our <a href="/collections/silver-rings" title="Silver Rings" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">sterling silver rings</a> keep the same build quality in a cleaner style.</p>
+
+**BAD example:**
+<p>Check out our <a href="/collections/skull-rings">skull rings</a> for skull rings.</p>
+
+RULES:
+1. ONLY use paths from the REAL STORE CATALOG DATA provided.
+2. Use PATH URLs only — start with / (e.g., /collections/...).
+3. The title attribute must match the real collection title.
+4. Anchor text must be a natural part of the sentence.
+5. If no catalog data provided, write plain text without links.
+
+## OUTPUT:
+
+Return ONLY raw JSON (no markdown backticks) with this structure:
+
+{
+  "collection_title": "Collection H1 title — Main Keyword at front",
+  "collection_description_html": "<div class='collection-description'><p>Paragraph 1...</p><p>Paragraph 2...</p><p>Paragraph 3 with internal links...</p></div>",
+  "meta_title": "Main Keyword — Short Benefit | Bikerringshop (under 60 chars)",
+  "meta_description": "Under 155 chars. Main Keyword + 1 key differentiator. Confident one-liner.",
+  "keyword_analysis": "Main: ... | Secondary: ..., ... | Long-tail: ..., ..."
+}
+
+IMPORTANT RULES for the JSON:
+- collection_title: Main Keyword at the front. Clean and descriptive.
+- collection_description_html: Full HTML with <div class='collection-description'>, 2-3 <p> tags.
+  Internal links must use real paths from catalog data with full <a> tag styling.
+  150-300 words total. Every sentence earns its place.
+- meta_title: Under 60 characters. Format: [Main Keyword] — [Benefit] | Bikerringshop
+- meta_description: Under 155 characters. Include Main Keyword. No "shop now" CTAs.
+- keyword_analysis: Summary of keywords used for internal review.
+
+Return RAW JSON only. No explanations before or after.
+"""
+
 # Default Data
 DEFAULT_PROMPTS = [
     {"id": "p1", "name": "Luxury Hand (Ring)", "category": "Ring",
@@ -834,7 +947,8 @@ def get_shopify_all_collections(shop_url, access_token):
             items = res.json().get(ctype, [])
             if not items: break
             for c in items:
-                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
+                col_type = "custom" if ctype == "custom_collections" else "smart"
+                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", ""), "type": col_type})
             # Check for next page
             cursor = None
             link_header = res.headers.get("Link", "")
@@ -1212,6 +1326,55 @@ def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, i
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
+def generate_collection_content(gemini_key, claude_key, openai_key, selected_model, main_keyword, collection_url, catalog_text=""):
+    """Generate SEO collection page content."""
+    prompt = SEO_COLLECTION_WRITER_PROMPT.replace("{main_keyword}", main_keyword).replace("{collection_url}", collection_url)
+    if catalog_text:
+        prompt += f"\n\n--- REAL STORE CATALOG DATA (for internal links) ---\n{catalog_text}\n--- END CATALOG DATA ---"
+    
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, None, model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, None, model_id=model_id)
+    
+    # Default: Gemini (with fallback)
+    parts = [{"text": prompt}]
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
+    return _call_gemini_text(gemini_key, payload)
+
+def update_shopify_collection(shop_url, access_token, collection_id, data, collection_type="custom"):
+    """Update a Shopify collection's title, body_html, and meta fields."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    
+    endpoint_type = "custom_collections" if collection_type == "custom" else "smart_collections"
+    url = f"https://{shop_url}/admin/api/2024-01/{endpoint_type}/{collection_id}.json"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    
+    col_key = "custom_collection" if collection_type == "custom" else "smart_collection"
+    payload = {
+        col_key: {
+            "id": collection_id,
+            "title": data.get("collection_title", ""),
+            "body_html": data.get("collection_description_html", ""),
+            "metafields": [
+                {"namespace": "global", "key": "title_tag", "value": data.get("meta_title", ""), "type": "single_line_text_field"},
+                {"namespace": "global", "key": "description_tag", "value": data.get("meta_description", ""), "type": "multi_line_text_field"}
+            ]
+        }
+    }
+    
+    try:
+        response = requests.put(url, json=payload, headers=headers, timeout=30)
+        if response.status_code in [200, 201]: return True, "✅ Collection Updated!"
+        return False, f"Error {response.status_code}: {response.text[:300]}"
+    except Exception as e: return False, str(e)
+
 def list_available_models(api_key):
     key = clean_key(api_key)
     url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
@@ -1240,6 +1403,8 @@ if "batch_products" not in st.session_state: st.session_state.batch_products = [
 if "batch_collections" not in st.session_state: st.session_state.batch_collections = []
 if "batch_results" not in st.session_state: st.session_state.batch_results = {}
 if "batch_running" not in st.session_state: st.session_state.batch_running = False
+if "colwriter_result" not in st.session_state: st.session_state.colwriter_result = None
+if "colwriter_collections" not in st.session_state: st.session_state.colwriter_collections = []
 
 # ============================================================
 # --- SIDEBAR (WITH MODEL SELECTOR) ---
@@ -1320,7 +1485,7 @@ with st.sidebar:
     st.caption(f"**Active Image Model:** Gemini")
 
 st.title("💎 Jewelry AI Studio")
-tab1, tab_retouch, tab2, tab3, tab_batch, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📝 Batch Writer", "📚 Library", "ℹ️ Models"])
+tab1, tab_retouch, tab2, tab3, tab_batch, tab_colwriter, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📝 Batch Writer", "📂 Collection Writer", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
 with tab1:
@@ -2288,6 +2453,186 @@ with tab_batch:
                 st.info("No products match your filters.")
         else:
             st.info("👆 Click **Load Products from Shopify** to get started.")
+
+# === TAB COLLECTION WRITER ===
+with tab_colwriter:
+    st.header("📂 Collection Page Writer")
+    
+    cw_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+    cw_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+    current_text_model_cw = st.session_state.get('selected_text_model', 'Gemini')
+    
+    if not cw_shop or not cw_token:
+        st.error("❌ Shopify credentials required.")
+    else:
+        # --- Model + Load Collections ---
+        cw_c1, cw_c2 = st.columns([1, 1])
+        with cw_c1:
+            all_models_cw = ["Gemini"] + list(CLAUDE_MODELS.keys()) + list(OPENAI_MODELS.keys())
+            cw_model = st.selectbox("🤖 Model:", all_models_cw,
+                                     index=all_models_cw.index(current_text_model_cw) if current_text_model_cw in all_models_cw else 0,
+                                     key="cw_model_select")
+        with cw_c2:
+            st.write(""); st.write("")
+            if st.button("📦 Load Collections", type="primary", use_container_width=True, key="cw_load_btn"):
+                with st.spinner("Loading collections from Shopify..."):
+                    collections = get_shopify_all_collections(cw_shop, cw_token)
+                    if collections:
+                        st.session_state.colwriter_collections = collections
+                        st.session_state.colwriter_result = None
+                        st.success(f"✅ Loaded {len(collections)} collections")
+                        st.rerun()
+                    else:
+                        st.error("Failed to load collections")
+        
+        if st.session_state.colwriter_collections:
+            st.divider()
+            
+            # --- Collection Selector + Main Keyword ---
+            col_options = [f"{c['title']}  (/collections/{c['handle']})" for c in st.session_state.colwriter_collections]
+            selected_col_idx = st.selectbox("📁 Select Collection:", range(len(col_options)),
+                                             format_func=lambda i: col_options[i], key="cw_col_select")
+            selected_col = st.session_state.colwriter_collections[selected_col_idx]
+            
+            # Build full URL
+            store_domain = cw_shop.replace("https://", "").replace("http://", "").replace(".myshopify.com", "").strip()
+            collection_full_url = f"https://www.bikerringshop.com/collections/{selected_col['handle']}"
+            st.caption(f"🔗 URL: `{collection_full_url}`")
+            
+            main_keyword = st.text_input("🔑 Main Keyword:", placeholder="e.g. skull biker rings, gothic silver pendants", key="cw_main_keyword")
+            
+            # --- Generate Button ---
+            cw_btn1, cw_btn2 = st.columns([1, 1])
+            run_gen = cw_btn1.button("🚀 Generate Collection Content", type="primary", key="cw_gen_btn",
+                                      disabled=(not main_keyword))
+            if cw_btn2.button("🔄 Start Over", key="cw_startover_btn"):
+                st.session_state.colwriter_result = None
+                st.rerun()
+            
+            if run_gen:
+                if not main_keyword:
+                    st.error("Please enter a Main Keyword")
+                else:
+                    # Check API key
+                    cw_missing_key = False
+                    if cw_model == "Gemini" and not gemini_key: cw_missing_key = True
+                    elif cw_model in CLAUDE_MODELS and not claude_key: cw_missing_key = True
+                    elif cw_model in OPENAI_MODELS and not openai_key: cw_missing_key = True
+                    
+                    if cw_missing_key:
+                        st.error(f"❌ Missing API Key for {cw_model}")
+                    else:
+                        with st.spinner(f"Writing collection content with {cw_model}..."):
+                            # Fetch catalog for internal links
+                            catalog_text = ""
+                            try:
+                                catalog = fetch_store_catalog("www.bikerringshop.com")
+                                if catalog.get("collections") or catalog.get("products"):
+                                    catalog_text = format_catalog_for_prompt(catalog)
+                            except: pass
+                            
+                            json_txt, err = generate_collection_content(
+                                gemini_key, claude_key, openai_key, cw_model,
+                                main_keyword, collection_full_url, catalog_text
+                            )
+                            
+                            if json_txt:
+                                d = parse_json_response(json_txt)
+                                if isinstance(d, list) and d: d = d[0]
+                                if isinstance(d, dict):
+                                    # Store collection info with result
+                                    d["_col_id"] = selected_col["id"]
+                                    d["_col_type"] = selected_col.get("type", "custom")
+                                    d["_col_handle"] = selected_col["handle"]
+                                    st.session_state.colwriter_result = d
+                                    # Show Gemini model used
+                                    if cw_model == "Gemini":
+                                        active_m = st.session_state.get("_gemini_active_model", "")
+                                        if active_m: st.toast(f"✅ Used: {active_m.replace('models/', '')}")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to parse response")
+                                    st.code(json_txt[:1000])
+                            else:
+                                st.error(err)
+            
+            # --- Preview & Edit Results ---
+            if st.session_state.colwriter_result:
+                d = st.session_state.colwriter_result
+                st.divider()
+                st.subheader("📋 Preview & Edit")
+                
+                # Show model info
+                active_gemini = st.session_state.get("_gemini_active_model", "")
+                if cw_model == "Gemini" and active_gemini:
+                    st.caption(f"🤖 Generated by: **{active_gemini.replace('models/', '')}**")
+                elif cw_model in CLAUDE_MODELS:
+                    st.caption(f"🤖 Generated by: **{CLAUDE_MODELS[cw_model]}**")
+                elif cw_model in OPENAI_MODELS:
+                    st.caption(f"🤖 Generated by: **{OPENAI_MODELS[cw_model]}**")
+                
+                # Editable fields
+                edited_title = st.text_input("**Collection Title (H1):**",
+                                              value=d.get("collection_title", ""), key="cw_edit_title")
+                
+                edited_meta_title = st.text_input(f"**Meta Title** ({len(d.get('meta_title', ''))} chars):",
+                                                    value=d.get("meta_title", ""), key="cw_edit_meta_title")
+                if len(edited_meta_title) > 60:
+                    st.warning(f"⚠️ Meta title is {len(edited_meta_title)} chars (recommended: under 60)")
+                
+                edited_meta_desc = st.text_area(f"**Meta Description** ({len(d.get('meta_description', ''))} chars):",
+                                                  value=d.get("meta_description", ""), height=80, key="cw_edit_meta_desc")
+                if len(edited_meta_desc) > 155:
+                    st.warning(f"⚠️ Meta description is {len(edited_meta_desc)} chars (recommended: under 155)")
+                
+                edited_html = st.text_area("**Collection Description (HTML):**",
+                                            value=d.get("collection_description_html", ""), height=300, key="cw_edit_html")
+                
+                # HTML Preview
+                with st.expander("🔍 HTML Preview", expanded=True):
+                    st.markdown(edited_html, unsafe_allow_html=True)
+                
+                # Keyword analysis
+                if d.get("keyword_analysis"):
+                    with st.expander("🔍 Keyword Analysis"):
+                        st.write(d.get("keyword_analysis", ""))
+                
+                # Word count
+                import re as _re
+                clean_text = _re.sub(r'<[^>]+>', '', edited_html)
+                word_count = len(clean_text.split())
+                if 150 <= word_count <= 300:
+                    st.caption(f"📝 Word count: **{word_count}** ✅ (target: 150-300)")
+                else:
+                    st.caption(f"📝 Word count: **{word_count}** ⚠️ (target: 150-300)")
+                
+                st.divider()
+                
+                # --- Update to Shopify ---
+                st.subheader("☁️ Update to Shopify")
+                st.caption(f"Collection: **{d.get('_col_handle', '')}** (ID: {d.get('_col_id', '')})")
+                
+                if st.button("☁️ Update Collection on Shopify", type="primary", key="cw_update_btn"):
+                    # Build updated data from edited fields
+                    update_data = {
+                        "collection_title": edited_title,
+                        "collection_description_html": edited_html,
+                        "meta_title": edited_meta_title,
+                        "meta_description": edited_meta_desc,
+                    }
+                    with st.spinner("Updating collection on Shopify..."):
+                        ok, msg = update_shopify_collection(
+                            cw_shop, cw_token,
+                            d["_col_id"], update_data,
+                            collection_type=d.get("_col_type", "custom")
+                        )
+                        if ok:
+                            st.success(msg)
+                            st.balloons()
+                        else:
+                            st.error(msg)
+        else:
+            st.info("👆 Click **Load Collections** to get started.")
 
 # === TAB 4: LIBRARY ===
 with tab4:
