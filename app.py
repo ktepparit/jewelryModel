@@ -820,13 +820,31 @@ def _shopify_admin_get(shop_url, access_token, endpoint, timeout=30, retries=3):
     return None, "Failed after retries"
 
 def get_shopify_all_collections(shop_url, access_token):
-    """Fetch all custom + smart collections from Shopify admin."""
+    """Fetch all custom + smart collections from Shopify admin with full pagination."""
+    import urllib.parse
     all_collections = []
     for ctype in ["custom_collections", "smart_collections"]:
-        res, err = _shopify_admin_get(shop_url, access_token, f"{ctype}.json?limit=250")
-        if res:
-            for c in res.json().get(ctype, []):
+        cursor = None
+        for _ in range(20):  # Max 20 pages per type = 5000 collections
+            ep = f"{ctype}.json?limit=250"
+            if cursor:
+                ep = f"{ctype}.json?limit=250&page_info={cursor}"
+            res, err = _shopify_admin_get(shop_url, access_token, ep)
+            if not res: break
+            items = res.json().get(ctype, [])
+            if not items: break
+            for c in items:
                 all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
+            # Check for next page
+            cursor = None
+            link_header = res.headers.get("Link", "")
+            if 'rel="next"' in link_header:
+                for part in link_header.split(","):
+                    if 'rel="next"' in part:
+                        qp = urllib.parse.parse_qs(urllib.parse.urlparse(part.split(";")[0].strip().strip("<>")).query)
+                        cursor = qp.get("page_info", [None])[0]
+            if not cursor: break
+            time.sleep(0.2)
     return all_collections
 
 def get_shopify_products_page(shop_url, access_token, limit=50, page_info=None, collection_id=None):
