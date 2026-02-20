@@ -182,10 +182,10 @@ This builds credibility. Real reviewers don't only praise things.
 Example: "The cord is a bit short — you'll want to position this near
 an outlet. Minor complaint for what you get."
 
-> **Why this matters:** Google's December 2025 Core Update continued
-> rewarding high-quality, original content while reducing visibility
-> for overly optimized pages. One-sided praise reads as marketing copy.
-> A balanced view signals genuine experience.
+> **Why this matters:** Google's February 2026 Core Update (following the
+> December 2025 Core Update) continues to crack down on thin, one-sided
+> AI content. One-sided praise reads as marketing copy.
+> A balanced view signals genuine experience and survives core updates.
 
 ### [RULE 5 — HUMAN NUANCES]
 
@@ -226,7 +226,7 @@ Ensure the description naturally includes:
 > the product page itself as buyer-objection handling — it uses
 > Product schema, not FAQPage schema.
 
-### [RULE 8 — TRANSACTIONAL SEARCH POSITIONING]
+### [RULE 8 — TRANSACTIONAL SEARCH POSITIONING + AI MODE SIGNALS]
 
 The people landing on this product page are searching with buying intent.
 They're typing things like "best [category] for [use case]" or
@@ -239,6 +239,13 @@ Examples:
 - "Most budget wireless earbuds sacrifice bass. This one doesn't."
 - "Where other compact blenders struggle with ice, this handles
   frozen fruit without stalling."
+
+Also include 1-2 "best for" micro-signals that AI systems can extract
+for recommendation queries. These are short phrases embedded in natural
+sentences that tell AI who this product is ideal for:
+- "Best for daily wear" / "Best for riders who..." / "Best for men with larger hands"
+Google AI Mode and AI Overviews use these "best for" signals to match
+products with user queries like "which ring is best for everyday use?"
 
 This helps Google match the page to comparative/transactional queries
 without keyword stuffing.
@@ -306,8 +313,15 @@ without dating it too fast:
 
 ### [RULE 11 — AI CONTENT DETECTION & GEO COMPLIANCE (2026)]
 
-Google's December 2025 Core Update improved detection of low-value
-AI-generated patterns. Mass-produced, unedited AI content lost 60-95% traffic.
+Google's February 2026 Core Update (confirmed Feb 1, 2026) doubled down
+on the December 2025 Core Update's crackdown on thin AI content.
+Key enforcement in 2026:
+- Thin, low-value AI-generated content is being algorithmically demoted.
+- Sites demonstrating topical authority are rewarded — product pages must
+  show deep product knowledge, not surface-level specs.
+- Ecommerce pages saw 52% impact in Dec 2025; Feb 2026 further targets
+  scaled AI product descriptions with repetitive patterns.
+
 When writing multiple product descriptions (batch mode), you MUST:
 
 1. **Vary sentence structures** — never use the same opening pattern,
@@ -321,6 +335,10 @@ When writing multiple product descriptions (batch mode), you MUST:
    contain details specific to THIS product.
 4. **Information Gain** — every paragraph must add factual information
    the reader didn't have before. Zero filler sentences allowed.
+5. **Topical authority signal** — include at least 1 sentence that shows
+   knowledge BEYOND what's on the product label. A material comparison,
+   a care tip, a sizing insight, or a construction detail that proves
+   the writer actually understands the product category.
 
 ---
 
@@ -556,31 +574,49 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
 
 ### ## META (for CMS use — do not publish on page)
 
-**Product Title (H1):** Clear, descriptive, keyword-rich product name.
-- Must include the Main Keyword naturally.
+**Product Title (H1) — RULES:**
+- Main Keyword MUST appear within the H1, ideally near the front.
+- Clear, descriptive, keyword-rich product name.
 - Keep under 70 characters for display consistency.
 - Must NOT be identical to the Meta Title (they serve different purposes:
-  H1 is for the page, Meta Title is for the SERP).
-- Format: [Product Name] + [Key Attribute] — e.g., "Skull Flame Ring — Heavy Stainless Steel for Bikers"
+  H1 is for the page visitor, Meta Title is for the SERP).
+- Include: [Product Name] + [Key Attribute] (material, style, or category)
+- The H1 should tell a shopper exactly what this product IS at a glance.
+  GOOD: "Skull Flame Ring — Heavy 316L Stainless Steel for Bikers"
+  GOOD: "Gothic Cross Sterling Silver Pendant with Black Onyx"
+  BAD: "Amazing Skull Ring Best Quality 2026" (vague, dated, keyword-stuffed)
+  BAD: "Product #4521" (no description)
+  BAD: "The Most Incredible Ring You've Ever Seen" (no product info)
+- For jewelry/accessories, always include: [design/motif] + [material] + [product type]
+  This helps Google Product schema AND AI systems categorize the item correctly.
 
-**Meta Title:** `[Main Keyword — One Key Benefit] | Bikerringshop`
-Keep under 60 characters (or 580 pixels — wider chars like W/M count more).
-Lead with product name/keyword, not benefit.
-Must include the Main Keyword (Rule 9).
-Google measures by pixel width (~580px), not strict character count.
-A title that starts with the keyword performs better than keywords at the end.
+**Meta Title — RULES:**
+- Under 60 characters (Google measures by pixel width ~580px, not strict chars).
+- Main Keyword at the FRONT — Google gives more weight to leading words.
+- Format: [Main Keyword — One Key Benefit] | Bikerringshop
+- The benefit should be a concrete attribute (material, weight, style),
+  not a generic claim ("best", "top quality", "amazing").
+- Must include the brand name "Bikerringshop" at the end after |.
+  GOOD: "Skull Flame Ring — Heavy 316L Steel That Lasts | Bikerringshop" (57 chars)
+  GOOD: "Gothic Cross Pendant — .925 Sterling Silver | Bikerringshop" (55 chars)
+  BAD: "Bikerringshop — Best Skull Rings Online" (brand first wastes prime space)
+  BAD: "Skull Ring, Biker Ring, Gothic Ring, Silver Ring" (keyword list)
+  BAD: "The Best Ring You'll Ever Own | Bikerringshop" (no product info)
 
-**Meta Description:** Under 155 characters. Must COMPLEMENT the meta title,
-NOT repeat it word-for-word. Use the description to expand on the title's promise.
-Include the Main Keyword + one sensory detail or the honest caveat to stand out.
-No "shop now" or "buy today" CTAs — those waste characters and don't improve CTR.
-Google rewrites ~62% of meta descriptions, but well-written ones still appear
-for high-intent product queries where they make a measurable CTR difference.
-Use a DIFFERENT long-tail keyword variation than the one in the meta title.
-
-Example:
-> Meta Title: Skull Flame Ring — Heavy Stainless Steel That Lasts | Bikerringshop
-> Meta Description: 28 grams of solid 316L steel with hand-finished flame detail. Runs slightly large — check the size guide before ordering.
+**Meta Description — RULES:**
+- Under 155 characters. Aim for 140-155 chars.
+- Main Keyword within the first 80 characters (visible on mobile SERP snippets).
+- Must COMPLEMENT the meta title, NOT repeat it word-for-word.
+- Use the description to expand on the title's promise with specifics.
+- Include: Main Keyword + 1 specific detail (weight, material, sensory detail).
+- Optionally include the honest caveat — this stands out in SERPs and
+  increases CTR because it reads as genuine, not promotional.
+- No "shop now" or "buy today" CTAs — Google's 2026 algorithm devalues
+  aggressive CTAs in meta descriptions. They waste characters and don't improve CTR.
+- Use a DIFFERENT long-tail keyword variation than the one in the meta title.
+  GOOD: "28 grams of solid 316L steel with hand-finished flame detail. Runs slightly large — check the size guide before ordering." (118 chars)
+  BAD: "Shop our amazing skull ring! Best quality guaranteed. Buy now and get free shipping!" (CTA-heavy, generic)
+  BAD: "Skull ring biker ring gothic ring stainless steel ring for men." (keyword-stuffed list)
 
 ---
 
@@ -634,17 +670,24 @@ Grade 8-10. Clear, not dumbed down.
 
 **Google Algorithm Context (2025-2026):**
 
-- Google's December 2025 Core Update (4th core update of 2025) heavily
-  rewarded e-commerce and retail brands while penalizing thin content.
-  E-commerce saw 52% impact rate. Thin category pages and product pages
-  with generic manufacturer descriptions were hardest hit.
+- **February 2026 Core Update (LATEST — rolling out now):**
+  Google confirmed a broad core update on February 1, 2026, targeting:
+  (1) Thin, low-value AI-generated content — algorithmically demoted.
+  (2) Topical authority rewarded — sites that cover a topic deeply
+  and consistently rank higher. Product pages must show category expertise.
+  (3) Crawl efficiency matters — Google noted 75% of crawling waste
+  comes from faceted navigation and filtered URLs.
+- **December 2025 Core Update** heavily rewarded e-commerce and retail brands
+  while penalizing thin content. Ecommerce saw 52% impact rate. Thin category
+  pages and product pages with generic manufacturer descriptions were hardest hit.
 - E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness)
   is the primary quality framework. "Experience" — first-hand product
   use — is the differentiator for product pages. E-E-A-T now applies
   to ALL verticals, not just YMYL content.
-- Google improved AI content detection. Mass-produced unedited AI content
-  lost 60-95% traffic. Content must show human insight, specific details,
-  and balanced views. Repetitive patterns across products are flagged.
+- Google improved AI content detection across both updates. Mass-produced
+  unedited AI content lost 60-95% traffic. Content must show human insight,
+  specific details, and balanced views. Repetitive patterns across products
+  are flagged as scaled AI content.
 - Product structured data (JSON-LD) remains critical for rich snippets.
   Core schema types — Product, Review, Breadcrumb, Organization —
   are confirmed as long-term priorities by Google.
@@ -656,17 +699,24 @@ Grade 8-10. Clear, not dumbed down.
 - Zero-click searches (~60% of Google queries) mean product pages
   must provide enough structured data (via schema) to appear in
   rich results even when users don't click through.
-- **GEO (Generative Engine Optimization) — NEW 2026:**
-  Google AI Overviews now appear in 30-45% of searches. AI Mode
-  allows conversation-to-checkout commerce. Product pages must be
-  written so AI can extract: what the product IS, who it's for,
-  key specs, and why it's different — all within the first 100 words.
+- **GEO (Generative Engine Optimization) — 2026:**
+  Google AI Overviews now appear in 30-45% of searches and reach 2 billion
+  monthly users across 200+ countries. AI Mode allows conversation-to-checkout
+  commerce. Product pages must be written so AI can extract: what the product IS,
+  who it's for, key specs, and why it's different — all within the first 100 words.
   Structure and clarity beat storytelling for AI visibility.
-- **Agentic Commerce — NEW January 2026:**
+  "Best for" signals (e.g., "best for daily wear", "best for riders who...")
+  are specifically used by AI Mode to match products with comparison queries.
+- **Agentic Commerce — 2026:**
   Google introduced Universal Commerce Protocol (UCP). AI agents now
   discover, evaluate, and recommend products based on structured data.
   Specific, measurable product attributes (material, weight, dimensions)
   are critical — vague adjectives are ignored by AI recommendation systems.
+- **Visual Search & Google Lens — 2026:**
+  Gen Z users now start 1 in 10 searches with Google Lens, with ~20%
+  carrying commercial intent. Image SEO (file names + alt tags) is
+  more important than ever — well-optimized images appear in visual
+  search results and AI-powered shopping experiences.
 - Google's meta title rewrite rate is increasing. Titles measured by
   pixel width (~580px), not character count. Meta descriptions are
   rewritten ~62% of the time but still matter for high-intent queries.
@@ -742,11 +792,17 @@ BAD examples:
 - ring (no context at all)
 
 ### IMAGE SEO RULES (for the image_seo array):
-### Updated for Google's 2026 Image SEO Best Practices
+### Updated for Google's 2026 Image SEO + Visual Search Best Practices
 
 Each image MUST have a **unique** file_name and alt_tag.
 Google's algorithm uses alt text alongside computer vision to understand images.
 Repetitive patterns in AI-generated alt text can be flagged as duplicate content.
+
+**2026 Visual Search Context:**
+Google Lens now handles 1 in 10 searches by Gen Z, with ~20% carrying
+commercial intent. Well-optimized product images (file names + alt tags)
+appear in Google Lens visual search, Google Shopping, and AI-powered
+"shop similar" experiences. Image SEO directly drives discovery and sales.
 
 **File Name Rules:**
 - Lowercase, hyphens only, end with .jpg
@@ -869,7 +925,7 @@ Using the Main Keyword, determine:
 - **Long-tail Keywords (1-2):** More specific category searches.
 
 Integration:
-- Main Keyword in: H1, meta title, paragraph content (2-3 natural mentions).
+- Main Keyword in: H1, meta title, first paragraph (within first 2 sentences).
 - Secondary Keywords: 1 time each in paragraphs.
 - Long-tail Keywords: woven into paragraph 2.
 All keywords must read naturally. Forced keywords are obvious — rewrite if stuffed.
@@ -899,16 +955,24 @@ The copy should:
   Example: "Built for riders who want rings that survive the road,
   not sit in a jewelry box."
 
-### [RULE 6 — CONTENT STRUCTURE + GEO OPTIMIZATION]
+### [RULE 6 — CONTENT STRUCTURE + GEO/AI CITATION OPTIMIZATION]
 Write 2-3 short paragraphs:
-- **Paragraph 1 (hook):** Start with a clear, concise definition of what this
-  collection IS and who it's for (1 sentence). Then context, Main Keyword,
-  what makes collection different. 2-3 sentences total.
-  (This "definition-first" approach helps AI systems like Google AI Overviews
-  and AI Mode extract and cite your content accurately.)
-- **Paragraph 2 (detail):** Who it's for, key attributes, secondary/long-tail
-  keywords. Include specific product facts AI can reference. 2-3 sentences.
+- **Paragraph 1 (hook + definition):** Start with a clear, concise definition
+  of what this collection IS and who it's for (1 sentence). This MUST be
+  specific enough that Google AI Overview or AI Mode can extract and cite it
+  as a direct answer. Then context, Main Keyword, what makes collection
+  different. 2-3 sentences total.
+  FORMAT: "[Collection name] are [clear definition]. [Differentiator]. [Key detail]."
+  EXAMPLE: "Skull biker rings are heavy-duty statement rings built for riders
+  who treat jewelry like gear, not decoration. Most are cast in 316L stainless
+  steel or .925 sterling silver — metals that handle road grime and sweat."
+- **Paragraph 2 (detail + "best for"):** Who it's for, key attributes,
+  secondary/long-tail keywords. Include 1-2 specific "best for" statements
+  that AI can extract (e.g., "best for daily wear," "best for riders who
+  prefer silver over steel"). Include a concrete product fact — material,
+  weight range, sizing, or construction method. 2-3 sentences.
 - **Paragraph 3 (navigation):** Suggest related collections with internal links.
+  Frame as decision support: "If you want [alternative], check [collection]."
   1-2 sentences.
 Total: **150-300 words**.
 
@@ -918,30 +982,46 @@ Confident and direct — like a knowledgeable shop owner giving a quick overview
 Google's algorithm detects when content is written for search engines versus
 actual shoppers. Write for humans first, search engines second.
 
-### [RULE 8 — POST-DECEMBER 2025 CORE UPDATE COMPLIANCE]
-Google's December 2025 Core Update heavily impacted ecommerce.
-Key lessons for collection page content:
+### [RULE 8 — 2026 ALGORITHM COMPLIANCE (Feb 2026 Core Update)]
 
+**A. February 2026 Core Update (rolling out now):**
+Google confirmed a broad core update on February 1, 2026, targeting:
+1. Thin, low-value AI-generated content — every sentence must contain a
+   concrete detail specific to THIS collection. No filler.
+2. Topical authority — collection pages must demonstrate deep category knowledge,
+   not surface-level descriptions. Include at least 1 material specification,
+   construction detail, or measurable product attribute.
+3. Crawl efficiency — faceted navigation and filtered URLs waste crawl budget.
+   Collection content must be valuable enough to justify being crawled.
+
+**B. December 2025 Core Update aftermath:**
 1. **NO THIN CATEGORY PAGES:** Category pages with "limited or repetitive content"
-   were among the hardest hit. Every collection MUST have unique, specific copy
+   were among the hardest hit (52% of ecommerce pages impacted).
+   Every collection MUST have unique, specific copy
    that could NOT be copy-pasted to another collection and still make sense.
-   Each sentence must contain details specific to THIS collection.
-
 2. **AI CONTENT DETECTION:** Google improved detection of "low-value patterns
    commonly associated with scaled, unreviewed AI output." Avoid:
    - Generic sentences that could apply to any jewelry store
    - Repetitive sentence structures across collections
    - Filler phrases that add word count but zero information
-   Every sentence must contain a concrete detail, fact, or differentiator.
-
 3. **INTENT PURITY:** Pages that mix informational + transactional intent
-   lost rankings. Collection pages must be PURELY transactional —
-   help shoppers decide and buy, not educate about the category.
+   lost rankings. Collection pages must be PURELY transactional.
 
-4. **E-E-A-T EVERYWHERE:** E-E-A-T now applies to ALL verticals, not just YMYL.
-   Ecommerce collection pages need demonstrable product expertise.
-   Include at least 1 specific material fact, measurement, or technical detail
-   that proves real product knowledge.
+**C. Google AI Mode & AI Overview Optimization (2026):**
+AI Mode now surfaces category pages that help shoppers CHOOSE, not just browse.
+1. **Definition-first structure:** Start paragraph 1 with a clear
+   "[Category] are [definition]" sentence. AI systems extract this as the
+   direct answer for "what are [category]?" queries.
+2. **"Best for" signals:** Include specific "best for [use case]" phrases.
+   AI Mode uses these to recommend products to users asking comparison
+   questions like "which type of ring is best for daily wear?"
+3. **Cite-worthy facts:** Include 1-2 specific, factual claims that AI
+   can confidently cite (material grades, weight ranges, sizing info).
+   Vague claims ("high quality") are never cited. Specific claims
+   ("cast in 316L surgical-grade stainless steel, 28-42g per ring") are.
+4. **Entity clarity:** Make it clear what category of products this is,
+   who makes them, and who they're for. AI systems need entity context
+   to confidently recommend and cite your page.
 
 ### [RULE 9 — INTERNAL LINKING]
 Include 2-3 natural mentions of related collections within the content.
@@ -973,21 +1053,46 @@ RULES:
 Return ONLY raw JSON (no markdown backticks) with this structure:
 
 {
-  "collection_title": "Collection H1 title — Main Keyword at front",
+  "collection_title": "Collection H1 title — see H1 RULES below",
   "collection_description_html": "<div class='collection-description'><p>Paragraph 1...</p><p>Paragraph 2...</p><p>Paragraph 3 with internal links...</p></div>",
-  "meta_title": "Main Keyword — Short Benefit | Bikerringshop (under 60 chars)",
-  "meta_description": "Under 155 chars. Main Keyword + 1 key differentiator. Confident one-liner.",
+  "meta_title": "See META TITLE RULES below (under 60 chars)",
+  "meta_description": "See META DESCRIPTION RULES below (under 155 chars)",
   "keyword_analysis": "Main: ... | Secondary: ..., ... | Long-tail: ..., ..."
 }
 
-IMPORTANT RULES for the JSON:
-- collection_title: Main Keyword at the front. Clean and descriptive.
-- collection_description_html: Full HTML with <div class='collection-description'>, 2-3 <p> tags.
-  Internal links must use real paths from catalog data with full <a> tag styling.
-  150-300 words total. Every sentence earns its place.
-- meta_title: Under 60 characters. Format: [Main Keyword] — [Benefit] | Bikerringshop
-- meta_description: Under 155 characters. Include Main Keyword. No "shop now" CTAs.
-- keyword_analysis: Summary of keywords used for internal review.
+### H1 (collection_title) RULES:
+- Main Keyword MUST appear at the START of the H1.
+- Clean, descriptive, human-readable.
+- DO NOT stuff multiple keywords. One clear phrase.
+- Under 70 characters.
+- Format: [Main Keyword] — [Optional short qualifier]
+  GOOD: "Skull Biker Rings — Heavy Sterling Silver & Steel"
+  GOOD: "Gothic Cross Pendants for Men"
+  BAD: "Best Skull Rings Biker Rings Gothic Rings Collection 2026"
+  BAD: "Our Amazing Skull Ring Collection"
+
+### META TITLE RULES:
+- Under 60 characters (Google truncates at ~60).
+- Main Keyword at the FRONT — Google gives more weight to words at the start.
+- Format: [Main Keyword] — [1 Differentiator] | Bikerringshop
+  GOOD: "Skull Biker Rings — Heavy Sterling Silver | Bikerringshop" (54 chars)
+  GOOD: "Gothic Cross Pendants — Handcast Silver & Steel | Bikerringshop" (59 chars)
+  BAD: "Bikerringshop | The Best Skull Rings Collection Online" (brand first wastes space)
+  BAD: "Skull Rings, Biker Rings, Gothic Rings, Silver Rings" (keyword list)
+- Include the brand name "Bikerringshop" at the end after |.
+- The differentiator should be a concrete attribute (material, style, audience)
+  not a generic claim ("best", "top quality", "amazing").
+
+### META DESCRIPTION RULES:
+- Under 155 characters. Aim for 140-155.
+- Main Keyword within the first 80 characters (visible on mobile SERP).
+- Must answer: "Why should I click THIS collection?"
+- Include 1 specific differentiator (material, style, audience).
+- End with a soft benefit or audience signal — NOT a "Shop now!" CTA.
+  Google's 2026 algorithm devalues aggressive CTAs in meta descriptions.
+  GOOD: "Skull biker rings in 316L steel and .925 silver. Built heavy for daily wear — not display cases. 28-42g average weight." (118 chars)
+  BAD: "Shop our amazing collection of skull rings! Best quality guaranteed. Buy now!" (generic, CTA-heavy)
+  BAD: "We have skull rings and biker rings and gothic rings for men and women." (keyword-stuffed list)
 
 Return RAW JSON only. No explanations before or after.
 """
