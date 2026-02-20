@@ -1978,58 +1978,56 @@ with tab_batch:
             if selected_collection != "All Collections":
                 sel_col = next((c for c in st.session_state.batch_collections if c["title"] == selected_collection), None)
                 if sel_col:
-                    # Cache collection product IDs in session state
                     cache_key = f"_batch_col_cache_{sel_col['id']}"
                     if cache_key not in st.session_state:
                         col_product_ids = set()
-                    
-                    # Method 1: Collects API — works for custom collections
-                    collect_cursor = None
-                    for _ in range(20):
-                        ep = f"collects.json?collection_id={sel_col['id']}&limit=250"
-                        if collect_cursor: ep += f"&page_info={collect_cursor}"
-                        res, _ = _shopify_admin_get(bw_shop, bw_token, ep)
-                        if not res: break
-                        collects = res.json().get("collects", [])
-                        if not collects: break
-                        for c in collects: col_product_ids.add(str(c.get("product_id", "")))
-                        lh = res.headers.get("Link", "")
+                        
+                        # Method 1: Collects API — works for custom collections
                         collect_cursor = None
-                        if 'rel="next"' in lh:
-                            import urllib.parse
-                            for part in lh.split(","):
-                                if 'rel="next"' in part:
-                                    qp = urllib.parse.parse_qs(urllib.parse.urlparse(part.split(";")[0].strip().strip("<>")).query)
-                                    collect_cursor = qp.get("page_info", [None])[0]
-                        if not collect_cursor: break
-                        time.sleep(0.2)
-                    
-                    # Method 2: If Collects returned nothing — smart collection, use products endpoint
-                    if not col_product_ids:
-                        prod_cursor = None
                         for _ in range(20):
-                            ep = f"collections/{sel_col['id']}/products.json?limit=250"
-                            if prod_cursor: ep += f"&page_info={prod_cursor}"
+                            ep = f"collects.json?collection_id={sel_col['id']}&limit=250"
+                            if collect_cursor: ep += f"&page_info={collect_cursor}"
                             res, _ = _shopify_admin_get(bw_shop, bw_token, ep)
                             if not res: break
-                            prods = res.json().get("products", [])
-                            if not prods: break
-                            for p in prods: col_product_ids.add(str(p.get("id", "")))
+                            collects = res.json().get("collects", [])
+                            if not collects: break
+                            for c in collects: col_product_ids.add(str(c.get("product_id", "")))
                             lh = res.headers.get("Link", "")
-                            prod_cursor = None
+                            collect_cursor = None
                             if 'rel="next"' in lh:
                                 import urllib.parse
                                 for part in lh.split(","):
                                     if 'rel="next"' in part:
                                         qp = urllib.parse.parse_qs(urllib.parse.urlparse(part.split(";")[0].strip().strip("<>")).query)
-                                        prod_cursor = qp.get("page_info", [None])[0]
-                            if not prod_cursor: break
+                                        collect_cursor = qp.get("page_info", [None])[0]
+                            if not collect_cursor: break
                             time.sleep(0.2)
-                    
+                        
+                        # Method 2: If Collects returned nothing — smart collection
+                        if not col_product_ids:
+                            prod_cursor = None
+                            for _ in range(20):
+                                ep = f"collections/{sel_col['id']}/products.json?limit=250"
+                                if prod_cursor: ep += f"&page_info={prod_cursor}"
+                                res, _ = _shopify_admin_get(bw_shop, bw_token, ep)
+                                if not res: break
+                                prods = res.json().get("products", [])
+                                if not prods: break
+                                for p in prods: col_product_ids.add(str(p.get("id", "")))
+                                lh = res.headers.get("Link", "")
+                                prod_cursor = None
+                                if 'rel="next"' in lh:
+                                    import urllib.parse
+                                    for part in lh.split(","):
+                                        if 'rel="next"' in part:
+                                            qp = urllib.parse.parse_qs(urllib.parse.urlparse(part.split(";")[0].strip().strip("<>")).query)
+                                            prod_cursor = qp.get("page_info", [None])[0]
+                                if not prod_cursor: break
+                                time.sleep(0.2)
+                        
                         st.session_state[cache_key] = col_product_ids
                     
-                    cached_ids = st.session_state.get(cache_key, set())
-                    filtered = [p for p in filtered if p["id"] in cached_ids]
+                    filtered = [p for p in filtered if p["id"] in st.session_state[cache_key]]
             
             if stock_filter == "In Stock (> 0)":
                 filtered = [p for p in filtered if p["total_inventory"] > 0]
