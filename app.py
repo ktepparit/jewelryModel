@@ -794,6 +794,122 @@ def get_shopify_product_details(shop_url, access_token, product_id):
         return None, None, None, f"Error {response.status_code}: {response.text}"
     except Exception as e: return None, None, None, str(e)
 
+# --- SHOPIFY ADMIN: LIST PRODUCTS & COLLECTIONS ---
+def get_shopify_all_collections(shop_url, access_token):
+    """Fetch all custom + smart collections from Shopify admin."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    all_collections = []
+    # Custom collections
+    try:
+        res = requests.get(f"https://{shop_url}/admin/api/2024-01/custom_collections.json?limit=250", headers=headers, timeout=15)
+        if res.status_code == 200:
+            for c in res.json().get("custom_collections", []):
+                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
+    except: pass
+    # Smart collections
+    try:
+        res = requests.get(f"https://{shop_url}/admin/api/2024-01/smart_collections.json?limit=250", headers=headers, timeout=15)
+        if res.status_code == 200:
+            for c in res.json().get("smart_collections", []):
+                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
+    except: pass
+    return all_collections
+
+def get_shopify_products_page(shop_url, access_token, limit=250, page_info=None, collection_id=None):
+    """Fetch one page of products from Shopify admin (cursor-based pagination)."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    
+    if collection_id:
+        # Fetch product IDs in collection first, then fetch product details
+        base = f"https://{shop_url}/admin/api/2024-01/collections/{collection_id}/products.json?limit={limit}"
+    else:
+        base = f"https://{shop_url}/admin/api/2024-01/products.json?limit={limit}"
+    
+    if page_info:
+        url = f"https://{shop_url}/admin/api/2024-01/products.json?limit={limit}&page_info={page_info}"
+    else:
+        url = base
+    
+    try:
+        res = requests.get(url, headers=headers, timeout=20)
+        if res.status_code != 200:
+            return [], None, f"Error {res.status_code}"
+        
+        products_raw = res.json().get("products", []) if not collection_id else res.json().get("products", [])
+        products = []
+        for p in products_raw:
+            total_inv = sum(v.get("inventory_quantity", 0) for v in p.get("variants", []))
+            sku_list = [v.get("sku", "") for v in p.get("variants", []) if v.get("sku")]
+            products.append({
+                "id": str(p["id"]),
+                "title": p.get("title", ""),
+                "handle": p.get("handle", ""),
+                "product_type": p.get("product_type", ""),
+                "status": p.get("status", ""),
+                "total_inventory": total_inv,
+                "sku": sku_list[0] if sku_list else "",
+                "all_skus": ", ".join(sku_list[:3]),
+                "variants_count": len(p.get("variants", [])),
+                "image_url": p.get("image", {}).get("src", "") if p.get("image") else "",
+                "body_html": p.get("body_html", ""),
+            })
+        
+        # Parse next page cursor from Link header
+        next_cursor = None
+        link_header = res.headers.get("Link", "")
+        if 'rel="next"' in link_header:
+            import urllib.parse
+            for part in link_header.split(","):
+                if 'rel="next"' in part:
+                    url_part = part.split(";")[0].strip().strip("<>")
+                    parsed = urllib.parse.urlparse(url_part)
+                    params = urllib.parse.parse_qs(parsed.query)
+                    next_cursor = params.get("page_info", [None])[0]
+        
+        return products, next_cursor, None
+    except Exception as e:
+        return [], None, str(e)
+
+def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pages=10):
+    """Fetch all products (paginated) from Shopify admin."""
+    all_products = []
+    cursor = None
+    for _ in range(max_pages):
+        products, next_cursor, err = get_shopify_products_page(shop_url, access_token, limit=250, page_info=cursor, collection_id=collection_id)
+        if err and not products:
+            return all_products, err
+        all_products.extend(products)
+        if not next_cursor:
+            break
+        cursor = next_cursor
+    return all_products, None
+
+def update_shopify_description_only(shop_url, access_token, product_id, data):
+    """Update only title, body_html, and meta fields — no images."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    
+    product_payload = {
+        "id": product_id,
+        "body_html": data.get('html_content'),
+        "metafields": [
+            {"namespace": "global", "key": "title_tag", "value": data.get('meta_title', ''), "type": "single_line_text_field"},
+            {"namespace": "global", "key": "description_tag", "value": data.get('meta_description', ''), "type": "multi_line_text_field"}
+        ]
+    }
+    
+    try:
+        response = requests.put(url, json={"product": product_payload}, headers=headers)
+        if response.status_code in [200, 201]: return True, "✅ Updated"
+        return False, f"Error {response.status_code}: {response.text[:200]}"
+    except Exception as e: return False, str(e)
+
 # ============================================================
 # --- STORE CATALOG FETCHER (for internal linking) ---
 # ============================================================
@@ -1091,6 +1207,10 @@ if "seo_name_result" not in st.session_state: st.session_state.seo_name_result =
 if "bulk_key_counter" not in st.session_state: st.session_state.bulk_key_counter = 0
 if "writer_key_counter" not in st.session_state: st.session_state.writer_key_counter = 0
 if "retouch_key_counter" not in st.session_state: st.session_state.retouch_key_counter = 0
+if "batch_products" not in st.session_state: st.session_state.batch_products = []
+if "batch_collections" not in st.session_state: st.session_state.batch_collections = []
+if "batch_results" not in st.session_state: st.session_state.batch_results = {}
+if "batch_running" not in st.session_state: st.session_state.batch_running = False
 
 # ============================================================
 # --- SIDEBAR (WITH MODEL SELECTOR) ---
@@ -1171,7 +1291,7 @@ with st.sidebar:
     st.caption(f"**Active Image Model:** Gemini")
 
 st.title("💎 Jewelry AI Studio")
-tab1, tab_retouch, tab2, tab3, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📚 Library", "ℹ️ Models"])
+tab1, tab_retouch, tab2, tab3, tab_batch, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📝 Batch Writer", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
 with tab1:
@@ -1756,6 +1876,305 @@ with tab3:
                             success, msg = update_shopify_product_v2(s_shop, s_token, s_prod_id, st.session_state.writer_result, writer_imgs, enable_img_upload)
                             if success: st.success(msg); st.balloons()
                             else: st.error(msg)
+
+# === TAB BATCH WRITER ===
+with tab_batch:
+    st.header("📝 Batch Product Writer")
+    current_text_model = st.session_state.get('selected_text_model', 'Gemini')
+    
+    # Check Shopify credentials
+    bw_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
+    bw_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
+    
+    if not bw_shop or not bw_token:
+        st.error("❌ Shopify credentials required. Set SHOPIFY_SHOP_URL and SHOPIFY_ACCESS_TOKEN in Secrets.")
+    else:
+        # --- TOP: Model selector + Load products ---
+        bw_top1, bw_top2 = st.columns([1, 1])
+        with bw_top1:
+            all_models_batch = ["Gemini"] + list(CLAUDE_MODELS.keys()) + list(OPENAI_MODELS.keys())
+            batch_model = st.selectbox("🤖 Model for Batch:", all_models_batch, 
+                                       index=all_models_batch.index(current_text_model) if current_text_model in all_models_batch else 0,
+                                       key="batch_model_select")
+        with bw_top2:
+            st.write("")  # spacer
+            st.write("")
+            if st.button("📦 Load Products from Shopify", type="primary", use_container_width=True, key="batch_load_btn"):
+                with st.spinner("Loading products & collections..."):
+                    collections = get_shopify_all_collections(bw_shop, bw_token)
+                    products, err = get_shopify_all_products(bw_shop, bw_token)
+                    if err and not products:
+                        st.error(f"Failed: {err}")
+                    else:
+                        st.session_state.batch_products = products
+                        st.session_state.batch_collections = collections
+                        st.session_state.batch_results = {}
+                        st.success(f"✅ Loaded {len(products)} products, {len(collections)} collections")
+                        st.rerun()
+        
+        if st.session_state.batch_products:
+            products_df = st.session_state.batch_products
+            
+            st.divider()
+            # --- FILTERS ---
+            st.subheader("🔍 Filter Products")
+            fc1, fc2, fc3 = st.columns(3)
+            
+            with fc1:
+                search_term = st.text_input("Search by Name or SKU:", key="batch_search", placeholder="e.g. skull ring, SKU-001")
+            
+            with fc2:
+                collection_options = ["All Collections"] + [c["title"] for c in st.session_state.batch_collections]
+                selected_collection = st.selectbox("Product Collection:", collection_options, key="batch_collection_filter")
+            
+            with fc3:
+                stock_filter = st.selectbox("Stock Filter:", ["All", "In Stock (> 0)", "Out of Stock (≤ 0)"], key="batch_stock_filter")
+            
+            # Apply filters
+            filtered = products_df.copy()
+            
+            if search_term:
+                term = search_term.lower()
+                filtered = [p for p in filtered if term in p["title"].lower() or term in p.get("sku", "").lower() or term in p.get("all_skus", "").lower()]
+            
+            if selected_collection != "All Collections":
+                # Need to fetch products for that collection
+                sel_col = next((c for c in st.session_state.batch_collections if c["title"] == selected_collection), None)
+                if sel_col:
+                    col_products, _ = get_shopify_all_products(bw_shop, bw_token, collection_id=sel_col["id"], max_pages=5)
+                    col_ids = {p["id"] for p in col_products}
+                    filtered = [p for p in filtered if p["id"] in col_ids]
+            
+            if stock_filter == "In Stock (> 0)":
+                filtered = [p for p in filtered if p["total_inventory"] > 0]
+            elif stock_filter == "Out of Stock (≤ 0)":
+                filtered = [p for p in filtered if p["total_inventory"] <= 0]
+            
+            st.caption(f"Showing **{len(filtered)}** of {len(products_df)} products")
+            
+            # --- PRODUCT TABLE WITH CHECKBOXES ---
+            if filtered:
+                # Select all / deselect
+                sa_col1, sa_col2, sa_col3 = st.columns([1, 1, 4])
+                select_all = sa_col1.button("☑️ Select All", key="batch_select_all")
+                deselect_all = sa_col2.button("☐ Deselect All", key="batch_deselect_all")
+                
+                if select_all:
+                    for p in filtered:
+                        st.session_state[f"batch_chk_{p['id']}"] = True
+                    st.rerun()
+                if deselect_all:
+                    for p in filtered:
+                        st.session_state[f"batch_chk_{p['id']}"] = False
+                    st.rerun()
+                
+                # Table header
+                hdr_cols = st.columns([0.3, 0.5, 2.5, 1, 0.8, 1])
+                hdr_cols[0].write("**✓**")
+                hdr_cols[1].write("**Image**")
+                hdr_cols[2].write("**Product Name**")
+                hdr_cols[3].write("**SKU**")
+                hdr_cols[4].write("**Stock**")
+                hdr_cols[5].write("**Status**")
+                st.markdown("<hr style='margin:2px 0'>", unsafe_allow_html=True)
+                
+                # Show products (paginated to avoid lag)
+                page_size = 50
+                total_pages = max(1, (len(filtered) + page_size - 1) // page_size)
+                if "batch_page" not in st.session_state: st.session_state.batch_page = 0
+                current_page_items = filtered[st.session_state.batch_page * page_size : (st.session_state.batch_page + 1) * page_size]
+                
+                for p in current_page_items:
+                    row_cols = st.columns([0.3, 0.5, 2.5, 1, 0.8, 1])
+                    result_status = st.session_state.batch_results.get(p["id"])
+                    
+                    with row_cols[0]:
+                        st.checkbox("", key=f"batch_chk_{p['id']}", label_visibility="collapsed")
+                    with row_cols[1]:
+                        if p.get("image_url"):
+                            try: st.image(p["image_url"], width=40)
+                            except: st.write("📷")
+                        else: st.write("—")
+                    with row_cols[2]:
+                        st.write(f"**{p['title'][:50]}**" + ("..." if len(p['title']) > 50 else ""))
+                        st.caption(f"ID: {p['id']}")
+                    with row_cols[3]:
+                        st.caption(p.get("sku", "—") or "—")
+                    with row_cols[4]:
+                        inv = p["total_inventory"]
+                        if inv > 0: st.write(f"🟢 {inv}")
+                        else: st.write(f"🔴 {inv}")
+                    with row_cols[5]:
+                        if result_status:
+                            if result_status.get("success"):
+                                st.write("✅ Done")
+                            elif result_status.get("error"):
+                                st.write("❌ Fail")
+                            elif result_status.get("generating"):
+                                st.write("⏳ ...")
+                        else:
+                            st.write("⬜ Pending")
+                
+                # Pagination
+                if total_pages > 1:
+                    pg_cols = st.columns([1, 2, 1])
+                    if pg_cols[0].button("◀ Prev", disabled=(st.session_state.batch_page == 0), key="batch_prev"):
+                        st.session_state.batch_page -= 1; st.rerun()
+                    pg_cols[1].write(f"Page {st.session_state.batch_page + 1} of {total_pages}")
+                    if pg_cols[2].button("Next ▶", disabled=(st.session_state.batch_page >= total_pages - 1), key="batch_next"):
+                        st.session_state.batch_page += 1; st.rerun()
+                
+                st.divider()
+                
+                # --- BATCH ACTIONS ---
+                selected_products = [p for p in filtered if st.session_state.get(f"batch_chk_{p['id']}", False)]
+                st.write(f"**Selected: {len(selected_products)} products**")
+                
+                act_col1, act_col2, act_col3 = st.columns([1, 1, 1])
+                
+                gen_only = act_col1.button("🚀 Generate Content", type="primary", 
+                                           disabled=(len(selected_products) == 0), key="batch_gen_btn")
+                gen_and_update = act_col2.button("🚀 Generate & Update Shopify", type="primary",
+                                                  disabled=(len(selected_products) == 0), key="batch_gen_update_btn")
+                if act_col3.button("🔄 Clear Results", key="batch_clear_results"):
+                    st.session_state.batch_results = {}
+                    st.rerun()
+                
+                auto_update = gen_and_update  # Flag: auto-update to Shopify after gen
+                
+                if gen_only or gen_and_update:
+                    if len(selected_products) == 0:
+                        st.warning("No products selected")
+                    else:
+                        # Check API key
+                        batch_missing_key = False
+                        if batch_model == "Gemini" and not gemini_key: batch_missing_key = True
+                        elif batch_model in CLAUDE_MODELS and not claude_key: batch_missing_key = True
+                        elif batch_model in OPENAI_MODELS and not openai_key: batch_missing_key = True
+                        
+                        if batch_missing_key:
+                            st.error(f"❌ Missing API Key for {batch_model}")
+                        else:
+                            # Fetch catalog once for internal linking
+                            catalog_text = ""
+                            try:
+                                catalog = fetch_store_catalog("www.bikerringshop.com")
+                                if catalog.get("collections") or catalog.get("products"):
+                                    catalog_text = format_catalog_for_prompt(catalog)
+                            except: pass
+                            
+                            progress_bar = st.progress(0)
+                            status_container = st.container()
+                            
+                            for idx, prod in enumerate(selected_products):
+                                pid = prod["id"]
+                                st.session_state.batch_results[pid] = {"generating": True}
+                                
+                                with status_container:
+                                    st.write(f"⏳ [{idx+1}/{len(selected_products)}] **{prod['title'][:60]}** ...")
+                                
+                                # Build input from existing product data
+                                raw_input = prod.get("body_html", "") or ""
+                                raw_input = remove_html_tags(raw_input) if raw_input else ""
+                                raw_input = f"Product Name: {prod['title']}\nProduct Type: {prod.get('product_type', '')}\nSKU: {prod.get('sku', '')}\n\n{raw_input}"
+                                
+                                # Fetch product images
+                                prod_imgs = []
+                                try:
+                                    imgs, _ = get_shopify_product_images(bw_shop, bw_token, pid)
+                                    if imgs: prod_imgs = imgs
+                                except: pass
+                                
+                                # Generate content
+                                try:
+                                    json_txt, err = generate_full_product_content(
+                                        gemini_key, claude_key, openai_key, batch_model, 
+                                        prod_imgs, raw_input, catalog_text
+                                    )
+                                    
+                                    if json_txt:
+                                        d = parse_json_response(json_txt)
+                                        if isinstance(d, list) and d: d = d[0]
+                                        if isinstance(d, dict):
+                                            result_entry = {"success": True, "data": d}
+                                            
+                                            # Auto-update to Shopify if requested
+                                            if auto_update:
+                                                try:
+                                                    ok, msg = update_shopify_description_only(bw_shop, bw_token, pid, d)
+                                                    result_entry["updated"] = ok
+                                                    result_entry["update_msg"] = msg
+                                                except Exception as ue:
+                                                    result_entry["updated"] = False
+                                                    result_entry["update_msg"] = str(ue)
+                                            
+                                            st.session_state.batch_results[pid] = result_entry
+                                        else:
+                                            st.session_state.batch_results[pid] = {"error": "Parse failed", "raw": json_txt[:500]}
+                                    else:
+                                        st.session_state.batch_results[pid] = {"error": err or "Generation failed"}
+                                except Exception as e:
+                                    st.session_state.batch_results[pid] = {"error": str(e)}
+                                
+                                progress_bar.progress((idx + 1) / len(selected_products))
+                                time.sleep(0.5)  # Small delay between API calls
+                            
+                            st.success(f"✅ Batch complete! {len(selected_products)} products processed.")
+                            st.rerun()
+                
+                # --- RESULTS REVIEW ---
+                if st.session_state.batch_results:
+                    st.divider()
+                    st.subheader("📊 Batch Results")
+                    
+                    success_count = sum(1 for r in st.session_state.batch_results.values() if r.get("success"))
+                    fail_count = sum(1 for r in st.session_state.batch_results.values() if r.get("error"))
+                    updated_count = sum(1 for r in st.session_state.batch_results.values() if r.get("updated"))
+                    
+                    mc1, mc2, mc3 = st.columns(3)
+                    mc1.metric("✅ Generated", success_count)
+                    mc2.metric("❌ Failed", fail_count)
+                    mc3.metric("☁️ Updated to Shopify", updated_count)
+                    
+                    # Show detailed results
+                    for pid, result in st.session_state.batch_results.items():
+                        prod_info = next((p for p in products_df if p["id"] == pid), None)
+                        if not prod_info: continue
+                        
+                        with st.expander(f"{'✅' if result.get('success') else '❌'} {prod_info['title'][:60]} (ID: {pid})", expanded=False):
+                            if result.get("success"):
+                                d = result["data"]
+                                st.write("**H1:**", d.get("product_title_h1", ""))
+                                st.write("**Meta Title:**", d.get("meta_title", ""))
+                                st.write("**Meta Desc:**", d.get("meta_description", ""))
+                                if result.get("updated"):
+                                    st.success(f"Shopify: {result.get('update_msg', 'Updated')}")
+                                elif result.get("update_msg"):
+                                    st.error(f"Shopify: {result.get('update_msg')}")
+                                
+                                with st.expander("HTML Preview"):
+                                    st.markdown(d.get("html_content", ""), unsafe_allow_html=True)
+                                
+                                # Manual update button if not auto-updated
+                                if not result.get("updated"):
+                                    if st.button(f"☁️ Update to Shopify", key=f"batch_manual_update_{pid}"):
+                                        with st.spinner("Updating..."):
+                                            ok, msg = update_shopify_description_only(bw_shop, bw_token, pid, d)
+                                            if ok:
+                                                st.session_state.batch_results[pid]["updated"] = True
+                                                st.session_state.batch_results[pid]["update_msg"] = msg
+                                                st.success(msg)
+                                                st.rerun()
+                                            else:
+                                                st.error(msg)
+                            elif result.get("error"):
+                                st.error(f"Error: {result['error']}")
+                                if result.get("raw"):
+                                    st.code(result["raw"][:500])
+            else:
+                st.info("No products match your filters.")
+        else:
+            st.info("👆 Click **Load Products from Shopify** to get started.")
 
 # === TAB 4: LIBRARY ===
 with tab4:
