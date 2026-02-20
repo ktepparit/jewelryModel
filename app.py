@@ -426,64 +426,43 @@ IMPORTANT:
 Write 2-3 natural "bridge" sentences pointing to complementary
 or alternative products. Frame as genuine advice, not a sales push.
 
-**CRITICAL — INTERNAL LINKING RULES:**
-Each recommendation MUST include an internal link using a **relative path URL only** (NOT full URL).
-Analyze the product being described and determine the most relevant
-related collections OR specific products, then embed links using this pattern:
+**CRITICAL — INTERNAL LINKING FROM REAL STORE DATA:**
 
-<p>[Natural recommendation sentence with an <a href="/collections/[slug]" title="[Link Title]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[Anchor Text]</a> or <a href="/products/[product-slug]" title="[Link Title]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[Product Name]</a> naturally woven in.]</p>
+You will receive REAL STORE CATALOG DATA at the end of this prompt
+containing actual collections and products that exist on the store.
+You MUST ONLY link to paths that appear in that catalog data.
+NEVER invent or guess URLs — every href must come from the provided list.
 
-**TWO types of internal links to use:**
+**How to write this section:**
+1. First, write the recommendation sentences naturally — as if
+   giving honest advice to a friend. Do NOT write around keywords.
+2. Then, identify which real collection or product from the catalog
+   data best matches your recommendation.
+3. Finally, wrap the most natural phrase in the sentence with a link
+   to that real path. The linked phrase should flow seamlessly in the
+   sentence — it should NOT look like a keyword was inserted.
 
-**Type A — Collection links** (link to a category/collection page):
-- Path format: /collections/[collection-slug]
-- Use when recommending a whole category or style the reader might browse.
-- Common collection paths:
-  - /collections/skull-rings
-  - /collections/biker-rings
-  - /collections/gothic-rings
-  - /collections/animal-rings
-  - /collections/silver-rings
-  - /collections/stainless-steel-rings
-  - /collections/bracelets
-  - /collections/necklaces
-  - /collections/earrings
-  - /collections/new-arrivals
-  - /collections/best-sellers
-  - /collections/rings
-  If the product doesn't match any above, construct a logical slug
-  from the product's category (e.g., /collections/viking-rings).
+**Link format:**
+<a href="[exact path from catalog]" title="[Product or Collection Title from catalog]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[natural phrase from your sentence]</a>
 
-**Type B — Product links** (link to a specific related product):
-- Path format: /products/[product-slug]
-- Use when you can infer a specific complementary product based on
-  the current product's style, material, or theme.
-- Construct the slug from a logical product name using lowercase
-  hyphens (e.g., /products/skull-flame-stainless-steel-ring).
-- If the input data mentions related products by name, use those.
-  Otherwise, infer a plausible product slug that matches the store's
-  naming convention: [descriptive-keywords]-[product-type]
-  Examples:
-  - /products/gothic-cross-silver-pendant
-  - /products/wolf-head-biker-ring
-  - /products/skull-chain-bracelet-stainless-steel
+**GOOD — natural sentence first, link added to a phrase that fits:**
+<p>If you like the tribal look but want something for your wrist too, we've got <a href="/collections/bracelets" title="Bracelets" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">a whole section of bracelets</a> that pair well with heavy chains.</p>
+<p>A lot of people who grab this end up coming back for <a href="/products/skull-cross-sterling-silver-wallet-chain" title="Skull Cross Sterling Silver Wallet Chain" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">the skull cross version</a> — different vibe, same solid build.</p>
+
+**BAD — keyword-stuffed, unnatural:**
+<p>Check out our <a href="/collections/skull-rings">skull rings collection</a> for more skull rings.</p>
 
 **RULES:**
-1. Use PATH URLs only — start with / — NEVER use full URLs like https://www.bikerringshop.com/...
-2. Include a MIX of both collection links AND product links (at least one of each when possible).
-3. The title attribute MUST be descriptive and keyword-rich for SEO.
-4. Anchor text should be natural product names or category phrases
-   — NEVER "click here" or "check this out."
+1. ONLY use paths from the provided REAL STORE CATALOG DATA.
+   If no catalog data is provided, skip the links and write plain text recommendations.
+2. Use PATH URLs only — start with / (e.g., /collections/... or /products/...).
+3. Link 2-3 items total — mix of collections and products when possible.
+4. The linked text must be a natural part of the sentence, NOT a standalone keyword.
+5. The title attribute should match the real product/collection title from the catalog.
 
-**Example output:**
-<p>If you're into the skull aesthetic but want something you can wear on a chain, the <a href="/products/gothic-skull-pendant-necklace-stainless-steel" title="Gothic Skull Pendant Necklace — Stainless Steel Biker Jewelry" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">Gothic Skull Pendant Necklace</a> pairs surprisingly well with a heavy ring.</p>
-<p>Want the same vibe in a different metal? Our <a href="/collections/silver-rings" title="Shop Sterling Silver Rings — Biker Ring Collection" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">sterling silver ring collection</a> has some pieces with a similar weight and feel — just a different finish.</p>
-<p>Or if you want the full set, grab the <a href="/products/skull-chain-bracelet-stainless-steel" title="Skull Chain Bracelet — Stainless Steel Biker Bracelet" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">Skull Chain Bracelet</a> to match. It's not required, but it makes a noticeable difference on the wrist.</p>
-
-> This section creates internal links to related product AND collection pages,
+> This section creates internal links to related product/collection pages,
 > which strengthens your site's crawlability and topical authority.
-> Every recommendation MUST contain at least one <a> tag with a relative
-> path URL, a proper title attribute, and styled anchor text.
+> Every link MUST point to a real, existing page from the store catalog.
 
 ---
 
@@ -816,6 +795,64 @@ def get_shopify_product_details(shop_url, access_token, product_id):
     except Exception as e: return None, None, None, str(e)
 
 # ============================================================
+# --- STORE CATALOG FETCHER (for internal linking) ---
+# ============================================================
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_store_catalog(store_domain="www.bikerringshop.com"):
+    """Fetch real collections and products from the public Shopify storefront for internal linking."""
+    catalog = {"collections": [], "products": []}
+    
+    # Fetch collections
+    try:
+        res = requests.get(f"https://{store_domain}/collections.json?limit=250", timeout=15)
+        if res.status_code == 200:
+            for c in res.json().get("collections", []):
+                catalog["collections"].append({
+                    "title": c.get("title", ""),
+                    "handle": c.get("handle", ""),
+                    "path": f"/collections/{c.get('handle', '')}"
+                })
+    except: pass
+    
+    # Fetch products (multiple pages for larger stores)
+    page = 1
+    while page <= 5:  # Max 5 pages = 1250 products
+        try:
+            res = requests.get(f"https://{store_domain}/products.json?limit=250&page={page}", timeout=15)
+            if res.status_code == 200:
+                products = res.json().get("products", [])
+                if not products: break
+                for p in products:
+                    catalog["products"].append({
+                        "title": p.get("title", ""),
+                        "handle": p.get("handle", ""),
+                        "path": f"/products/{p.get('handle', '')}",
+                        "type": p.get("product_type", ""),
+                        "tags": ", ".join(p.get("tags", [])[:5]) if p.get("tags") else ""
+                    })
+                page += 1
+            else: break
+        except: break
+    
+    return catalog
+
+def format_catalog_for_prompt(catalog, max_collections=30, max_products=80):
+    """Format catalog data into a compact string for the AI prompt."""
+    lines = []
+    if catalog.get("collections"):
+        lines.append("=== REAL COLLECTIONS (use these paths) ===")
+        for c in catalog["collections"][:max_collections]:
+            lines.append(f"- {c['path']}  →  \"{c['title']}\"")
+    
+    if catalog.get("products"):
+        lines.append("\n=== REAL PRODUCTS (use these paths) ===")
+        for p in catalog["products"][:max_products]:
+            extra = f"  [{p['type']}]" if p.get('type') else ""
+            lines.append(f"- {p['path']}  →  \"{p['title']}\"{extra}")
+    
+    return "\n".join(lines)
+
+# ============================================================
 # --- CLAUDE API FUNCTION ---
 # ============================================================
 def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-4-20250514"):
@@ -980,10 +1017,12 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
-def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input):
+def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text=""):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0: prompt += f"\n\nCRITICAL: You received {num_images} images. Return exactly {num_images} objects in 'image_seo' array."
+    if catalog_text:
+        prompt += f"\n\n--- REAL STORE CATALOG DATA (for 'You Might Also Want' section) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
     # Claude models
     if selected_model in CLAUDE_MODELS and claude_key:
@@ -1654,7 +1693,15 @@ with tab3:
             elif not raw: st.error("Missing details")
             else:
                 with st.spinner(f"Writing with {current_text_model}..."):
-                    json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw)
+                    # Fetch real store catalog for internal linking
+                    catalog_text = ""
+                    try:
+                        with st.spinner("📦 Loading store catalog for internal links..."):
+                            catalog = fetch_store_catalog("www.bikerringshop.com")
+                            if catalog.get("collections") or catalog.get("products"):
+                                catalog_text = format_catalog_for_prompt(catalog)
+                    except: pass
+                    json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text)
                     if json_txt:
                         d = parse_json_response(json_txt)
                         if isinstance(d, list) and d: d = d[0]
