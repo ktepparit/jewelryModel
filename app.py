@@ -795,97 +795,105 @@ def get_shopify_product_details(shop_url, access_token, product_id):
     except Exception as e: return None, None, None, str(e)
 
 # --- SHOPIFY ADMIN: LIST PRODUCTS & COLLECTIONS ---
+def _shopify_admin_get(shop_url, access_token, endpoint, timeout=30, retries=3):
+    """Robust GET for Shopify Admin API with retry and timeout."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    url = f"https://{shop_url}/admin/api/2024-01/{endpoint}"
+    
+    for attempt in range(retries):
+        try:
+            res = requests.get(url, headers=headers, timeout=timeout)
+            if res.status_code == 200:
+                return res, None
+            elif res.status_code == 429:  # Rate limited
+                time.sleep(2 * (attempt + 1)); continue
+            else:
+                return None, f"Error {res.status_code}: {res.text[:200]}"
+        except requests.exceptions.Timeout:
+            if attempt < retries - 1: time.sleep(2); continue
+            return None, f"Timeout after {timeout}s (attempt {attempt+1})"
+        except Exception as e:
+            if attempt < retries - 1: time.sleep(1); continue
+            return None, str(e)
+    return None, "Failed after retries"
+
 def get_shopify_all_collections(shop_url, access_token):
     """Fetch all custom + smart collections from Shopify admin."""
-    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
-    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     all_collections = []
-    # Custom collections
-    try:
-        res = requests.get(f"https://{shop_url}/admin/api/2024-01/custom_collections.json?limit=250", headers=headers, timeout=15)
-        if res.status_code == 200:
-            for c in res.json().get("custom_collections", []):
+    for ctype in ["custom_collections", "smart_collections"]:
+        res, err = _shopify_admin_get(shop_url, access_token, f"{ctype}.json?limit=250")
+        if res:
+            for c in res.json().get(ctype, []):
                 all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
-    except: pass
-    # Smart collections
-    try:
-        res = requests.get(f"https://{shop_url}/admin/api/2024-01/smart_collections.json?limit=250", headers=headers, timeout=15)
-        if res.status_code == 200:
-            for c in res.json().get("smart_collections", []):
-                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", "")})
-    except: pass
     return all_collections
 
-def get_shopify_products_page(shop_url, access_token, limit=250, page_info=None, collection_id=None):
-    """Fetch one page of products from Shopify admin (cursor-based pagination)."""
-    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
-    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
-    
+def get_shopify_products_page(shop_url, access_token, limit=50, page_info=None, collection_id=None):
+    """Fetch one page of products from Shopify admin (smaller batches for reliability)."""
     if collection_id:
-        # Fetch product IDs in collection first, then fetch product details
-        base = f"https://{shop_url}/admin/api/2024-01/collections/{collection_id}/products.json?limit={limit}"
+        endpoint = f"collections/{collection_id}/products.json?limit={limit}"
+    elif page_info:
+        endpoint = f"products.json?limit={limit}&page_info={page_info}"
     else:
-        base = f"https://{shop_url}/admin/api/2024-01/products.json?limit={limit}"
+        endpoint = f"products.json?limit={limit}"
     
-    if page_info:
-        url = f"https://{shop_url}/admin/api/2024-01/products.json?limit={limit}&page_info={page_info}"
-    else:
-        url = base
+    res, err = _shopify_admin_get(shop_url, access_token, endpoint, timeout=45)
+    if err:
+        return [], None, err
     
-    try:
-        res = requests.get(url, headers=headers, timeout=20)
-        if res.status_code != 200:
-            return [], None, f"Error {res.status_code}"
-        
-        products_raw = res.json().get("products", []) if not collection_id else res.json().get("products", [])
-        products = []
-        for p in products_raw:
-            total_inv = sum(v.get("inventory_quantity", 0) for v in p.get("variants", []))
-            sku_list = [v.get("sku", "") for v in p.get("variants", []) if v.get("sku")]
-            products.append({
-                "id": str(p["id"]),
-                "title": p.get("title", ""),
-                "handle": p.get("handle", ""),
-                "product_type": p.get("product_type", ""),
-                "status": p.get("status", ""),
-                "total_inventory": total_inv,
-                "sku": sku_list[0] if sku_list else "",
-                "all_skus": ", ".join(sku_list[:3]),
-                "variants_count": len(p.get("variants", [])),
-                "image_url": p.get("image", {}).get("src", "") if p.get("image") else "",
-                "body_html": p.get("body_html", ""),
-            })
-        
-        # Parse next page cursor from Link header
-        next_cursor = None
-        link_header = res.headers.get("Link", "")
-        if 'rel="next"' in link_header:
-            import urllib.parse
-            for part in link_header.split(","):
-                if 'rel="next"' in part:
-                    url_part = part.split(";")[0].strip().strip("<>")
-                    parsed = urllib.parse.urlparse(url_part)
-                    params = urllib.parse.parse_qs(parsed.query)
-                    next_cursor = params.get("page_info", [None])[0]
-        
-        return products, next_cursor, None
-    except Exception as e:
-        return [], None, str(e)
+    products_raw = res.json().get("products", [])
+    products = []
+    for p in products_raw:
+        total_inv = sum(v.get("inventory_quantity", 0) for v in p.get("variants", []))
+        sku_list = [v.get("sku", "") for v in p.get("variants", []) if v.get("sku")]
+        products.append({
+            "id": str(p["id"]),
+            "title": p.get("title", ""),
+            "handle": p.get("handle", ""),
+            "product_type": p.get("product_type", ""),
+            "status": p.get("status", ""),
+            "total_inventory": total_inv,
+            "sku": sku_list[0] if sku_list else "",
+            "all_skus": ", ".join(sku_list[:3]),
+            "variants_count": len(p.get("variants", [])),
+            "image_url": p.get("image", {}).get("src", "") if p.get("image") else "",
+            "body_html": p.get("body_html", ""),
+        })
+    
+    # Parse next page cursor from Link header
+    next_cursor = None
+    link_header = res.headers.get("Link", "")
+    if 'rel="next"' in link_header:
+        import urllib.parse
+        for part in link_header.split(","):
+            if 'rel="next"' in part:
+                url_part = part.split(";")[0].strip().strip("<>")
+                parsed = urllib.parse.urlparse(url_part)
+                params = urllib.parse.parse_qs(parsed.query)
+                next_cursor = params.get("page_info", [None])[0]
+    
+    return products, next_cursor, None
 
-def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pages=10):
-    """Fetch all products (paginated) from Shopify admin."""
+def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pages=25, progress_callback=None):
+    """Fetch all products (paginated with smaller batches) from Shopify admin."""
     all_products = []
     cursor = None
-    for _ in range(max_pages):
-        products, next_cursor, err = get_shopify_products_page(shop_url, access_token, limit=250, page_info=cursor, collection_id=collection_id)
+    for page_num in range(max_pages):
+        products, next_cursor, err = get_shopify_products_page(
+            shop_url, access_token, limit=50, page_info=cursor, collection_id=collection_id
+        )
         if err and not products:
+            if all_products:  # Return what we have so far
+                return all_products, f"Partial load ({len(all_products)} products). Stopped: {err}"
             return all_products, err
         all_products.extend(products)
+        if progress_callback:
+            progress_callback(len(all_products), page_num + 1)
         if not next_cursor:
             break
         cursor = next_cursor
+        time.sleep(0.3)  # Small delay to avoid rate limits
     return all_products, None
 
 def update_shopify_description_only(shop_url, access_token, product_id, data):
@@ -1900,17 +1908,28 @@ with tab_batch:
             st.write("")  # spacer
             st.write("")
             if st.button("📦 Load Products from Shopify", type="primary", use_container_width=True, key="batch_load_btn"):
-                with st.spinner("Loading products & collections..."):
-                    collections = get_shopify_all_collections(bw_shop, bw_token)
-                    products, err = get_shopify_all_products(bw_shop, bw_token)
-                    if err and not products:
-                        st.error(f"Failed: {err}")
-                    else:
-                        st.session_state.batch_products = products
-                        st.session_state.batch_collections = collections
-                        st.session_state.batch_results = {}
-                        st.success(f"✅ Loaded {len(products)} products, {len(collections)} collections")
-                        st.rerun()
+                load_progress = st.empty()
+                load_status = st.empty()
+                
+                load_status.info("📂 Loading collections...")
+                collections = get_shopify_all_collections(bw_shop, bw_token)
+                load_status.info(f"✅ {len(collections)} collections loaded. Now loading products...")
+                
+                def progress_cb(count, page):
+                    load_progress.progress(min(page / 25, 0.99), text=f"Loaded {count} products (page {page})...")
+                
+                products, err = get_shopify_all_products(bw_shop, bw_token, progress_callback=progress_cb)
+                load_progress.empty()
+                
+                if err and not products:
+                    load_status.error(f"Failed: {err}")
+                else:
+                    st.session_state.batch_products = products
+                    st.session_state.batch_collections = collections
+                    st.session_state.batch_results = {}
+                    warn_msg = f" ⚠️ {err}" if err else ""
+                    load_status.success(f"✅ Loaded {len(products)} products, {len(collections)} collections{warn_msg}")
+                    st.rerun()
         
         if st.session_state.batch_products:
             products_df = st.session_state.batch_products
