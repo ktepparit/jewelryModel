@@ -559,10 +559,6 @@ Grade 8-10. Clear, not dumbed down.
 - Blog posts or informational content (use Blog Post Prompt v2.1)
 - Category/collection pages (different optimization approach)
 - Landing pages for ads (different conversion strategy)
-
-รวมทั้งช่วยเขียน:
-- SEO-optimized image file name + alt tag สำหรับทุก images
-- URL slug
 ---
 
 Input Data: {raw_input}
@@ -576,9 +572,67 @@ You MUST return the result in RAW JSON format ONLY. Do not include markdown back
   "product_title_h1": "Product Title Example",
   "html_content": "<p>Your full HTML product description here...</p>",
   "image_seo": [
-    { "file_name": "image-name.jpg", "alt_tag": "Image description" }
+    { "file_name": "descriptive-name.jpg", "alt_tag": "Unique description of what this specific image shows" }
   ]
 }
+
+### IMAGE SEO RULES (for the image_seo array):
+### Updated for Google's 2026 Image SEO Best Practices
+
+Each image MUST have a **unique** file_name and alt_tag.
+Google's algorithm uses alt text alongside computer vision to understand images.
+Repetitive patterns in AI-generated alt text can be flagged as duplicate content.
+
+**File Name Rules:**
+- Lowercase, hyphens only, end with .jpg
+- DO NOT repeat the full product name in every file name.
+  Use it once (first image), then lead with the VISUAL FOCUS of each image.
+- Structure: [visual-focus]-[material-or-detail]-[angle-or-context].jpg
+- Include product attributes (material, color, variant) in the filename
+  to help search engines map images to catalog pages.
+- Each file name should describe what makes THAT specific image different.
+- Keep filenames descriptive but concise — 3-7 hyphenated words.
+
+GOOD example (8 images of a bishop ring):
+1. christian-crosier-bishop-ring-amethyst-top-view.jpg
+2. gold-plated-cross-cutout-band-detail.jpg
+3. amethyst-gemstone-crosier-setting-closeup.jpg
+4. ribbed-gold-band-side-profile.jpg
+5. openwork-cross-pattern-left-angle.jpg
+6. bishop-ring-worn-on-hand-lifestyle.jpg
+7. sterling-silver-base-interior-hallmark.jpg
+8. crosier-bishop-ring-full-set-flat-lay.jpg
+
+BAD example (all start the same = keyword stuffing, Google may see as spam):
+1. christian-crosier-bishop-ring-angled-right-view.jpg
+2. christian-crosier-bishop-ring-side-profile-left.jpg
+3. christian-crosier-bishop-ring-side-profile-right.jpg
+4. christian-crosier-bishop-ring-angled-left-view.jpg
+
+**Alt Tag Rules:**
+- Each alt tag must describe what is VISUALLY shown in that specific image.
+- Keep under 125 characters (screen reader best practice per W3C/Google).
+- DO NOT start every alt tag with the same product name prefix.
+  Vary the opening: lead with the visual focus, the material detail,
+  the angle, or the feature being highlighted.
+- Include relevant keywords NATURALLY but DIFFERENTLY across images.
+  Google explicitly warns: keyword stuffing in alt attributes results
+  in a negative user experience and may cause the site to be seen as spam.
+- Alt text must align with the surrounding page content for relevance signals.
+- Never use "image of" or "picture of" — describe the content directly.
+- Think of each alt tag as a unique sentence on the page:
+  you wouldn't write the same paragraph 8 times.
+
+GOOD alt tags (varied openings, unique descriptions, under 125 chars):
+1. "Top view of the Christian crosier bishop ring with purple amethyst center stone"
+2. "Gold-plated band detail showing openwork cross cutouts and ribbed texture"
+3. "Close-up of the amethyst gemstone set in a crosier-shaped sterling silver bezel"
+4. "Side profile highlighting the ribbed gold plating and layered band construction"
+
+BAD alt tags (repetitive prefix = pattern Google flags as low-quality AI content):
+1. "Christian crosier bishop ring angled right view showing amethyst..."
+2. "Christian crosier bishop ring side profile left showing cross..."
+3. "Christian crosier bishop ring side profile right displaying gold..."
 """
 
 SEO_PROMPT_NAME_SLUG = """
@@ -2740,7 +2794,6 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
-
 
 
 
