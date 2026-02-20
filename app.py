@@ -847,16 +847,17 @@ def get_shopify_all_collections(shop_url, access_token):
             time.sleep(0.2)
     return all_collections
 
-def get_shopify_products_page(shop_url, access_token, limit=50, page_info=None, collection_id=None):
-    """Fetch one page of products from Shopify admin (smaller batches for reliability)."""
-    if collection_id:
-        endpoint = f"collections/{collection_id}/products.json?limit={limit}"
-    elif page_info:
+def get_shopify_products_page(shop_url, access_token, limit=250, page_info=None, collection_id=None):
+    """Fetch one page of products from Shopify admin."""
+    if page_info:
+        # Cursor pagination — page_info already encodes the full query, just append it
         endpoint = f"products.json?limit={limit}&page_info={page_info}"
+    elif collection_id:
+        endpoint = f"collections/{collection_id}/products.json?limit={limit}"
     else:
         endpoint = f"products.json?limit={limit}"
     
-    res, err = _shopify_admin_get(shop_url, access_token, endpoint, timeout=45)
+    res, err = _shopify_admin_get(shop_url, access_token, endpoint, timeout=60)
     if err:
         return [], None, err
     
@@ -893,16 +894,16 @@ def get_shopify_products_page(shop_url, access_token, limit=50, page_info=None, 
     
     return products, next_cursor, None
 
-def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pages=25, progress_callback=None):
-    """Fetch all products (paginated with smaller batches) from Shopify admin."""
+def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pages=50, progress_callback=None):
+    """Fetch all products (paginated) from Shopify admin."""
     all_products = []
     cursor = None
     for page_num in range(max_pages):
         products, next_cursor, err = get_shopify_products_page(
-            shop_url, access_token, limit=50, page_info=cursor, collection_id=collection_id
+            shop_url, access_token, limit=250, page_info=cursor, collection_id=collection_id if not cursor else None
         )
         if err and not products:
-            if all_products:  # Return what we have so far
+            if all_products:
                 return all_products, f"Partial load ({len(all_products)} products). Stopped: {err}"
             return all_products, err
         all_products.extend(products)
@@ -911,7 +912,7 @@ def get_shopify_all_products(shop_url, access_token, collection_id=None, max_pag
         if not next_cursor:
             break
         cursor = next_cursor
-        time.sleep(0.3)  # Small delay to avoid rate limits
+        time.sleep(0.5)
     return all_products, None
 
 def update_shopify_description_only(shop_url, access_token, product_id, data):
@@ -1932,10 +1933,17 @@ with tab_batch:
                 
                 load_status.info("📂 Loading collections...")
                 collections = get_shopify_all_collections(bw_shop, bw_token)
-                load_status.info(f"✅ {len(collections)} collections loaded. Now loading products...")
+                
+                # Get total product count first
+                total_count = "?"
+                count_res, _ = _shopify_admin_get(bw_shop, bw_token, "products/count.json")
+                if count_res:
+                    total_count = count_res.json().get("count", "?")
+                
+                load_status.info(f"✅ {len(collections)} collections. Loading products (total: {total_count})...")
                 
                 def progress_cb(count, page):
-                    load_progress.progress(min(page / 25, 0.99), text=f"Loaded {count} products (page {page})...")
+                    load_progress.progress(min(page / 50, 0.99), text=f"Loaded {count} products (page {page})...")
                 
                 products, err = get_shopify_all_products(bw_shop, bw_token, progress_callback=progress_cb)
                 load_progress.empty()
@@ -1946,8 +1954,12 @@ with tab_batch:
                     st.session_state.batch_products = products
                     st.session_state.batch_collections = collections
                     st.session_state.batch_results = {}
+                    # Clear collection filter cache
+                    for k in list(st.session_state.keys()):
+                        if k.startswith("_batch_col_cache_"): del st.session_state[k]
                     warn_msg = f" ⚠️ {err}" if err else ""
-                    load_status.success(f"✅ Loaded {len(products)} products, {len(collections)} collections{warn_msg}")
+                    count_msg = f" (of {total_count} total)" if total_count != "?" else ""
+                    load_status.success(f"✅ Loaded {len(products)}{count_msg} products, {len(collections)} collections{warn_msg}")
                     st.rerun()
         
         if st.session_state.batch_products:
