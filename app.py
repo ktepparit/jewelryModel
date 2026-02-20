@@ -559,6 +559,10 @@ Grade 8-10. Clear, not dumbed down.
 - Blog posts or informational content (use Blog Post Prompt v2.1)
 - Category/collection pages (different optimization approach)
 - Landing pages for ads (different conversion strategy)
+
+รวมทั้งช่วยเขียน:
+- SEO-optimized image file name + alt tag สำหรับทุก images
+- URL slug
 ---
 
 Input Data: {raw_input}
@@ -2736,6 +2740,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
