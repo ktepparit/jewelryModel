@@ -343,12 +343,15 @@ Write 3-5 short paragraphs. Vary rhythm aggressively (Rule 1).
 
 ### ## The Specs — And What They Actually Mean
 
-List 4-6 key specs. Format each as:
+List 4-6 key specs. Format each spec using this EXACT HTML pattern:
 
-**[Spec name]:** Plain-English benefit in one conversational sentence.
+<p><span style="color:#1a3a6b; font-weight:700; font-size:1.05em;">[Spec Name]:</span> Plain-English benefit in one conversational sentence. Wrap the <strong style="color:#1a3a6b;">most important keyword or value</strong> in the benefit sentence with a bold dark-blue span to help readers scan key takeaways quickly.</p>
 
-Example — **5,000mAh Battery:** You're not hunting for a wall socket
-mid-commute. It just runs.
+Example output:
+<p><span style="color:#1a3a6b; font-weight:700; font-size:1.05em;">Material:</span> Solid <strong style="color:#1a3a6b;">316L stainless steel</strong> — it won't tarnish, scratch easily, or turn your finger green.</p>
+<p><span style="color:#1a3a6b; font-weight:700; font-size:1.05em;">Weight:</span> Comes in at <strong style="color:#1a3a6b;">28 grams</strong> — heavy enough to feel premium, not heavy enough to bother you all day.</p>
+
+IMPORTANT: Every spec line MUST use the dark-blue color (#1a3a6b) for the spec name AND bold-highlight at least one key value or keyword inside the benefit sentence with <strong style="color:#1a3a6b;">. This makes specs scannable at a glance.
 
 > These specs should contain measurable data that maps to Product
 > schema properties (Rule 7): weight, dimensions, material,
@@ -379,9 +382,37 @@ THEN elaborate in 2-3 sentences max.
 
 ### ## Quick Specs & Real-World Performance
 
-| Technical Detail | What It Actually Does for You |
-|---|---|
-| [Keep language plain and benefit-focused. No jargon in column 2.] |
+Generate this section as a styled HTML table using this EXACT format:
+
+<div style="overflow-x:auto; margin:1.5em 0;">
+<table style="width:100%; border-collapse:separate; border-spacing:0; border-radius:10px; overflow:hidden; box-shadow:0 2px 12px rgba(26,58,107,0.10); font-size:0.98em;">
+<thead>
+<tr style="background:linear-gradient(135deg,#1a3a6b 0%,#2d5aa0 100%); color:#ffffff;">
+<th style="padding:14px 18px; text-align:left; font-weight:700; letter-spacing:0.3px;">Technical Detail</th>
+<th style="padding:14px 18px; text-align:left; font-weight:700; letter-spacing:0.3px;">What It Actually Does for You</th>
+</tr>
+</thead>
+<tbody>
+<tr style="background:#f8fafd;">
+<td style="padding:12px 18px; border-bottom:1px solid #e4eaf2; font-weight:600; color:#1a3a6b;">[Spec]</td>
+<td style="padding:12px 18px; border-bottom:1px solid #e4eaf2; color:#333;">[Benefit]</td>
+</tr>
+<tr style="background:#ffffff;">
+<td style="padding:12px 18px; border-bottom:1px solid #e4eaf2; font-weight:600; color:#1a3a6b;">[Spec]</td>
+<td style="padding:12px 18px; border-bottom:1px solid #e4eaf2; color:#333;">[Benefit]</td>
+</tr>
+<!-- alternate #f8fafd and #ffffff for each row -->
+</tbody>
+</table>
+</div>
+
+IMPORTANT:
+- The table header MUST use the dark-blue gradient background (#1a3a6b to #2d5aa0) with white text.
+- Alternate row backgrounds between #f8fafd (light blue-gray) and #ffffff (white) for readability.
+- Column 1 (Technical Detail) must be bold dark-blue (#1a3a6b).
+- Column 2 (Benefit) must be plain-English, no jargon.
+- Include 5-8 rows of real, measurable specs.
+- The table must have rounded corners and a subtle shadow as shown above.
 
 > This table is your Product schema goldmine. Every row should contain
 > a real, measurable spec in column 1 and a plain-English benefit
@@ -394,15 +425,64 @@ THEN elaborate in 2-3 sentences max.
 Write 2-3 natural "bridge" sentences pointing to complementary
 or alternative products. Frame as genuine advice, not a sales push.
 
-Examples:
-- "If you're after something slimmer for travel, the [Product X]
-  trades battery life for portability — fair deal if your trips
-  are short."
-- "Pair this with the [Accessory Y] if you want the full setup.
-  It's not required, but it makes a noticeable difference."
+**CRITICAL — INTERNAL LINKING RULES:**
+Each recommendation MUST include an internal link using a **relative path URL only** (NOT full URL).
+Analyze the product being described and determine the most relevant
+related collections OR specific products, then embed links using this pattern:
 
-> This section creates internal links to related product/category pages,
+<p>[Natural recommendation sentence with an <a href="/collections/[slug]" title="[Link Title]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[Anchor Text]</a> or <a href="/products/[product-slug]" title="[Link Title]" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">[Product Name]</a> naturally woven in.]</p>
+
+**TWO types of internal links to use:**
+
+**Type A — Collection links** (link to a category/collection page):
+- Path format: /collections/[collection-slug]
+- Use when recommending a whole category or style the reader might browse.
+- Common collection paths:
+  - /collections/skull-rings
+  - /collections/biker-rings
+  - /collections/gothic-rings
+  - /collections/animal-rings
+  - /collections/silver-rings
+  - /collections/stainless-steel-rings
+  - /collections/bracelets
+  - /collections/necklaces
+  - /collections/earrings
+  - /collections/new-arrivals
+  - /collections/best-sellers
+  - /collections/rings
+  If the product doesn't match any above, construct a logical slug
+  from the product's category (e.g., /collections/viking-rings).
+
+**Type B — Product links** (link to a specific related product):
+- Path format: /products/[product-slug]
+- Use when you can infer a specific complementary product based on
+  the current product's style, material, or theme.
+- Construct the slug from a logical product name using lowercase
+  hyphens (e.g., /products/skull-flame-stainless-steel-ring).
+- If the input data mentions related products by name, use those.
+  Otherwise, infer a plausible product slug that matches the store's
+  naming convention: [descriptive-keywords]-[product-type]
+  Examples:
+  - /products/gothic-cross-silver-pendant
+  - /products/wolf-head-biker-ring
+  - /products/skull-chain-bracelet-stainless-steel
+
+**RULES:**
+1. Use PATH URLs only — start with / — NEVER use full URLs like https://www.bikerringshop.com/...
+2. Include a MIX of both collection links AND product links (at least one of each when possible).
+3. The title attribute MUST be descriptive and keyword-rich for SEO.
+4. Anchor text should be natural product names or category phrases
+   — NEVER "click here" or "check this out."
+
+**Example output:**
+<p>If you're into the skull aesthetic but want something you can wear on a chain, the <a href="/products/gothic-skull-pendant-necklace-stainless-steel" title="Gothic Skull Pendant Necklace — Stainless Steel Biker Jewelry" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">Gothic Skull Pendant Necklace</a> pairs surprisingly well with a heavy ring.</p>
+<p>Want the same vibe in a different metal? Our <a href="/collections/silver-rings" title="Shop Sterling Silver Rings — Biker Ring Collection" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">sterling silver ring collection</a> has some pieces with a similar weight and feel — just a different finish.</p>
+<p>Or if you want the full set, grab the <a href="/products/skull-chain-bracelet-stainless-steel" title="Skull Chain Bracelet — Stainless Steel Biker Bracelet" style="color:#1a3a6b; font-weight:600; text-decoration:underline;">Skull Chain Bracelet</a> to match. It's not required, but it makes a noticeable difference on the wrist.</p>
+
+> This section creates internal links to related product AND collection pages,
 > which strengthens your site's crawlability and topical authority.
+> Every recommendation MUST contain at least one <a> tag with a relative
+> path URL, a proper title attribute, and styled anchor text.
 
 ---
 
