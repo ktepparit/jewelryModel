@@ -304,6 +304,24 @@ without dating it too fast:
 - ❌ "This month's best pick..." (stale in weeks)
 - ❌ No time reference at all (Google can't assess freshness)
 
+### [RULE 11 — AI CONTENT DETECTION & GEO COMPLIANCE (2026)]
+
+Google's December 2025 Core Update improved detection of low-value
+AI-generated patterns. Mass-produced, unedited AI content lost 60-95% traffic.
+When writing multiple product descriptions (batch mode), you MUST:
+
+1. **Vary sentence structures** — never use the same opening pattern,
+   transition phrases, or paragraph structure across products.
+2. **Use specific data over subjective adjectives** — LLMs are 30-40% more
+   likely to cite sources with specific numbers than vague marketing claims.
+   BAD: "This amazing ring is incredibly durable and beautifully crafted."
+   GOOD: "28 grams of solid 316L steel — 2mm thicker than most mass-produced rings."
+3. **Each product description must be unique enough** that it could NOT be
+   swapped with another product and still make sense. Every sentence must
+   contain details specific to THIS product.
+4. **Information Gain** — every paragraph must add factual information
+   the reader didn't have before. Zero filler sentences allowed.
+
 ---
 
 ## OUTPUT STRUCTURE:
@@ -315,6 +333,13 @@ Make the reader feel recognized before you sell anything.
 
 > The product name + category (Main Keyword) must appear naturally
 > within this section (Rule 7 + Rule 9).
+> **GEO CRITICAL (2026):** The first 100 words of the product page are
+> what AI systems (Google AI Overviews, AI Mode, ChatGPT, Perplexity)
+> use to decide whether to cite or recommend your product.
+> Within the Hook, naturally include: what the product IS (1 clear sentence),
+> who it's for, and ONE key differentiator.
+> This "definition-first" approach helps AI systems extract and recommend
+> your product accurately in conversational shopping experiences.
 
 ---
 
@@ -468,18 +493,31 @@ NEVER invent or guess URLs — every href must come from the provided list.
 
 ### ## META (for CMS use — do not publish on page)
 
-**Meta Title:** `[Product Name] — [One Key Benefit] | Bikerringshop`
-Keep under 60 characters. Lead with product name, not benefit.
-Must include the Main Keyword (Rule 9).
+**Product Title (H1):** Clear, descriptive, keyword-rich product name.
+- Must include the Main Keyword naturally.
+- Keep under 70 characters for display consistency.
+- Must NOT be identical to the Meta Title (they serve different purposes:
+  H1 is for the page, Meta Title is for the SERP).
+- Format: [Product Name] + [Key Attribute] — e.g., "Skull Flame Ring — Heavy Stainless Steel for Bikers"
 
-**Meta Description:** Under 155 characters. Include the Main Keyword
-+ one sensory detail or the honest caveat to stand out in SERPs.
-No "shop now" or "buy today" CTAs — those waste characters and
-don't improve CTR.
+**Meta Title:** `[Main Keyword — One Key Benefit] | Bikerringshop`
+Keep under 60 characters (or 580 pixels — wider chars like W/M count more).
+Lead with product name/keyword, not benefit.
+Must include the Main Keyword (Rule 9).
+Google measures by pixel width (~580px), not strict character count.
+A title that starts with the keyword performs better than keywords at the end.
+
+**Meta Description:** Under 155 characters. Must COMPLEMENT the meta title,
+NOT repeat it word-for-word. Use the description to expand on the title's promise.
+Include the Main Keyword + one sensory detail or the honest caveat to stand out.
+No "shop now" or "buy today" CTAs — those waste characters and don't improve CTR.
+Google rewrites ~62% of meta descriptions, but well-written ones still appear
+for high-intent product queries where they make a measurable CTR difference.
+Use a DIFFERENT long-tail keyword variation than the one in the meta title.
 
 Example:
 > Meta Title: Skull Flame Ring — Heavy Stainless Steel That Lasts | Bikerringshop
-> Meta Description: Slightly heavier than the XM4, but the ANC blocks out open-office chatter completely. Setup takes 3 minutes flat.
+> Meta Description: 28 grams of solid 316L steel with hand-finished flame detail. Runs slightly large — check the size guide before ordering.
 
 ---
 
@@ -535,25 +573,40 @@ Grade 8-10. Clear, not dumbed down.
 
 - Google's December 2025 Core Update (4th core update of 2025) heavily
   rewarded e-commerce and retail brands while penalizing thin content.
+  E-commerce saw 52% impact rate. Thin category pages and product pages
+  with generic manufacturer descriptions were hardest hit.
 - E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness)
   is the primary quality framework. "Experience" — first-hand product
-  use — is the differentiator for product pages.
-- Google penalizes low-value AI-generated content more aggressively.
-  Content must show human insight, specific details, and balanced views.
+  use — is the differentiator for product pages. E-E-A-T now applies
+  to ALL verticals, not just YMYL content.
+- Google improved AI content detection. Mass-produced unedited AI content
+  lost 60-95% traffic. Content must show human insight, specific details,
+  and balanced views. Repetitive patterns across products are flagged.
 - Product structured data (JSON-LD) remains critical for rich snippets.
   Core schema types — Product, Review, Breadcrumb, Organization —
   are confirmed as long-term priorities by Google.
 - User engagement metrics (time on page, scroll depth, bounce rate)
-  are stronger ranking signals than ever.
+  are stronger ranking signals than ever. Sites with LCP > 3s saw 23%
+  more traffic loss.
 - Content freshness signals matter — but product pages should use
   subtle time-anchors, not hard dates that expire.
 - Zero-click searches (~60% of Google queries) mean product pages
   must provide enough structured data (via schema) to appear in
   rich results even when users don't click through.
-- The February 2026 Discover Core Update prioritizes original,
-  in-depth content from sites with demonstrated expertise.
-  Topic-by-topic expertise matters — a site doesn't need to be
-  an authority on everything, just on what it covers.
+- **GEO (Generative Engine Optimization) — NEW 2026:**
+  Google AI Overviews now appear in 30-45% of searches. AI Mode
+  allows conversation-to-checkout commerce. Product pages must be
+  written so AI can extract: what the product IS, who it's for,
+  key specs, and why it's different — all within the first 100 words.
+  Structure and clarity beat storytelling for AI visibility.
+- **Agentic Commerce — NEW January 2026:**
+  Google introduced Universal Commerce Protocol (UCP). AI agents now
+  discover, evaluate, and recommend products based on structured data.
+  Specific, measurable product attributes (material, weight, dimensions)
+  are critical — vague adjectives are ignored by AI recommendation systems.
+- Google's meta title rewrite rate is increasing. Titles measured by
+  pixel width (~580px), not character count. Meta descriptions are
+  rewritten ~62% of the time but still matter for high-intent queries.
 
 **What this prompt is NOT for:**
 - Blog posts or informational content (use Blog Post Prompt v2.1)
@@ -666,6 +719,8 @@ that strengthens SEO without cluttering the shopping experience.
 - Be **short and focused** — shoppers browse products, not read articles.
   Keep total paragraph content to **150-300 words**.
 - **Not compete with product pages** — target broader category keywords.
+  Category pages target broad intent (e.g., "men's skull rings"),
+  while product pages answer "is this the right item for me?"
 - **Not compete with blog posts** — target transactional intent.
 - **Support product discovery** — guide shoppers, don't distract.
 
@@ -688,30 +743,77 @@ Integration:
 - Secondary Keywords: 1 time each in paragraphs.
 - Long-tail Keywords: woven into paragraph 2.
 All keywords must read naturally. Forced keywords are obvious — rewrite if stuffed.
+Google's 2026 algorithm prioritizes meaning, context, and conversational relevance
+over exact-match keywords. Write for intent, not for keyword density.
 
-### [RULE 4 — WRITE FOR TRANSACTIONAL INTENT]
+### [RULE 4 — WRITE FOR TRANSACTIONAL INTENT + DECISION SUPPORT]
+People landing on collection pages are ready to shop, not research.
+
+The copy should:
 - ✅ Help shoppers understand what this collection offers.
 - ✅ Highlight what makes these products different from generic alternatives.
 - ✅ Mention key attributes (material, style, durability).
 - ✅ Build just enough trust to keep them browsing.
+- ✅ Include "best for" signals — who is this collection ideal for?
+  (e.g., "best for riders who want heavy rings that survive the road")
+  This helps both shoppers AND AI systems recommend your products.
 - ❌ NOT educate at length. ❌ NOT tell brand story. ❌ NOT list products by name.
+- ❌ NOT produce thin/generic content that could apply to any store.
+  Google's spam policies explicitly target thin, mass-produced category pages.
 
 ### [RULE 5 — E-E-A-T FOR COLLECTION PAGES]
-- 1 expertise signal: Show product category knowledge.
+- 1 expertise signal: Show product category knowledge with a specific fact.
+  Example: "316L stainless steel — the same grade used in marine
+  and surgical equipment — so these won't turn your finger green."
 - 1 audience understanding signal: Show you know who's buying.
+  Example: "Built for riders who want rings that survive the road,
+  not sit in a jewelry box."
 
-### [RULE 6 — CONTENT STRUCTURE]
+### [RULE 6 — CONTENT STRUCTURE + GEO OPTIMIZATION]
 Write 2-3 short paragraphs:
-- **Paragraph 1 (hook):** Context, Main Keyword, what makes collection different. 2-3 sentences.
-- **Paragraph 2 (detail):** Who it's for, key attributes, secondary/long-tail keywords. 2-3 sentences.
-- **Paragraph 3 (navigation):** Suggest related collections with internal links. 1-2 sentences.
+- **Paragraph 1 (hook):** Start with a clear, concise definition of what this
+  collection IS and who it's for (1 sentence). Then context, Main Keyword,
+  what makes collection different. 2-3 sentences total.
+  (This "definition-first" approach helps AI systems like Google AI Overviews
+  and AI Mode extract and cite your content accurately.)
+- **Paragraph 2 (detail):** Who it's for, key attributes, secondary/long-tail
+  keywords. Include specific product facts AI can reference. 2-3 sentences.
+- **Paragraph 3 (navigation):** Suggest related collections with internal links.
+  1-2 sentences.
 Total: **150-300 words**.
 
 ### [RULE 7 — HUMAN TONE]
 Use contractions: don't, it's, you'll, that's, won't.
 Confident and direct — like a knowledgeable shop owner giving a quick overview.
+Google's algorithm detects when content is written for search engines versus
+actual shoppers. Write for humans first, search engines second.
 
-### [RULE 8 — INTERNAL LINKING]
+### [RULE 8 — POST-DECEMBER 2025 CORE UPDATE COMPLIANCE]
+Google's December 2025 Core Update heavily impacted ecommerce.
+Key lessons for collection page content:
+
+1. **NO THIN CATEGORY PAGES:** Category pages with "limited or repetitive content"
+   were among the hardest hit. Every collection MUST have unique, specific copy
+   that could NOT be copy-pasted to another collection and still make sense.
+   Each sentence must contain details specific to THIS collection.
+
+2. **AI CONTENT DETECTION:** Google improved detection of "low-value patterns
+   commonly associated with scaled, unreviewed AI output." Avoid:
+   - Generic sentences that could apply to any jewelry store
+   - Repetitive sentence structures across collections
+   - Filler phrases that add word count but zero information
+   Every sentence must contain a concrete detail, fact, or differentiator.
+
+3. **INTENT PURITY:** Pages that mix informational + transactional intent
+   lost rankings. Collection pages must be PURELY transactional —
+   help shoppers decide and buy, not educate about the category.
+
+4. **E-E-A-T EVERYWHERE:** E-E-A-T now applies to ALL verticals, not just YMYL.
+   Ecommerce collection pages need demonstrable product expertise.
+   Include at least 1 specific material fact, measurement, or technical detail
+   that proves real product knowledge.
+
+### [RULE 9 — INTERNAL LINKING]
 Include 2-3 natural mentions of related collections within the content.
 Frame as helpful navigation, not a link dump.
 
