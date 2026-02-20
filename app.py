@@ -15,6 +15,7 @@ st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 # Model IDs
 MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_GEMINI = "models/gemini-3.1-pro-preview"
+MODEL_TEXT_GEMINI_FALLBACK = "models/gemini-3-pro-preview"
 
 # Claude Models
 CLAUDE_MODELS = {
@@ -655,12 +656,44 @@ def img_to_base64(img):
     return base64.b64encode(buf.getvalue()).decode()
 
 def parse_json_response(text):
+    if not text: return None
+    # Step 1: Try direct parse (cleanest case)
     try:
-        text = re.sub(r"```json", "", text)
-        text = re.sub(r"```", "", text)
-        text = text.strip()
-        return json.loads(text)
-    except: return None
+        return json.loads(text.strip())
+    except: pass
+    
+    # Step 2: Remove markdown code fences
+    cleaned = re.sub(r"```json\s*", "", text)
+    cleaned = re.sub(r"```\s*", "", cleaned).strip()
+    try:
+        return json.loads(cleaned)
+    except: pass
+    
+    # Step 3: Extract JSON object/array from surrounding text
+    # Find the first { or [ and match to its closing } or ]
+    for start_char, end_char in [('{', '}'), ('[', ']')]:
+        start_idx = text.find(start_char)
+        if start_idx == -1: continue
+        depth = 0
+        in_string = False
+        escape_next = False
+        for i in range(start_idx, len(text)):
+            c = text[i]
+            if escape_next:
+                escape_next = False; continue
+            if c == '\\' and in_string:
+                escape_next = True; continue
+            if c == '"' and not escape_next:
+                in_string = not in_string; continue
+            if in_string: continue
+            if c == start_char: depth += 1
+            elif c == end_char: depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start_idx:i+1])
+                except: break
+    
+    return None
 
 def clean_filename(name):
     if not name: return "N/A"
@@ -863,6 +896,31 @@ def generate_image(api_key, image_list, prompt):
         return None, "Unknown format"
     except Exception as e: return None, str(e)
 
+def _call_gemini_text(gemini_key, payload, timeout=60):
+    """Helper: Call Gemini text model with automatic fallback from 3.1 to 3.0"""
+    key = clean_key(gemini_key)
+    models_to_try = [MODEL_TEXT_GEMINI, MODEL_TEXT_GEMINI_FALLBACK]
+    last_error = "Failed"
+    for model in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
+        for attempt in range(3):
+            try:
+                res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=timeout)
+                if res.status_code == 200:
+                    return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
+                elif res.status_code in (503, 429):
+                    time.sleep(2); continue
+                else:
+                    last_error = f"Error {res.status_code} ({model}): {res.text}"
+                    break  # Try next model
+            except Exception as e:
+                last_error = f"Exception ({model}): {str(e)}"
+                time.sleep(1)
+        else:
+            continue  # All 3 attempts were 503/429 retries, try next model
+        continue  # Broke out of retry loop due to non-retryable error, try next model
+    return None, last_error
+
 def generate_seo_tags_smart(gemini_key, claude_key, openai_key, selected_model, context, product_url=""):
     prompt = SEO_PROMPT_SMART_GEN.replace("{context}", context).replace("{product_url}", product_url)
     
@@ -876,18 +934,9 @@ def generate_seo_tags_smart(gemini_key, claude_key, openai_key, selected_model, 
         model_id = OPENAI_MODELS[selected_model]
         return call_openai_api(openai_key, prompt, model_id=model_id)
     
-    # Default: Gemini
-    key = clean_key(gemini_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    # Default: Gemini (with fallback)
     payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
-    for attempt in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, f"Error {res.status_code}"
-        except: time.sleep(1)
-    return None, "Failed"
+    return _call_gemini_text(gemini_key, payload)
 
 def generate_seo_from_generated_image(gemini_key, claude_key, openai_key, selected_model, generated_image_bytes, product_url=""):
     """Analyze the generated image and create SEO tags based on visual content + product URL"""
@@ -909,19 +958,10 @@ def generate_seo_from_generated_image(gemini_key, claude_key, openai_key, select
         model_id = OPENAI_MODELS[selected_model]
         return call_openai_api(openai_key, prompt, [img_pil], model_id=model_id)
     
-    # Default: Gemini
-    key = clean_key(gemini_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    # Default: Gemini (with fallback)
     parts = [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
-    for attempt in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, f"Error {res.status_code}"
-        except: time.sleep(1)
-    return None, "Failed"
+    return _call_gemini_text(gemini_key, payload)
 
 def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected_model, img_pil, product_url):
     prompt = SEO_PROMPT_BULK_EXISTING.replace("{product_url}", product_url)
@@ -936,18 +976,9 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
         model_id = OPENAI_MODELS[selected_model]
         return call_openai_api(openai_key, prompt, [img_pil], model_id=model_id)
     
-    # Default: Gemini
-    key = clean_key(gemini_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    # Default: Gemini (with fallback)
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
-    for attempt in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-            if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-            elif res.status_code == 503: time.sleep(2); continue
-            else: return None, f"Error {res.status_code}"
-        except: time.sleep(1)
-    return None, "Failed"
+    return _call_gemini_text(gemini_key, payload)
 
 def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
@@ -964,21 +995,12 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
         model_id = OPENAI_MODELS[selected_model]
         return call_openai_api(openai_key, prompt, img_pil_list, model_id=model_id)
     
-    # Default: Gemini
-    key = clean_key(gemini_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    # Default: Gemini (with fallback)
     parts = [{"text": prompt}]
     if img_pil_list:
         for img in img_pil_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
-    for attempt in range(3):
-        try:
-            res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
-            if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-            elif res.status_code == 503: time.sleep(3); continue
-            else: return None, f"Error {res.status_code}: {res.text}"
-        except: time.sleep(1)
-    return None, "Failed"
+    return _call_gemini_text(gemini_key, payload)
 
 def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, img_list, user_desc):
     prompt = SEO_PROMPT_NAME_SLUG.replace("{user_desc}", user_desc)
@@ -1000,17 +1022,11 @@ def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, i
         model_id = OPENAI_MODELS[selected_model]
         return call_openai_api(openai_key, prompt, pil_images if pil_images else None, model_id=model_id)
     
-    # Default: Gemini
-    key = clean_key(gemini_key)
-    url = f"https://generativelanguage.googleapis.com/v1beta/{MODEL_TEXT_GEMINI}:generateContent?key={key}"
+    # Default: Gemini (with fallback)
     parts = [{"text": prompt}]
     for img in pil_images: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
-    try:
-        res = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-        if res.status_code == 200: return res.json().get("candidates", [])[0].get("content", {}).get("parts", [])[0].get("text"), None
-        return None, f"Error {res.status_code}"
-    except Exception as e: return None, str(e)
+    return _call_gemini_text(gemini_key, payload)
 
 def list_available_models(api_key):
     key = clean_key(api_key)
@@ -1762,7 +1778,8 @@ with tab5:
         model_info = {
             "Image Generation": "Gemini (gemini-3-pro-image-preview)", 
             "Text/SEO Model": current_model,
-            "Gemini Text": MODEL_TEXT_GEMINI
+            "Gemini Text": MODEL_TEXT_GEMINI,
+            "Gemini Fallback": MODEL_TEXT_GEMINI_FALLBACK
         }
         if current_model in CLAUDE_MODELS:
             model_info["Claude Model ID"] = CLAUDE_MODELS[current_model]
