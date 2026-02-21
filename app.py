@@ -592,18 +592,23 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
   This helps Google Product schema AND AI systems categorize the item correctly.
 
 **Meta Title — RULES:**
-- Under 60 characters (Google measures by pixel width ~580px, not strict chars).
+- MUST be under 60 characters (Google truncates at ~60 / ~580px pixel width).
+  This is a HARD LIMIT — never exceed 60 characters.
 - Main Keyword at the FRONT — Google gives more weight to leading words.
 - First letter MUST be capitalized. Use Title Case for major words.
 - Format: [Main Keyword — One Key Benefit] | Bikerringshop
 - The benefit should be a concrete attribute (material, weight, style),
   not a generic claim ("best", "top quality", "amazing").
-- Must include the brand name "Bikerringshop" at the end after |.
-  GOOD: "Skull Flame Ring — Heavy 316L Steel That Lasts | Bikerringshop" (57 chars)
-  GOOD: "Gothic Cross Pendant — .925 Sterling Silver | Bikerringshop" (55 chars)
+- Brand name "Bikerringshop" at the end after | — BUT ONLY if the total
+  stays under 60 characters. If adding "| Bikerringshop" would push
+  the title over 60 chars, DROP the brand entirely. The keyword and
+  differentiator are more valuable for SEO than the brand name.
+  Google already shows the site domain in SERP results.
+  GOOD: "Skull Flame Ring — Heavy 316L Steel | Bikerringshop" (51 chars, brand fits)
+  GOOD: "Gothic Cross Sterling Silver Pendant with Black Onyx" (52 chars, no brand — would be 70+ with brand)
+  BAD: "Skull Flame Ring — Heavy 316L Stainless Steel for Bikers | Bikerringshop" (72 chars — OVER LIMIT)
   BAD: "Bikerringshop — Best Skull Rings Online" (brand first wastes prime space)
   BAD: "Skull Ring, Biker Ring, Gothic Ring, Silver Ring" (keyword list)
-  BAD: "The Best Ring You'll Ever Own | Bikerringshop" (no product info)
 
 **Meta Description — RULES:**
 - Under 155 characters. Aim for 140-155 chars.
@@ -1107,7 +1112,8 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
   BAD: "Skull Rings with Red Gemstone Celtic Design"  (too specific to one product)
 
 ### META TITLE RULES:
-- Under 60 characters (Google truncates at ~60).
+- MUST be under 60 characters (Google truncates at ~60).
+  This is a HARD LIMIT — never exceed 60 characters.
 - Main Keyword at the FRONT — Google gives more weight to words at the start.
 - First letter MUST be capitalized. Use Title Case for major words.
 - Format: [Main Keyword] — [1 Differentiator] | Bikerringshop
@@ -1115,11 +1121,15 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
   Use the PRIMARY material (from collection product data) or the main style/audience.
   NEVER use details specific to individual products (specific gemstones, specific
   design elements that only some products have).
-  GOOD: "Owl Rings — Handcrafted .925 Sterling Silver | Bikerringshop"
-  GOOD: "Skull Biker Rings — Heavy Sterling Silver | Bikerringshop" (54 chars)
-  BAD: "Owl Rings — Sterling Silver with Red Garnet Eyes | Bikerringshop" (garnet is only on some)
+- Brand name "Bikerringshop" at the end after | — BUT ONLY if the total
+  stays under 60 characters. If adding "| Bikerringshop" would push
+  the title over 60 chars, DROP the brand entirely. The keyword and
+  differentiator are more valuable for SEO than the brand name.
+  Google already shows the site domain in SERP results.
+  GOOD: "Skull Biker Rings — Heavy Sterling Silver | Bikerringshop" (54 chars, brand fits)
+  GOOD: "Handcrafted Sterling Silver Cross Pendants for Men" (50 chars, no brand — adding brand = 68+)
+  BAD: "Owl Rings — Handcrafted .925 Sterling Silver Jewelry | Bikerringshop" (65 chars — OVER LIMIT)
   BAD: "Bikerringshop | The Best Skull Rings Collection Online" (brand first wastes space)
-- Include the brand name "Bikerringshop" at the end after |.
 - The differentiator should be a concrete attribute (material, style, audience)
   not a generic claim ("best", "top quality", "amazing").
 
