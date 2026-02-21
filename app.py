@@ -2869,6 +2869,7 @@ with tab3:
                 cols = st.columns(4)
                 for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
+        generate_img_seo = st.checkbox("🖼️ Generate Image SEO (file names & alt tags)", value=True, key=f"writer_gen_img_seo_{writer_key_id}")
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate Content", type="primary", key=f"writer_run_btn_{writer_key_id}")
         if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
@@ -2905,8 +2906,8 @@ with tab3:
                         d = parse_json_response(json_txt)
                         if isinstance(d, list) and d: d = d[0]
                         if isinstance(d, dict):
-                            # --- PASS 2: Generate image_seo per-image ---
-                            if writer_imgs:
+                            # --- PASS 2: Generate image_seo per-image (only if enabled) ---
+                            if writer_imgs and generate_img_seo:
                                 product_name = d.get('product_title_h1', '') or raw[:100]
                                 desc_snippet = raw[:300]
                                 image_seo_results = []
