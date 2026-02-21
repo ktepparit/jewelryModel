@@ -265,8 +265,28 @@ giving honest advice — not like marketing copy or a product data sheet.
   your palm, tried it on. Describe what YOU noticed — not what a spec
   sheet says.
   SPEC SHEET: "This ring weighs 28 grams and is made of 316L stainless steel."
-  REAL PERSON: "28 grams of 316L steel. You feel the weight pool in your
-  palm before you even slide it on."
+  REAL PERSON (many ways to say this — use a DIFFERENT one each time):
+  - "28 grams of 316L steel. You notice it the second you pick it up."
+  - "Thick band, solid cast. My kitchen scale read 28 grams."
+  - "It's the kind of ring that makes your hand feel different when you're gripping handlebars."
+  - "The shank alone is 4mm — wider than most wedding bands."
+  ↑ These all describe weight/heft but with DIFFERENT sentence structures.
+  NEVER re-use the same opening structure across multiple products.
+
+**⚠️ CRITICAL — NO TEMPLATE OPENINGS:**
+  When writing multiple product descriptions, you MUST vary how you
+  start each one. If you find yourself writing "[number] grams of [metal]
+  [sensory verb] in your palm..." for more than ONE product — STOP.
+  That's a template, not authentic writing. Each product should open
+  with a completely different angle:
+  - Product A opens with a visual detail
+  - Product B opens with how it feels on the finger
+  - Product C opens with a specific design element
+  - Product D opens with a practical observation
+  - Product E opens with who it's for
+  The opening sentence is the MOST visible pattern across pages.
+  Vary it the most.
+
 - Use contractions naturally: don't, it's, you'll, there's, won't, that's.
   Occasionally start a sentence with "And" or "But."
 - Use em dashes — like this — to break your own thought mid-sentence.
