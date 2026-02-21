@@ -1805,47 +1805,109 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
     return _call_gemini_text(gemini_key, payload, timeout=120)
 
 
-def generate_image_seo_per_image(gemini_key, claude_key, openai_key, selected_model, img_pil, image_index, total_images, product_name, product_description_snippet):
+def generate_image_seo_per_image(gemini_key, claude_key, openai_key, selected_model, img_pil, image_index, total_images, product_name, product_description_snippet, previous_filenames=None, previous_alts=None):
     """Generate SEO file_name and alt_tag for a SINGLE image.
     
     Sends ONE image at a time with product context so the AI:
     1. Cannot mix up image ordering (only 1 image per call)
     2. Uses product description to verify what it sees (cross-reference)
+    3. Sees previous file_names/alt_tags to avoid repetition
     """
+    prev_files_str = ""
+    if previous_filenames:
+        prev_files_str = "\n".join([f"  - Image {i+1}: {fn}" for i, fn in enumerate(previous_filenames)])
+    prev_alts_str = ""
+    if previous_alts:
+        prev_alts_str = "\n".join([f"  - Image {i+1}: {at}" for i, at in enumerate(previous_alts)])
+    
+    prev_context = ""
+    if prev_files_str or prev_alts_str:
+        prev_context = f"""
+**ALREADY USED (DO NOT REPEAT — you must use DIFFERENT wording):**
+File names already assigned to previous images:
+{prev_files_str if prev_files_str else "  (none yet — this is the first image)"}
+Alt tags already assigned to previous images:
+{prev_alts_str if prev_alts_str else "  (none yet — this is the first image)"}
+"""
+    
     prompt = f"""You are an SEO & Visual Content Specialist for Jewelry e-commerce.
+Updated for Google's 2026 Image SEO + Visual Search Best Practices
+(February 2026 Core Update & December 2025 Core Update compliance).
 
 **Task:** Generate an SEO-optimized file_name and alt_tag for this ONE product image.
 
 **Product Context (use this to VERIFY what you see in the image):**
 - Product Name: {product_name}
-- Description: {product_description_snippet}
+- Description snippet: {product_description_snippet}
 - This is image {image_index} of {total_images} for this product.
-
+{prev_context}
 **CRITICAL RULES:**
-1. LOOK at the image carefully. Describe what you ACTUALLY SEE.
-2. CROSS-REFERENCE with the product name and description above.
-   If you see a symbol that could be ambiguous (e.g., it looks like it could be 
-   a question mark OR an ankh), check the product name/description for clues.
-   If the description says "question mark", it's a question mark — trust the text 
-   data over your visual interpretation when the visual is ambiguous.
-3. The file_name and alt_tag must describe THIS specific image's unique content
-   (angle, detail, feature shown), not just repeat the product name.
 
-**File Name Rules:**
+1. **LOOK at the image carefully.** Describe what you ACTUALLY SEE.
+2. **CROSS-REFERENCE with the product name and description above.**
+   If you see a symbol that could be ambiguous (e.g., it looks like a 
+   question mark OR an ankh), CHECK the product name/description for clues.
+   Trust the text data over your visual guess when visuals are ambiguous.
+3. **DO NOT REPEAT** any file_name or alt_tag pattern from previous images listed above.
+   Each image must have COMPLETELY DIFFERENT wording — not just a different suffix.
+
+**FILE NAME RULES (Google 2026 Best Practices):**
 - Lowercase, hyphens only, end with .jpg
 - Structure: [visual-focus]-[material-or-detail]-[angle-or-context].jpg
 - 3-7 hyphenated words. Concise but descriptive.
-- For image 1: include full product identifier. For images 2+: lead with the 
-  VISUAL FOCUS of this specific image (angle, detail, feature).
+- For image 1 ONLY: include the full product name/identifier.
+  For images 2+: DO NOT repeat the full product name. Lead with the
+  VISUAL FOCUS unique to THIS image (the angle, detail, material, or feature).
+- Include product attributes (material, color) to help search engines
+  map images to catalog pages.
+- Each file name must describe what makes THIS specific image DIFFERENT.
 
-**Alt Tag Rules:**
-- Describe what is VISUALLY shown in this specific image.
-- Under 125 characters.
-- Include relevant keywords naturally.
-- Never start with "image of" or "picture of".
+GOOD example (8 images — notice each LEADS with different focus):
+1. christian-crosier-bishop-ring-amethyst-top-view.jpg  (image 1: full name)
+2. gold-plated-cross-cutout-band-detail.jpg  (leads with visual detail)
+3. amethyst-gemstone-crosier-setting-closeup.jpg  (leads with gemstone)
+4. ribbed-gold-band-side-profile.jpg  (leads with texture)
+5. openwork-cross-pattern-left-angle.jpg  (leads with pattern)
+6. bishop-ring-worn-on-hand-lifestyle.jpg  (leads with context)
+7. sterling-silver-base-interior-hallmark.jpg  (leads with interior)
+8. crosier-bishop-ring-full-set-flat-lay.jpg  (leads with composition)
+
+BAD example (all start the same = keyword stuffing, Google flags as spam):
+1. christian-crosier-bishop-ring-angled-right-view.jpg
+2. christian-crosier-bishop-ring-side-profile-left.jpg
+3. christian-crosier-bishop-ring-side-profile-right.jpg
+
+**ALT TAG RULES (Google 2026 + W3C Accessibility):**
+- Describe what is VISUALLY shown in THIS specific image.
+- Under 125 characters (screen reader best practice per W3C/Google).
+- DO NOT start with the same product name prefix as previous images.
+  Vary the opening: lead with the visual focus, the material detail,
+  the angle, or the feature being highlighted in THIS image.
+- Include relevant keywords NATURALLY but DIFFERENTLY from previous images.
+  Google explicitly warns: keyword stuffing in alt attributes results
+  in a negative user experience and may flag the site as spam.
+- Never use "image of" or "picture of" — describe the content directly.
+
+GOOD alt tags (varied openings — no two start the same way):
+1. "Top view of the Christian crosier bishop ring with purple amethyst center stone"
+2. "Gold-plated band detail showing openwork cross cutouts and ribbed texture"
+3. "Close-up of the amethyst gemstone set in a crosier-shaped sterling silver bezel"
+4. "Side profile highlighting the ribbed gold plating and layered band construction"
+
+BAD alt tags (repetitive prefix = pattern Google flags as AI-generated spam):
+1. "Christian crosier bishop ring angled right view showing amethyst..."
+2. "Christian crosier bishop ring side profile left showing cross..."
+3. "Christian crosier bishop ring side profile right displaying gold..."
+
+**2026 VISUAL SEARCH CONTEXT:**
+Google Lens now handles 1 in 10 searches with ~20% commercial intent.
+Well-optimized product images appear in Google Lens visual search,
+Google Shopping, and AI-powered "shop similar" experiences.
+Diverse, specific file names and alt tags increase discovery across
+multiple visual search queries — repetitive names only rank for one query.
 
 Return RAW JSON only (no markdown backticks):
-{{"file_name": "descriptive-name.jpg", "alt_tag": "Description of what this image shows"}}"""
+{{"file_name": "descriptive-name.jpg", "alt_tag": "Unique description of what this image shows"}}"""
 
     # Claude models
     if selected_model in CLAUDE_MODELS and claude_key:
@@ -2591,25 +2653,40 @@ with tab3:
                                 product_name = d.get('product_title_h1', '') or raw[:100]
                                 desc_snippet = raw[:300]
                                 image_seo_results = []
+                                prev_fnames = []
+                                prev_alts = []
                                 progress_bar = st.progress(0, text="🖼️ Generating Image SEO...")
                                 for idx, img in enumerate(writer_imgs):
                                     progress_bar.progress((idx + 1) / len(writer_imgs), text=f"🖼️ Image SEO {idx+1}/{len(writer_imgs)}...")
                                     try:
                                         img_json, img_err = generate_image_seo_per_image(
                                             gemini_key, claude_key, openai_key, current_text_model,
-                                            img, idx + 1, len(writer_imgs), product_name, desc_snippet
+                                            img, idx + 1, len(writer_imgs), product_name, desc_snippet,
+                                            previous_filenames=prev_fnames if prev_fnames else None,
+                                            previous_alts=prev_alts if prev_alts else None
                                         )
                                         if img_json:
                                             img_d = parse_json_response(img_json)
                                             if isinstance(img_d, list) and img_d: img_d = img_d[0]
                                             if isinstance(img_d, dict):
                                                 image_seo_results.append(img_d)
+                                                prev_fnames.append(img_d.get("file_name", ""))
+                                                prev_alts.append(img_d.get("alt_tag", ""))
                                             else:
-                                                image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                                fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                                image_seo_results.append(fallback)
+                                                prev_fnames.append(fallback["file_name"])
+                                                prev_alts.append(fallback["alt_tag"])
                                         else:
-                                            image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                            fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                            image_seo_results.append(fallback)
+                                            prev_fnames.append(fallback["file_name"])
+                                            prev_alts.append(fallback["alt_tag"])
                                     except Exception as img_e:
-                                        image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                        fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                        image_seo_results.append(fallback)
+                                        prev_fnames.append(fallback["file_name"])
+                                        prev_alts.append(fallback["alt_tag"])
                                     time.sleep(0.3)  # Rate limit safety
                                 progress_bar.empty()
                                 d["image_seo"] = image_seo_results
