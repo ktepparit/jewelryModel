@@ -19,7 +19,7 @@ MODEL_TEXT_GEMINI_FALLBACK = "models/gemini-3-pro-preview"
 
 # Claude Models
 CLAUDE_MODELS = {
-    "Claude Sonnet 4.5": "claude-sonnet-4-5-20250929",
+    "Claude Sonnet 4.6": "claude-sonnet-4-6",
     "Claude Opus 4.6": "claude-opus-4-6",
 }
 
@@ -1647,7 +1647,7 @@ def format_catalog_for_prompt(catalog, max_collections=50, max_products=150, pro
 # ============================================================
 # --- CLAUDE API FUNCTION ---
 # ============================================================
-def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-4-20250514"):
+def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-4-6"):
     """Call Claude API for Text/SEO tasks with optional image support"""
     url = "https://api.anthropic.com/v1/messages"
     headers = {"Content-Type": "application/json", "x-api-key": claude_key, "anthropic-version": "2023-06-01"}
@@ -3640,7 +3640,7 @@ with tab5:
         
         st.write("**Available Models:**")
         st.write("🔹 **Gemini** - Google AI (Free tier available)")
-        st.write("🔹 **Claude Sonnet 4.5** - Anthropic (Balanced)")
+        st.write("🔹 **Claude Sonnet 4.6** - Anthropic (Best value, near-Opus performance)")
         st.write("🔹 **Claude Opus 4.6** - Anthropic (Highest quality)")
         st.write("🔹 **GPT-5.2** - OpenAI (Flagship model)")
         
