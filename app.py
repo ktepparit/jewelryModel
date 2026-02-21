@@ -155,33 +155,48 @@ NEVER use any of these (or close variants):
 > "the kind of weight/heft that [cheap thing] cannot"
 > "no stamped, hollow, or plated pieces" (once per site is fine — not in every description)
 
-**ALSO BANNED — Negative Comparison Patterns:**
-Even if the exact words differ, repeating the SAME sentence structure
-across many product pages is a detectable AI pattern. NEVER open or
-anchor a paragraph with these structures:
-> "Most [product type] online [negative statement about competitors]..."
-> "Most [product type] you'll find [negative]..."
-> "Most [product type] look/feel [negative]. This [product] is the opposite..."
-> "This isn't [cheap thing] [negative detail]..."
-> "Unlike most [product type] that [flaw]..."
-> "[Product type] from other stores [negative]..."
+**ALSO BANNED — ALL Negative-Then-Positive Comparison Structures:**
 
-The "[negative]. This is the opposite" two-sentence combo is ALSO banned —
-it's the same negative comparison split into two sentences:
-BAD: "Most signet rings look good in photos and feel like nothing on your finger.
-      This gold fleur de lis ring is the opposite."
-BAD: "Most skull rings online feel flat in the hand. This one is different."
-↑ Same pattern, different products. Across 50+ pages = scaled AI content.
+This is a UNIVERSAL RULE, not a list of specific phrases to avoid.
+The AI keeps finding new ways to write the same pattern. So instead of
+banning specific wordings, here is the PRINCIPLE:
 
-**THE CORE PRINCIPLE:** Let the product's own details speak for themselves.
-A confident description doesn't need to put down competitors.
-Show quality through SPECIFICS, not through negative comparisons.
+NEVER write ANY sentence or sentence pair where:
+  1. You describe a negative experience with OTHER/GENERIC products, THEN
+  2. You say THIS product is better/different/the opposite.
 
-GOOD approaches that show quality without negative comparisons:
-- Lead with a specific fact: "34 grams of solid 316L steel, lost-wax cast."
-- Lead with a sensory detail: "The knurled edges grip your skin when you twist it."
-- Lead with a use case: "Sized to sit just below the knuckle on most index fingers."
-- Lead with a material story: ".925 sterling silver — same alloy used in Navajo silversmithing."
+This applies regardless of how creatively you phrase it. ALL of these
+are the SAME banned pattern:
+> "Most [X] online [negative]. This one [positive]."
+> "[Negative experience with generic products]. This [product] is the opposite."
+> "You know the feeling when [negative experience]... This [product] [positive]."
+> "Ever bought a [product] that [disappointing thing]? This is [different]."
+> "Tired of [negative]? [Product] [solves it]."
+> "If you've been burned by [negative], [product] [positive]."
+> "[Generic products] tend to [flaw]. Not this one."
+
+BAD (all different words, ALL the same banned pattern):
+- "Most signet rings look good in photos and feel like nothing on your
+   finger. This gold fleur de lis ring is the opposite."
+- "You know the feeling when a ring looks killer online… then shows up
+   feather-light and weirdly sharp on the edges. This skull ring is
+   the opposite experience."
+- "Ever bought a chain bracelet that turned your wrist green after a
+   week? This one won't."
+- "Tired of rings that lose their finish? This band holds up."
+↑ 4 different creative approaches to the SAME structure. All banned.
+
+**INSTEAD — Start with THIS product. Never mention other products or
+generic negative experiences. Describe what this product IS, not what
+other products AREN'T:**
+
+GOOD (each stands on its own — no comparison needed):
+- "34 grams of solid 316L steel, lost-wax cast with hand-finished edges."
+- "The knurled texture grips your skin — you feel this ring when you
+   move your hand."
+- "Sized to sit just below the knuckle on most index fingers."
+- ".925 sterling silver with a rhodium-plated finish that resists tarnish."
+- "The skull's jaw is articulated — it moves when you flex your finger."
 
 Natural alternatives to use instead:
 
@@ -975,14 +990,13 @@ NEVER use: "cheap hollow castings cannot match", "unlike cheap alternatives",
 "mass-produced alternatives can't match", "not like cheap hollow pieces",
 "the kind of weight that [cheap thing] cannot", "no stamped, hollow, or plated".
 
-**ALSO BANNED — Negative Comparison Patterns:**
-NEVER use these structures — even with different words, the repeated
-pattern across collection pages triggers "scaled AI content" detection:
-- "Most [product type] online [negative about competitors]..."
-- "This isn't [cheap thing] [negative detail]..."
-- "Unlike most [product type] that [flaw]..."
-Let specific details (material grade, weight range, construction)
-show quality on their own without putting down competitors.
+**ALSO BANNED — ALL Negative-Then-Positive Comparison Structures:**
+NEVER write ANY sentence where you describe a negative experience with
+OTHER/GENERIC products and then say THIS collection is better/different.
+This applies regardless of phrasing — "Most [X] online...", "You know
+the feeling when...", "Tired of...", "Ever bought a...", "Unlike most..."
+are ALL the same banned pattern. Start with what THIS collection IS,
+not what other products AREN'T.
 
 ### [RULE 3 — KEYWORD ANALYSIS & INTEGRATION]
 Using the Main Keyword, determine:
