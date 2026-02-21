@@ -1781,17 +1781,7 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
-        prompt += f"""
-
-CRITICAL IMAGE ORDERING:
-You received {num_images} images labeled [IMAGE 1] through [IMAGE {num_images}].
-You MUST return exactly {num_images} objects in the 'image_seo' array.
-The FIRST object in image_seo corresponds to [IMAGE 1], the SECOND to [IMAGE 2], etc.
-Each file_name and alt_tag MUST describe what is ACTUALLY VISIBLE in that specific
-labeled image — not what you think the image should show based on other images.
-If [IMAGE 3] shows a side view with a question mark design, then image_seo[2]
-must describe a side view with a question mark — NOT an ankh or any other symbol
-visible in a different image. Match by label number, not by guessing."""
+        prompt += f"\n\nNOTE: This product has {num_images} images. You do NOT need to generate image_seo — it will be handled separately. Return an EMPTY array for image_seo: \"image_seo\": []"
     if catalog_text:
         prompt += f"\n\n--- REAL STORE CATALOG DATA (for 'You Might Also Want' section) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
@@ -1813,6 +1803,64 @@ visible in a different image. Match by label number, not by guessing."""
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload, timeout=120)
+
+
+def generate_image_seo_per_image(gemini_key, claude_key, openai_key, selected_model, img_pil, image_index, total_images, product_name, product_description_snippet):
+    """Generate SEO file_name and alt_tag for a SINGLE image.
+    
+    Sends ONE image at a time with product context so the AI:
+    1. Cannot mix up image ordering (only 1 image per call)
+    2. Uses product description to verify what it sees (cross-reference)
+    """
+    prompt = f"""You are an SEO & Visual Content Specialist for Jewelry e-commerce.
+
+**Task:** Generate an SEO-optimized file_name and alt_tag for this ONE product image.
+
+**Product Context (use this to VERIFY what you see in the image):**
+- Product Name: {product_name}
+- Description: {product_description_snippet}
+- This is image {image_index} of {total_images} for this product.
+
+**CRITICAL RULES:**
+1. LOOK at the image carefully. Describe what you ACTUALLY SEE.
+2. CROSS-REFERENCE with the product name and description above.
+   If you see a symbol that could be ambiguous (e.g., it looks like it could be 
+   a question mark OR an ankh), check the product name/description for clues.
+   If the description says "question mark", it's a question mark — trust the text 
+   data over your visual interpretation when the visual is ambiguous.
+3. The file_name and alt_tag must describe THIS specific image's unique content
+   (angle, detail, feature shown), not just repeat the product name.
+
+**File Name Rules:**
+- Lowercase, hyphens only, end with .jpg
+- Structure: [visual-focus]-[material-or-detail]-[angle-or-context].jpg
+- 3-7 hyphenated words. Concise but descriptive.
+- For image 1: include full product identifier. For images 2+: lead with the 
+  VISUAL FOCUS of this specific image (angle, detail, feature).
+
+**Alt Tag Rules:**
+- Describe what is VISUALLY shown in this specific image.
+- Under 125 characters.
+- Include relevant keywords naturally.
+- Never start with "image of" or "picture of".
+
+Return RAW JSON only (no markdown backticks):
+{{"file_name": "descriptive-name.jpg", "alt_tag": "Description of what this image shows"}}"""
+
+    # Claude models
+    if selected_model in CLAUDE_MODELS and claude_key:
+        model_id = CLAUDE_MODELS[selected_model]
+        return call_claude_api(claude_key, prompt, [img_pil], model_id=model_id)
+    
+    # OpenAI models
+    if selected_model in OPENAI_MODELS and openai_key:
+        model_id = OPENAI_MODELS[selected_model]
+        return call_openai_api(openai_key, prompt, [img_pil], model_id=model_id)
+    
+    # Default: Gemini
+    parts = [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]
+    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.4, "responseMimeType": "application/json"}}
+    return _call_gemini_text(gemini_key, payload, timeout=30)
 
 def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, img_list, user_desc):
     prompt = SEO_PROMPT_NAME_SLUG.replace("{user_desc}", user_desc)
@@ -2537,7 +2585,35 @@ with tab3:
                     if json_txt:
                         d = parse_json_response(json_txt)
                         if isinstance(d, list) and d: d = d[0]
-                        if isinstance(d, dict): st.session_state.writer_result = d; st.rerun()
+                        if isinstance(d, dict):
+                            # --- PASS 2: Generate image_seo per-image ---
+                            if writer_imgs:
+                                product_name = d.get('product_title_h1', '') or raw[:100]
+                                desc_snippet = raw[:300]
+                                image_seo_results = []
+                                progress_bar = st.progress(0, text="🖼️ Generating Image SEO...")
+                                for idx, img in enumerate(writer_imgs):
+                                    progress_bar.progress((idx + 1) / len(writer_imgs), text=f"🖼️ Image SEO {idx+1}/{len(writer_imgs)}...")
+                                    try:
+                                        img_json, img_err = generate_image_seo_per_image(
+                                            gemini_key, claude_key, openai_key, current_text_model,
+                                            img, idx + 1, len(writer_imgs), product_name, desc_snippet
+                                        )
+                                        if img_json:
+                                            img_d = parse_json_response(img_json)
+                                            if isinstance(img_d, list) and img_d: img_d = img_d[0]
+                                            if isinstance(img_d, dict):
+                                                image_seo_results.append(img_d)
+                                            else:
+                                                image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                        else:
+                                            image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                    except Exception as img_e:
+                                        image_seo_results.append({"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"})
+                                    time.sleep(0.3)  # Rate limit safety
+                                progress_bar.empty()
+                                d["image_seo"] = image_seo_results
+                            st.session_state.writer_result = d; st.rerun()
                         else:
                             st.error("⚠️ AI returned content but JSON parsing failed. This usually happens when the response was truncated (too long) or contained invalid characters. Try again — the AI may produce a cleaner output on retry.")
                             with st.expander("🔍 Raw AI Output (for debugging)", expanded=False):
