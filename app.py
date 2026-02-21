@@ -141,6 +141,28 @@ NEVER use these words or phrases:
 > Unparalleled, Groundbreaking, Next-level, Innovative (unless quoting
 > a specific patent or feature name).
 
+**ALSO BANNED — Repetitive Contrast Phrases:**
+These phrases appear in AI-generated jewelry content across many pages,
+creating a detectable site-wide pattern. Google's Feb 2026 Core Update
+flags repeated phrasing across product pages as "scaled AI content."
+NEVER use any of these (or close variants):
+> "cheap hollow castings cannot match"
+> "cheap hollow castings simply cannot"
+> "not like cheap hollow pieces"
+> "unlike cheap alternatives"
+> "that cheap alternatives can't replicate"
+> "mass-produced alternatives can't match"
+> "the kind of weight/heft that [cheap thing] cannot"
+> "no stamped, hollow, or plated pieces" (once per site is fine — not in every description)
+
+Instead of repeating the same "we're better than cheap stuff" contrast,
+use SPECIFIC details unique to THIS product:
+- Name the exact material grade: "316L surgical stainless steel" vs "quality materials"
+- State the actual weight: "34 grams" vs "substantial weight"
+- Describe the construction: "lost-wax cast, hand-finished" vs "carefully crafted"
+- Mention a real trade-off: "heavier than most, runs half a size small"
+Show quality through SPECIFICS, not through repeated cheap-vs-us contrasts.
+
 Natural alternatives to use instead:
 
 - "Delve" → Look into / dig into
@@ -926,6 +948,15 @@ It's worth noting, Revolutionize, State-of-the-art, Best-in-class,
 Unparalleled, Groundbreaking, Next-level, Wide range of, Wide selection of,
 Explore our collection, Browse our collection, Discover our collection.
 
+**ALSO BANNED — Repetitive Contrast Phrases (site-wide pattern risk):**
+These phrases appear in AI content across many pages. Using them on multiple
+collection pages triggers Google's "scaled AI content" detection.
+NEVER use: "cheap hollow castings cannot match", "unlike cheap alternatives",
+"mass-produced alternatives can't match", "not like cheap hollow pieces",
+"the kind of weight that [cheap thing] cannot", "no stamped, hollow, or plated".
+Instead, show quality through SPECIFIC details: exact material grade,
+weight range, construction method — not repeated cheap-vs-us contrasts.
+
 ### [RULE 3 — KEYWORD ANALYSIS & INTEGRATION]
 Using the Main Keyword, determine:
 - **Main Keyword:** Use exactly as provided.
@@ -995,18 +1026,18 @@ Write 2-3 short paragraphs:
      carry real insignia detail in solid .925 sterling silver."
   C: "Cast in solid .925 sterling silver, these owl rings feature hand-carved
      feather detail that holds up to daily wear."
-  D: "Every cross pendant in this collection is handcast — no stamped,
-     hollow, or plated pieces."
+  D: "Every cross pendant in this collection is handcast in solid .925
+     sterling silver — averaging 18 to 30 grams depending on design."
   E: "If you ride and your jewelry doesn't survive the road, these biker
      bracelets are built from the same 316L steel as your exhaust."
-  F: "Most celtic rings you'll find online are hollow castings that dent
-     within a month. These are solid .925 sterling silver, 20-35 grams each."
+  F: "Most celtic rings you'll find online weigh under 10 grams.
+     These run 20 to 35 grams in solid .925 sterling silver — you feel the difference."
   G: "At 25 to 45 grams per ring, these dragon rings have the kind of
      weight you notice the second you slide one on."
   H: "Looking for a ring that says something without saying a word?
      Freemason rings carry centuries of symbolism in solid sterling silver."
   I: "Handcast using lost-wax method, each gothic ring in this collection
-     holds detail that stamped production pieces can't match."
+     carries detail down to 0.5mm line work — visible in every skull and vine."
   J: "Whether you're commuting daily or riding cross-country, these chain
      bracelets handle sweat, rain, and road grime without tarnishing."
 
