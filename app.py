@@ -1950,9 +1950,87 @@ def generate_seo_name_slug(gemini_key, claude_key, openai_key, selected_model, i
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
-def generate_collection_content(gemini_key, claude_key, openai_key, selected_model, main_keyword, collection_url, catalog_text=""):
+def summarize_collection_products(shop_url, access_token, collection_id, max_products=100):
+    """Fetch products in a specific collection and create a summary for AI context.
+    Returns a text summary of materials, product types, and product names."""
+    products, next_cursor, err = get_shopify_products_page(
+        shop_url, access_token, limit=min(max_products, 250), collection_id=collection_id
+    )
+    if not products:
+        return ""
+    
+    # Extract key info
+    titles = []
+    materials_found = {}
+    product_types = {}
+    
+    material_keywords = [
+        "sterling silver", ".925 silver", "925 silver", "silver",
+        "stainless steel", "316l", "steel",
+        "brass", "bronze", "copper",
+        "gold", "gold plated", "gold-plated", "14k", "18k", "10k",
+        "titanium", "tungsten", "pewter", "leather"
+    ]
+    
+    for p in products:
+        titles.append(p.get("title", ""))
+        # Count product types
+        ptype = p.get("product_type", "").strip()
+        if ptype:
+            product_types[ptype] = product_types.get(ptype, 0) + 1
+        # Scan title + body for materials
+        text = (p.get("title", "") + " " + (p.get("body_html", "") or "")).lower()
+        for mat in material_keywords:
+            if mat in text:
+                # Normalize to common name
+                if mat in [".925 silver", "925 silver"]:
+                    mat_key = "sterling silver"
+                elif mat == "316l":
+                    mat_key = "stainless steel"
+                else:
+                    mat_key = mat
+                materials_found[mat_key] = materials_found.get(mat_key, 0) + 1
+    
+    # Build summary
+    lines = []
+    lines.append(f"Total products in this collection: {len(products)}")
+    
+    if materials_found:
+        # Sort by count descending
+        sorted_mats = sorted(materials_found.items(), key=lambda x: -x[1])
+        mat_strs = [f"{name} ({count} products)" for name, count in sorted_mats]
+        lines.append(f"Materials found: {', '.join(mat_strs)}")
+        # Highlight primary material
+        primary = sorted_mats[0]
+        if primary[1] > len(products) * 0.5:
+            lines.append(f"PRIMARY material: {primary[0]} (appears in {primary[1]}/{len(products)} = {int(primary[1]/len(products)*100)}% of products)")
+    
+    if product_types:
+        sorted_types = sorted(product_types.items(), key=lambda x: -x[1])
+        type_strs = [f"{name} ({count})" for name, count in sorted_types[:5]]
+        lines.append(f"Product types: {', '.join(type_strs)}")
+    
+    # Show sample product names (first 15)
+    sample = titles[:15]
+    lines.append(f"Sample product names: {', '.join(sample)}")
+    
+    return "\n".join(lines)
+
+def generate_collection_content(gemini_key, claude_key, openai_key, selected_model, main_keyword, collection_url, catalog_text="", collection_products_summary=""):
     """Generate SEO collection page content."""
     prompt = SEO_COLLECTION_WRITER_PROMPT.replace("{main_keyword}", main_keyword).replace("{collection_url}", collection_url)
+    if collection_products_summary:
+        prompt += f"""
+
+--- ACTUAL PRODUCTS IN THIS COLLECTION (use this data to write ACCURATE content) ---
+The following is a summary of the REAL products currently in this collection.
+Your description MUST accurately reflect these products — do NOT invent materials,
+styles, or attributes that don't exist in this collection.
+If 95% of products are sterling silver and only 1 is brass, do NOT feature brass
+as a primary material. Write about what's ACTUALLY in the collection.
+
+{collection_products_summary}
+--- END COLLECTION PRODUCTS ---"""
     if catalog_text:
         prompt += f"\n\n--- REAL STORE CATALOG DATA (for internal links) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
@@ -3261,6 +3339,17 @@ with tab_colwriter:
                         st.error(f"❌ Missing API Key for {cw_model}")
                     else:
                         with st.spinner(f"Writing collection content with {cw_model}..."):
+                            # Fetch real products in THIS collection for accurate content
+                            collection_products_summary = ""
+                            try:
+                                collection_products_summary = summarize_collection_products(
+                                    cw_shop, cw_token, selected_col["id"]
+                                )
+                                if collection_products_summary:
+                                    st.toast(f"📦 Loaded product data from collection")
+                            except Exception as cps_err:
+                                pass  # Continue without product data
+                            
                             # Fetch catalog for internal links
                             catalog_text = ""
                             try:
@@ -3271,7 +3360,8 @@ with tab_colwriter:
                             
                             json_txt, err = generate_collection_content(
                                 gemini_key, claude_key, openai_key, cw_model,
-                                main_keyword, collection_full_url, catalog_text
+                                main_keyword, collection_full_url, catalog_text,
+                                collection_products_summary=collection_products_summary
                             )
                             
                             if json_txt:
