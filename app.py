@@ -576,6 +576,7 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
 
 **Product Title (H1) — RULES:**
 - Main Keyword MUST appear within the H1, ideally near the front.
+- First letter MUST be capitalized. Use Title Case (capitalize major words).
 - Clear, descriptive, keyword-rich product name.
 - Keep under 70 characters for display consistency.
 - Must NOT be identical to the Meta Title (they serve different purposes:
@@ -593,6 +594,7 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
 **Meta Title — RULES:**
 - Under 60 characters (Google measures by pixel width ~580px, not strict chars).
 - Main Keyword at the FRONT — Google gives more weight to leading words.
+- First letter MUST be capitalized. Use Title Case for major words.
 - Format: [Main Keyword — One Key Benefit] | Bikerringshop
 - The benefit should be a concrete attribute (material, weight, style),
   not a generic claim ("best", "top quality", "amazing").
@@ -606,6 +608,7 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
 **Meta Description — RULES:**
 - Under 155 characters. Aim for 140-155 chars.
 - Main Keyword within the first 80 characters (visible on mobile SERP snippets).
+- First letter MUST be capitalized (it's a sentence displayed in search results).
 - Must COMPLEMENT the meta title, NOT repeat it word-for-word.
 - Use the description to expand on the title's promise with specifics.
 - Include: Main Keyword + 1 specific detail (weight, material, sensory detail).
@@ -1062,6 +1065,7 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
 
 ### H1 (collection_title) RULES:
 - Main Keyword MUST appear at the START of the H1.
+- First letter MUST be capitalized. Use Title Case (capitalize major words).
 - Clean, descriptive, human-readable.
 - DO NOT stuff multiple keywords. One clear phrase.
 - Under 70 characters.
@@ -1078,6 +1082,7 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
 ### META TITLE RULES:
 - Under 60 characters (Google truncates at ~60).
 - Main Keyword at the FRONT — Google gives more weight to words at the start.
+- First letter MUST be capitalized. Use Title Case for major words.
 - Format: [Main Keyword] — [1 Differentiator] | Bikerringshop
 - COLLECTION-LEVEL ONLY: The differentiator must apply to the ENTIRE collection.
   Use the PRIMARY material (from collection product data) or the main style/audience.
@@ -1094,6 +1099,7 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
 ### META DESCRIPTION RULES:
 - Under 155 characters. Aim for 140-155.
 - Main Keyword within the first 80 characters (visible on mobile SERP).
+- First letter MUST be capitalized (it's a sentence displayed in search results).
 - Must answer: "Why should I click THIS collection?"
 - COLLECTION-LEVEL ONLY: Describe what the WHOLE collection offers.
   Only mention materials, styles, and attributes shared by MOST products.
@@ -2709,6 +2715,10 @@ with tab3:
                             desc_html, _, _, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             if imgs: st.session_state.writer_shopify_imgs = imgs
                             if desc_html: st.session_state[text_area_key] = remove_html_tags(desc_html)
+                            # Clear previous results and image SEO edits on new fetch
+                            st.session_state.writer_result = None
+                            st.session_state.pop("writer_img_seo_edits", None)
+                            st.session_state.pop("_writer_img_seo_fingerprint", None)
                             # Save fetched Product ID and increment publish counter
                             st.session_state['writer_fetched_prod_id'] = sh_writer_id
                             if "writer_publish_counter" not in st.session_state: st.session_state.writer_publish_counter = 0
@@ -2720,6 +2730,7 @@ with tab3:
                     st.session_state.writer_fetched_prod_id = ""
                     st.session_state.writer_key_counter += 1
                     st.session_state.pop("writer_img_seo_edits", None)
+                    st.session_state.pop("_writer_img_seo_fingerprint", None)
                     st.rerun()
         writer_imgs = st.session_state.writer_shopify_imgs if st.session_state.writer_shopify_imgs else []
         if not writer_imgs:
@@ -2733,7 +2744,7 @@ with tab3:
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate Content", type="primary", key=f"writer_run_btn_{writer_key_id}")
         if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
-            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_key_counter += 1; st.session_state.pop("writer_img_seo_edits", None); st.rerun()
+            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_key_counter += 1; st.session_state.pop("writer_img_seo_edits", None); st.session_state.pop("_writer_img_seo_fingerprint", None); st.rerun()
     with c2:
         if run_write:
             # Check API key based on selected model
@@ -2748,6 +2759,7 @@ with tab3:
                 with st.spinner(f"Writing with {current_text_model}..."):
                     # Clear previous image SEO edits
                     st.session_state.pop("writer_img_seo_edits", None)
+                    st.session_state.pop("_writer_img_seo_fingerprint", None)
                     # Fetch real store catalog for internal linking
                     catalog_text = ""
                     try:
@@ -2845,8 +2857,18 @@ with tab3:
             st.divider(); st.subheader("🖼️ Image SEO")
             img_tags = d.get('image_seo', [])
             if writer_imgs:
-                # Initialize editable image_seo in session state if not already
-                if "writer_img_seo_edits" not in st.session_state or len(st.session_state.writer_img_seo_edits) != len(writer_imgs):
+                # Initialize or reinitialize editable image_seo from current result
+                # Use a fingerprint to detect when result has changed
+                current_seo_fingerprint = str([(t.get('file_name',''), t.get('alt_tag','')) for t in img_tags if isinstance(t, dict)])
+                prev_fingerprint = st.session_state.get("_writer_img_seo_fingerprint", "")
+                
+                needs_reinit = (
+                    "writer_img_seo_edits" not in st.session_state
+                    or len(st.session_state.writer_img_seo_edits) != len(writer_imgs)
+                    or current_seo_fingerprint != prev_fingerprint
+                )
+                
+                if needs_reinit:
                     st.session_state.writer_img_seo_edits = []
                     for i in range(len(writer_imgs)):
                         if i < len(img_tags) and isinstance(img_tags[i], dict):
@@ -2859,6 +2881,7 @@ with tab3:
                                 "file_name": f"product-image-{i+1}.jpg",
                                 "alt_tag": f"Product image {i+1}"
                             })
+                    st.session_state._writer_img_seo_fingerprint = current_seo_fingerprint
                 
                 img_seo_changed = False
                 for i, img in enumerate(writer_imgs):
