@@ -1374,46 +1374,37 @@ def remove_html_tags(text):
 
 # --- SHOPIFY HELPER FUNCTIONS ---
 def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_list, images_pil):
-    """Update only image alt tags and filenames on Shopify — no content/title/meta changes."""
+    """Re-upload images with new filenames and alt tags — no content/title/meta changes.
+    Uses Shopify's product PUT with images array which replaces all images at once."""
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
     
-    # First, get existing images to update alt tags
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    if not images_pil:
+        return False, "No images available to upload"
+    
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    
+    # Build images array with new filenames + alt tags (same method as update_shopify_product_v2)
+    img_payloads = []
+    for i, img in enumerate(images_pil):
+        seo = image_seo_list[i] if i < len(image_seo_list) else {}
+        img_payloads.append({
+            "attachment": img_to_base64(img),
+            "filename": seo.get("file_name", f"product-image-{i+1}.jpg"),
+            "alt": seo.get("alt_tag", "")
+        })
+    
+    # Only send id + images — no title, body_html, or metafields
+    product_payload = {"id": product_id, "images": img_payloads}
+    
     try:
-        res = requests.get(url, headers=headers, timeout=30)
-        if res.status_code != 200:
-            return False, f"Failed to fetch images: {res.status_code}"
-        existing_images = res.json().get("images", [])
+        response = requests.put(url, json={"product": product_payload}, headers=headers, timeout=60)
+        if response.status_code in [200, 201]:
+            return True, f"✅ Re-uploaded {len(img_payloads)} images with new filenames & alt tags"
+        return False, f"Shopify API Error {response.status_code}: {response.text}"
     except Exception as e:
         return False, f"Connection Error: {str(e)}"
-    
-    if not existing_images:
-        return False, "No images found on this product"
-    
-    updated = 0
-    errors = []
-    for i, img_data in enumerate(existing_images):
-        if i >= len(image_seo_list):
-            break
-        seo = image_seo_list[i]
-        img_id = img_data["id"]
-        update_url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images/{img_id}.json"
-        payload = {"image": {"id": img_id, "alt": seo.get("alt_tag", "")}}
-        try:
-            r = requests.put(update_url, json=payload, headers=headers, timeout=15)
-            if r.status_code in [200, 201]:
-                updated += 1
-            else:
-                errors.append(f"Image {i+1}: {r.status_code}")
-        except Exception as e:
-            errors.append(f"Image {i+1}: {str(e)}")
-        time.sleep(0.2)
-    
-    if errors:
-        return updated > 0, f"Updated {updated}/{len(image_seo_list)} alt tags. Errors: {', '.join(errors)}"
-    return True, f"✅ Updated alt tags for {updated} images"
 
 def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
@@ -3183,9 +3174,9 @@ with tab3:
                     s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}_{writer_publish_counter}")
                 
                 if is_img_seo_only:
-                    # Image SEO Only — update alt tags only, no content
-                    st.info("🖼️ Image SEO Only mode — will update image alt tags only (no content changes)")
-                    if st.button("☁️ Update Image SEO Only", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
+                    # Image SEO Only — re-upload images with new filenames + alt tags
+                    st.info("🖼️ Image SEO Only — will delete old images and re-upload with new filenames & alt tags (no content changes)")
+                    if st.button("☁️ Re-upload Images with SEO", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
                         if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
                         else:
                             with st.spinner("Updating image SEO..."):
