@@ -168,6 +168,7 @@ NEVER write ANY sentence or sentence pair where:
 This applies regardless of how creatively you phrase it. ALL of these
 are the SAME banned pattern:
 > "Most [X] online [negative]. This one [positive]."
+> "Some [X] [negative]. This one doesn't."
 > "[Negative experience with generic products]. This [product] is the opposite."
 > "You know the feeling when [negative experience]... This [product] [positive]."
 > "Ever bought a [product] that [disappointing thing]? This is [different]."
@@ -175,16 +176,24 @@ are the SAME banned pattern:
 > "If you've been burned by [negative], [product] [positive]."
 > "[Generic products] tend to [flaw]. Not this one."
 
+The KEY WORDS that signal this banned pattern — if your opening sentence
+contains ANY of these referring to OTHER products, rewrite it:
+"Most", "Some", "Many", "Other", "Typical", "Average", "Cheap",
+"Unlike", "Tired of", "Ever bought", "You know the feeling",
+"the opposite", "this one doesn't", "this one won't", "not this one"
+
 BAD (all different words, ALL the same banned pattern):
 - "Most signet rings look good in photos and feel like nothing on your
    finger. This gold fleur de lis ring is the opposite."
+- "Some rings disappear the second you put your hand back on the
+   handlebars. This baroque skull ring doesn't."
 - "You know the feeling when a ring looks killer online… then shows up
    feather-light and weirdly sharp on the edges. This skull ring is
    the opposite experience."
 - "Ever bought a chain bracelet that turned your wrist green after a
    week? This one won't."
 - "Tired of rings that lose their finish? This band holds up."
-↑ 4 different creative approaches to the SAME structure. All banned.
+↑ 5 different creative approaches to the SAME structure. All banned.
 
 **INSTEAD — Start with THIS product. Never mention other products or
 generic negative experiences. Describe what this product IS, not what
