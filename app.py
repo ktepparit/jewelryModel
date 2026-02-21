@@ -1065,20 +1065,28 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
 - Clean, descriptive, human-readable.
 - DO NOT stuff multiple keywords. One clear phrase.
 - Under 70 characters.
-- Format: [Main Keyword] — [Optional short qualifier]
+- COLLECTION-LEVEL ONLY: The H1 describes the ENTIRE collection, not one product.
+  Only mention attributes shared by MOST products (e.g., primary material).
+  Never mention features that only some products have (e.g., specific gemstones,
+  specific motifs that appear on only a few items).
+- Format: [Main Keyword] — [Optional short qualifier using COMMON attributes]
+  GOOD: "Owl Rings — Handcrafted Sterling Silver"  (material shared by most)
   GOOD: "Skull Biker Rings — Heavy Sterling Silver & Steel"
-  GOOD: "Gothic Cross Pendants for Men"
-  BAD: "Best Skull Rings Biker Rings Gothic Rings Collection 2026"
-  BAD: "Our Amazing Skull Ring Collection"
+  BAD: "Owl Rings — Sterling Silver with Garnet Eyes"  (garnet eyes is only on SOME products)
+  BAD: "Skull Rings with Red Gemstone Celtic Design"  (too specific to one product)
 
 ### META TITLE RULES:
 - Under 60 characters (Google truncates at ~60).
 - Main Keyword at the FRONT — Google gives more weight to words at the start.
 - Format: [Main Keyword] — [1 Differentiator] | Bikerringshop
+- COLLECTION-LEVEL ONLY: The differentiator must apply to the ENTIRE collection.
+  Use the PRIMARY material (from collection product data) or the main style/audience.
+  NEVER use details specific to individual products (specific gemstones, specific
+  design elements that only some products have).
+  GOOD: "Owl Rings — Handcrafted .925 Sterling Silver | Bikerringshop"
   GOOD: "Skull Biker Rings — Heavy Sterling Silver | Bikerringshop" (54 chars)
-  GOOD: "Gothic Cross Pendants — Handcast Silver & Steel | Bikerringshop" (59 chars)
+  BAD: "Owl Rings — Sterling Silver with Red Garnet Eyes | Bikerringshop" (garnet is only on some)
   BAD: "Bikerringshop | The Best Skull Rings Collection Online" (brand first wastes space)
-  BAD: "Skull Rings, Biker Rings, Gothic Rings, Silver Rings" (keyword list)
 - Include the brand name "Bikerringshop" at the end after |.
 - The differentiator should be a concrete attribute (material, style, audience)
   not a generic claim ("best", "top quality", "amazing").
@@ -1087,12 +1095,17 @@ Return ONLY raw JSON (no markdown backticks) with this structure:
 - Under 155 characters. Aim for 140-155.
 - Main Keyword within the first 80 characters (visible on mobile SERP).
 - Must answer: "Why should I click THIS collection?"
-- Include 1 specific differentiator (material, style, audience).
+- COLLECTION-LEVEL ONLY: Describe what the WHOLE collection offers.
+  Only mention materials, styles, and attributes shared by MOST products.
+  If the collection product data shows 95% sterling silver, say "sterling silver" —
+  do NOT add "with garnet eyes" or other details that only apply to a few products.
+  Specific weight ranges and size ranges ARE fine (they describe the collection range).
+- Include 1 specific differentiator (primary material, construction method, audience).
 - End with a soft benefit or audience signal — NOT a "Shop now!" CTA.
   Google's 2026 algorithm devalues aggressive CTAs in meta descriptions.
-  GOOD: "Skull biker rings in 316L steel and .925 silver. Built heavy for daily wear — not display cases. 28-42g average weight." (118 chars)
-  BAD: "Shop our amazing collection of skull rings! Best quality guaranteed. Buy now!" (generic, CTA-heavy)
-  BAD: "We have skull rings and biker rings and gothic rings for men and women." (keyword-stuffed list)
+  GOOD: "Handcrafted owl rings in solid .925 sterling silver. Built for daily wear — detailed feather carving, real weight, sizes 7-15." (under 155)
+  BAD: "Owl rings with red garnet eyes in sterling silver. Shop now!" (garnet is product-specific, has CTA)
+  BAD: "We have owl rings and bird rings and eagle rings for men and women." (keyword-stuffed list)
 
 Return RAW JSON only. No explanations before or after.
 """
@@ -1998,12 +2011,27 @@ def summarize_collection_products(shop_url, access_token, collection_id, max_pro
     if materials_found:
         # Sort by count descending
         sorted_mats = sorted(materials_found.items(), key=lambda x: -x[1])
-        mat_strs = [f"{name} ({count} products)" for name, count in sorted_mats]
-        lines.append(f"Materials found: {', '.join(mat_strs)}")
+        
+        # Separate common vs rare materials
+        common_mats = []
+        rare_mats = []
+        for name, count in sorted_mats:
+            pct = int(count / len(products) * 100)
+            if pct >= 20:
+                common_mats.append(f"{name} ({count} products, {pct}%)")
+            else:
+                rare_mats.append(f"{name} ({count} products, {pct}%)")
+        
+        if common_mats:
+            lines.append(f"COMMON materials (use these in title/meta/content): {', '.join(common_mats)}")
+        if rare_mats:
+            lines.append(f"RARE materials (do NOT feature in title/meta — only a few products): {', '.join(rare_mats)}")
+        
         # Highlight primary material
         primary = sorted_mats[0]
-        if primary[1] > len(products) * 0.5:
-            lines.append(f"PRIMARY material: {primary[0]} (appears in {primary[1]}/{len(products)} = {int(primary[1]/len(products)*100)}% of products)")
+        pct = int(primary[1] / len(products) * 100)
+        if pct > 50:
+            lines.append(f"⚠️ PRIMARY material: {primary[0]} ({pct}% of products) — use this as the main material in H1, meta title, and meta description")
     
     if product_types:
         sorted_types = sorted(product_types.items(), key=lambda x: -x[1])
@@ -2024,10 +2052,18 @@ def generate_collection_content(gemini_key, claude_key, openai_key, selected_mod
 
 --- ACTUAL PRODUCTS IN THIS COLLECTION (use this data to write ACCURATE content) ---
 The following is a summary of the REAL products currently in this collection.
-Your description MUST accurately reflect these products — do NOT invent materials,
-styles, or attributes that don't exist in this collection.
-If 95% of products are sterling silver and only 1 is brass, do NOT feature brass
-as a primary material. Write about what's ACTUALLY in the collection.
+
+CRITICAL RULES FOR USING THIS DATA:
+1. Your H1, meta title, and meta description MUST only mention attributes
+   shared by MOST products (marked as COMMON materials or PRIMARY material).
+2. NEVER put product-specific details in H1/meta title/meta description.
+   For example, if only 3 out of 30 products have "red garnet eyes", do NOT
+   mention "garnet eyes" in the meta title — it misleads searchers.
+3. Product-specific details (like specific gemstones, motifs found on only
+   some items) may be mentioned briefly in the body description as variety examples,
+   but NEVER in H1, meta title, or meta description.
+4. Materials marked as RARE (under 20% of products) should NOT be featured
+   as a primary material in any title or meta field.
 
 {collection_products_summary}
 --- END COLLECTION PRODUCTS ---"""
