@@ -1054,7 +1054,7 @@ Write 2-3 short paragraphs:
   FORMAT C (material-lead): "Cast in [material], these [collection type] [purpose]."
   FORMAT D (statement): "Every [collection item] in this collection [unique fact]."
   FORMAT E (direct): "If you [need/want], [collection name] [delivers how]."
-  FORMAT F (contrast): "Most [generic category] are [common flaw]. These [collection] [difference]."
+  FORMAT F (spec-highlight): "[Collection type] need [key quality] to [purpose] — these [specific spec]."
   FORMAT G (weight/spec-lead): "At [weight range] per piece, [collection name] [feel/impression]."
   FORMAT H (question): "Looking for [specific need]? [Collection name] [answer]."
   FORMAT I (craftsmanship): "Handcast in [location/method], each [item type] in this collection [detail]."
@@ -1373,6 +1373,48 @@ def remove_html_tags(text):
     return "\n".join([line.strip() for line in text.split('\n') if line.strip()])
 
 # --- SHOPIFY HELPER FUNCTIONS ---
+def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_list, images_pil):
+    """Update only image alt tags and filenames on Shopify — no content/title/meta changes."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    
+    # First, get existing images to update alt tags
+    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    try:
+        res = requests.get(url, headers=headers, timeout=30)
+        if res.status_code != 200:
+            return False, f"Failed to fetch images: {res.status_code}"
+        existing_images = res.json().get("images", [])
+    except Exception as e:
+        return False, f"Connection Error: {str(e)}"
+    
+    if not existing_images:
+        return False, "No images found on this product"
+    
+    updated = 0
+    errors = []
+    for i, img_data in enumerate(existing_images):
+        if i >= len(image_seo_list):
+            break
+        seo = image_seo_list[i]
+        img_id = img_data["id"]
+        update_url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images/{img_id}.json"
+        payload = {"image": {"id": img_id, "alt": seo.get("alt_tag", "")}}
+        try:
+            r = requests.put(update_url, json=payload, headers=headers, timeout=15)
+            if r.status_code in [200, 201]:
+                updated += 1
+            else:
+                errors.append(f"Image {i+1}: {r.status_code}")
+        except Exception as e:
+            errors.append(f"Image {i+1}: {str(e)}")
+        time.sleep(0.2)
+    
+    if errors:
+        return updated > 0, f"Updated {updated}/{len(image_seo_list)} alt tags. Errors: {', '.join(errors)}"
+    return True, f"✅ Updated alt tags for {updated} images"
+
 def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
@@ -2188,7 +2230,7 @@ def generate_collection_content(gemini_key, claude_key, openai_key, selected_mod
         "C": "material-lead — 'Cast in [material], these [type] [purpose].'",
         "D": "statement — 'Every [item] in this collection [unique fact].'",
         "E": "direct — 'If you [need], [collection] [delivers].'",
-        "F": "contrast — 'Most [generic] are [flaw]. These [difference].'",
+        "F": "spec-highlight — '[Collection] need [quality] to [purpose] — these [spec].'",
         "G": "weight/spec-lead — 'At [spec], [collection] [impression].'",
         "H": "question — 'Looking for [need]? [Collection] [answer].'",
         "I": "craftsmanship — 'Handcast in [method], each [item] [detail].'",
@@ -2883,9 +2925,11 @@ with tab3:
                 cols = st.columns(4)
                 for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
-        generate_img_seo = st.checkbox("🖼️ Generate Image SEO (file names & alt tags)", value=True, key=f"writer_gen_img_seo_{writer_key_id}")
+        gen_mode = st.radio("Generation Mode:", 
+            ["📝 Content + Image SEO", "📝 Content Only", "🖼️ Image SEO Only"],
+            key=f"writer_gen_mode_{writer_key_id}", horizontal=True)
         wb1, wb2 = st.columns([1, 1])
-        run_write = wb1.button("🚀 Generate Content", type="primary", key=f"writer_run_btn_{writer_key_id}")
+        run_write = wb1.button("🚀 Generate", type="primary", key=f"writer_run_btn_{writer_key_id}")
         if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
             st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_key_counter += 1; st.session_state.pop("writer_img_seo_edits", None); st.session_state.pop("_writer_img_seo_fingerprint", None); st.rerun()
     with c2:
@@ -2897,106 +2941,160 @@ with tab3:
             elif selected_text_model in OPENAI_MODELS and not openai_key: missing_key = True
             
             if missing_key: st.error("Missing API Key")
-            elif not raw: st.error("Missing details")
+            elif gen_mode == "🖼️ Image SEO Only" and not writer_imgs: st.error("No images — fetch a product or upload images first")
+            elif gen_mode != "🖼️ Image SEO Only" and not raw: st.error("Missing details")
             else:
-                with st.spinner(f"Writing with {current_text_model}..."):
-                    # Clear previous image SEO edits
-                    st.session_state.pop("writer_img_seo_edits", None)
-                    st.session_state.pop("_writer_img_seo_fingerprint", None)
-                    # Fetch real store catalog for internal linking
-                    catalog_text = ""
-                    try:
-                        catalog = fetch_store_catalog("www.bikerringshop.com")
-                        if catalog.get("collections") or catalog.get("products"):
-                            catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
-                    except: pass
-                    json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text)
-                    # Show which Gemini model was actually used
-                    if current_text_model == "Gemini" and json_txt:
-                        active_m = st.session_state.get("_gemini_active_model", "")
-                        if active_m:
-                            st.toast(f"✅ Used: {active_m.replace('models/', '')}")
-                    if json_txt:
-                        d = parse_json_response(json_txt)
-                        if isinstance(d, list) and d: d = d[0]
-                        if isinstance(d, dict):
-                            # --- PASS 2: Generate image_seo per-image (only if enabled) ---
-                            if writer_imgs and generate_img_seo:
-                                product_name = d.get('product_title_h1', '') or raw[:100]
-                                desc_snippet = raw[:300]
-                                image_seo_results = []
-                                prev_fnames = []
-                                prev_alts = []
-                                progress_bar = st.progress(0, text="🖼️ Generating Image SEO...")
-                                for idx, img in enumerate(writer_imgs):
-                                    progress_bar.progress((idx + 1) / len(writer_imgs), text=f"🖼️ Image SEO {idx+1}/{len(writer_imgs)}...")
-                                    try:
-                                        img_json, img_err = generate_image_seo_per_image(
-                                            gemini_key, claude_key, openai_key, current_text_model,
-                                            img, idx + 1, len(writer_imgs), product_name, desc_snippet,
-                                            previous_filenames=prev_fnames if prev_fnames else None,
-                                            previous_alts=prev_alts if prev_alts else None
-                                        )
-                                        if img_json:
-                                            img_d = parse_json_response(img_json)
-                                            if isinstance(img_d, list) and img_d: img_d = img_d[0]
-                                            if isinstance(img_d, dict):
-                                                image_seo_results.append(img_d)
-                                                prev_fnames.append(img_d.get("file_name", ""))
-                                                prev_alts.append(img_d.get("alt_tag", ""))
+                # Clear previous image SEO edits
+                st.session_state.pop("writer_img_seo_edits", None)
+                st.session_state.pop("_writer_img_seo_fingerprint", None)
+                
+                if gen_mode == "🖼️ Image SEO Only":
+                    # --- IMAGE SEO ONLY MODE ---
+                    with st.spinner(f"Generating Image SEO with {current_text_model}..."):
+                        product_name = raw[:100] if raw else "Product"
+                        desc_snippet = raw[:300] if raw else ""
+                        image_seo_results = []
+                        prev_fnames = []
+                        prev_alts = []
+                        progress_bar = st.progress(0, text="🖼️ Generating Image SEO...")
+                        for idx, img in enumerate(writer_imgs):
+                            progress_bar.progress((idx + 1) / len(writer_imgs), text=f"🖼️ Image SEO {idx+1}/{len(writer_imgs)}...")
+                            try:
+                                img_json, img_err = generate_image_seo_per_image(
+                                    gemini_key, claude_key, openai_key, current_text_model,
+                                    img, idx + 1, len(writer_imgs), product_name, desc_snippet,
+                                    previous_filenames=prev_fnames if prev_fnames else None,
+                                    previous_alts=prev_alts if prev_alts else None
+                                )
+                                if img_json:
+                                    img_d = parse_json_response(img_json)
+                                    if isinstance(img_d, list) and img_d: img_d = img_d[0]
+                                    if isinstance(img_d, dict):
+                                        image_seo_results.append(img_d)
+                                        prev_fnames.append(img_d.get("file_name", ""))
+                                        prev_alts.append(img_d.get("alt_tag", ""))
+                                    else:
+                                        fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                        image_seo_results.append(fallback)
+                                        prev_fnames.append(fallback["file_name"])
+                                        prev_alts.append(fallback["alt_tag"])
+                                else:
+                                    fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                    image_seo_results.append(fallback)
+                                    prev_fnames.append(fallback["file_name"])
+                                    prev_alts.append(fallback["alt_tag"])
+                            except Exception as img_e:
+                                fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                image_seo_results.append(fallback)
+                                prev_fnames.append(fallback["file_name"])
+                                prev_alts.append(fallback["alt_tag"])
+                            time.sleep(0.3)
+                        progress_bar.empty()
+                        # Store as image_seo_only result (no content)
+                        st.session_state.writer_result = {"_image_seo_only": True, "image_seo": image_seo_results}
+                        st.rerun()
+                else:
+                    # --- CONTENT MODE (with or without Image SEO) ---
+                    with st.spinner(f"Writing with {current_text_model}..."):
+                        # Fetch real store catalog for internal linking
+                        catalog_text = ""
+                        try:
+                            catalog = fetch_store_catalog("www.bikerringshop.com")
+                            if catalog.get("collections") or catalog.get("products"):
+                                catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
+                        except: pass
+                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text)
+                        # Show which Gemini model was actually used
+                        if current_text_model == "Gemini" and json_txt:
+                            active_m = st.session_state.get("_gemini_active_model", "")
+                            if active_m:
+                                st.toast(f"✅ Used: {active_m.replace('models/', '')}")
+                        if json_txt:
+                            d = parse_json_response(json_txt)
+                            if isinstance(d, list) and d: d = d[0]
+                            if isinstance(d, dict):
+                                # --- PASS 2: Generate image_seo per-image (only if Content + Image SEO mode) ---
+                                if writer_imgs and gen_mode == "📝 Content + Image SEO":
+                                    product_name = d.get('product_title_h1', '') or raw[:100]
+                                    desc_snippet = raw[:300]
+                                    image_seo_results = []
+                                    prev_fnames = []
+                                    prev_alts = []
+                                    progress_bar = st.progress(0, text="🖼️ Generating Image SEO...")
+                                    for idx, img in enumerate(writer_imgs):
+                                        progress_bar.progress((idx + 1) / len(writer_imgs), text=f"🖼️ Image SEO {idx+1}/{len(writer_imgs)}...")
+                                        try:
+                                            img_json, img_err = generate_image_seo_per_image(
+                                                gemini_key, claude_key, openai_key, current_text_model,
+                                                img, idx + 1, len(writer_imgs), product_name, desc_snippet,
+                                                previous_filenames=prev_fnames if prev_fnames else None,
+                                                previous_alts=prev_alts if prev_alts else None
+                                            )
+                                            if img_json:
+                                                img_d = parse_json_response(img_json)
+                                                if isinstance(img_d, list) and img_d: img_d = img_d[0]
+                                                if isinstance(img_d, dict):
+                                                    image_seo_results.append(img_d)
+                                                    prev_fnames.append(img_d.get("file_name", ""))
+                                                    prev_alts.append(img_d.get("alt_tag", ""))
+                                                else:
+                                                    fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
+                                                    image_seo_results.append(fallback)
+                                                    prev_fnames.append(fallback["file_name"])
+                                                    prev_alts.append(fallback["alt_tag"])
                                             else:
                                                 fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
                                                 image_seo_results.append(fallback)
                                                 prev_fnames.append(fallback["file_name"])
                                                 prev_alts.append(fallback["alt_tag"])
-                                        else:
+                                        except Exception as img_e:
                                             fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
                                             image_seo_results.append(fallback)
                                             prev_fnames.append(fallback["file_name"])
                                             prev_alts.append(fallback["alt_tag"])
-                                    except Exception as img_e:
-                                        fallback = {"file_name": f"product-image-{idx+1}.jpg", "alt_tag": f"Product image {idx+1}"}
-                                        image_seo_results.append(fallback)
-                                        prev_fnames.append(fallback["file_name"])
-                                        prev_alts.append(fallback["alt_tag"])
-                                    time.sleep(0.3)  # Rate limit safety
-                                progress_bar.empty()
-                                d["image_seo"] = image_seo_results
-                            st.session_state.writer_result = d; st.rerun()
-                        else:
-                            st.error("⚠️ AI returned content but JSON parsing failed. This usually happens when the response was truncated (too long) or contained invalid characters. Try again — the AI may produce a cleaner output on retry.")
-                            with st.expander("🔍 Raw AI Output (for debugging)", expanded=False):
-                                st.code(json_txt[:3000] if len(json_txt) > 3000 else json_txt)
-                            # Attempt partial recovery — try to extract at least some fields
-                            partial = {}
-                            for field in ['url_slug', 'meta_title', 'meta_description', 'product_title_h1']:
-                                m = re.search(rf'"{field}"\s*:\s*"([^"]*)"', json_txt)
-                                if m: partial[field] = m.group(1)
-                            # Try to get html_content (may contain quotes)
-                            m = re.search(r'"html_content"\s*:\s*"(.*?)(?:"\s*,\s*"image_seo|"\s*})', json_txt, re.DOTALL)
-                            if m: partial['html_content'] = m.group(1).replace('\\"', '"').replace('\\n', '\n')
-                            if partial and len(partial) >= 3:
-                                st.info(f"🔧 Partially recovered {len(partial)} fields. You can use these or regenerate.")
-                                st.session_state.writer_result = partial; st.rerun()
-                    else: st.error(err)
+                                        time.sleep(0.3)  # Rate limit safety
+                                    progress_bar.empty()
+                                    d["image_seo"] = image_seo_results
+                                st.session_state.writer_result = d; st.rerun()
+                            else:
+                                st.error("⚠️ AI returned content but JSON parsing failed. This usually happens when the response was truncated (too long) or contained invalid characters. Try again — the AI may produce a cleaner output on retry.")
+                                with st.expander("🔍 Raw AI Output (for debugging)", expanded=False):
+                                    st.code(json_txt[:3000] if len(json_txt) > 3000 else json_txt)
+                                # Attempt partial recovery — try to extract at least some fields
+                                partial = {}
+                                for field in ['url_slug', 'meta_title', 'meta_description', 'product_title_h1']:
+                                    m = re.search(rf'"{field}"\s*:\s*"([^"]*)"', json_txt)
+                                    if m: partial[field] = m.group(1)
+                                # Try to get html_content (may contain quotes)
+                                m = re.search(r'"html_content"\s*:\s*"(.*?)(?:"\s*,\s*"image_seo|"\s*})', json_txt, re.DOTALL)
+                                if m: partial['html_content'] = m.group(1).replace('\\"', '"').replace('\\n', '\n')
+                                if partial and len(partial) >= 3:
+                                    st.info(f"🔧 Partially recovered {len(partial)} fields. You can use these or regenerate.")
+                                    st.session_state.writer_result = partial; st.rerun()
+                        else: st.error(err)
         if st.session_state.writer_result:
             d = st.session_state.writer_result
-            st.subheader("Content Results")
-            # Show which model actually ran
-            active_gemini = st.session_state.get("_gemini_active_model", "")
-            if current_text_model == "Gemini" and active_gemini:
-                model_label = active_gemini.replace("models/", "")
-                st.caption(f"🤖 Generated by: **{model_label}**")
-            elif current_text_model in CLAUDE_MODELS:
-                st.caption(f"🤖 Generated by: **{CLAUDE_MODELS[current_text_model]}**")
-            elif current_text_model in OPENAI_MODELS:
-                st.caption(f"🤖 Generated by: **{OPENAI_MODELS[current_text_model]}**")
-            st.write("**H1:**"); st.code(d.get('product_title_h1', ''))
-            st.write("**Slug:**"); st.code(d.get('url_slug', ''))
-            st.write("**Meta Title:**"); st.code(d.get('meta_title', ''))
-            st.write("**Meta Desc:**"); st.code(d.get('meta_description', ''))
-            with st.expander("HTML Content"): st.code(d.get('html_content', ''), language="html")
-            st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
+            is_img_seo_only = d.get("_image_seo_only", False)
+            
+            if not is_img_seo_only:
+                st.subheader("Content Results")
+                # Show which model actually ran
+                active_gemini = st.session_state.get("_gemini_active_model", "")
+                if current_text_model == "Gemini" and active_gemini:
+                    model_label = active_gemini.replace("models/", "")
+                    st.caption(f"🤖 Generated by: **{model_label}**")
+                elif current_text_model in CLAUDE_MODELS:
+                    st.caption(f"🤖 Generated by: **{CLAUDE_MODELS[current_text_model]}**")
+                elif current_text_model in OPENAI_MODELS:
+                    st.caption(f"🤖 Generated by: **{OPENAI_MODELS[current_text_model]}**")
+                st.write("**H1:**"); st.code(d.get('product_title_h1', ''))
+                st.write("**Slug:**"); st.code(d.get('url_slug', ''))
+                st.write("**Meta Title:**"); st.code(d.get('meta_title', ''))
+                st.write("**Meta Desc:**"); st.code(d.get('meta_description', ''))
+                with st.expander("HTML Content"): st.code(d.get('html_content', ''), language="html")
+                st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
+            else:
+                st.subheader("🖼️ Image SEO Only Results")
             st.divider(); st.subheader("🖼️ Image SEO")
             img_tags = d.get('image_seo', [])
             if writer_imgs:
@@ -3083,14 +3181,27 @@ with tab3:
                     s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}")
                     s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}")
                     s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}_{writer_publish_counter}")
-                enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
-                if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}_{writer_publish_counter}"):
-                    if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
-                    else:
-                        with st.spinner("Updating..."):
-                            success, msg = update_shopify_product_v2(s_shop, s_token, s_prod_id, st.session_state.writer_result, writer_imgs, enable_img_upload)
-                            if success: st.success(msg); st.balloons()
-                            else: st.error(msg)
+                
+                if is_img_seo_only:
+                    # Image SEO Only — update alt tags only, no content
+                    st.info("🖼️ Image SEO Only mode — will update image alt tags only (no content changes)")
+                    if st.button("☁️ Update Image SEO Only", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
+                        if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
+                        else:
+                            with st.spinner("Updating image SEO..."):
+                                success, msg = update_shopify_image_seo_only(s_shop, s_token, s_prod_id, d.get("image_seo", []), writer_imgs)
+                                if success: st.success(msg); st.balloons()
+                                else: st.error(msg)
+                else:
+                    # Full content update
+                    enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
+                    if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}_{writer_publish_counter}"):
+                        if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
+                        else:
+                            with st.spinner("Updating..."):
+                                success, msg = update_shopify_product_v2(s_shop, s_token, s_prod_id, st.session_state.writer_result, writer_imgs, enable_img_upload)
+                                if success: st.success(msg); st.balloons()
+                                else: st.error(msg)
 
 # === TAB BATCH WRITER ===
 with tab_batch:
