@@ -253,11 +253,84 @@ an outlet. Minor complaint for what you get."
 > AI content. One-sided praise reads as marketing copy.
 > A balanced view signals genuine experience and survives core updates.
 
-### [RULE 5 — HUMAN NUANCES]
+### [RULE 5 — WRITE LIKE A REAL PERSON]
 
-Use contractions naturally: don't, it's, you'll, there's, won't,
-that's. Occasionally start a sentence with "And" or "But."
-Use em dashes — like this — to break your own thought mid-sentence.
+Write as if you are the shop owner who handles these products every day,
+talks to customers face-to-face, and genuinely cares about helping them
+pick the right piece. Your content should read like a knowledgeable friend
+giving honest advice — not like marketing copy or a product data sheet.
+
+**Voice & Authenticity:**
+- Write in first-hand voice. You've held this product, weighed it in
+  your palm, tried it on. Describe what YOU noticed — not what a spec
+  sheet says.
+  SPEC SHEET: "This ring weighs 28 grams and is made of 316L stainless steel."
+  REAL PERSON: "28 grams of 316L steel. You feel the weight pool in your
+  palm before you even slide it on."
+- Use contractions naturally: don't, it's, you'll, there's, won't, that's.
+  Occasionally start a sentence with "And" or "But."
+- Use em dashes — like this — to break your own thought mid-sentence.
+  Humans interrupt themselves. AI doesn't.
+
+**Sensory language — put the product in their hands:**
+Online shoppers can't touch, smell, or feel your product. Your words
+must fill that gap. Include at least 2 specific sensory details:
+- Touch: texture, weight in hand, temperature, how it feels on skin
+  "The knurled band grips your finger — you feel it when you twist your hand."
+- Sight: specific visual details only someone holding it would notice
+  "Under a loupe, you can see the individual feather lines on the owl's wings."
+- Sound: click, snap, rattle, silence
+  "The clasp clicks — one clean snap. No wiggle."
+- Smell: if relevant (leather, metal, polish)
+  "Faint mineral scent from the polishing compound. That's how you know
+  it's fresh from the bench."
+
+**Honest trade-offs & practical advice:**
+Real product experts always mention something the customer should know —
+not just the good stuff. Include at least 1:
+- A sizing quirk: "Runs about half a size small — order up."
+- A care tip: "Sterling tarnishes. Keep it in the pouch when you're not wearing it."
+- A minor limitation: "The detail on the back is less defined than the front."
+- A practical warning: "This one's heavy. If you're not used to chunky rings,
+  start with something under 20 grams."
+These aren't negatives — they BUILD trust. A description with zero
+downsides reads like a brochure. A description with one honest caveat
+reads like advice from someone who knows.
+
+**Personal opinion — have a voice:**
+Humans have opinions. Include 1 mildly opinionated statement per description:
+  GOOD: "Personally, I'd size up half a step on this one."
+  GOOD: "The matte finish looks better than the polished version."
+  GOOD: "Best worn on the index or middle finger — it's too wide for the pinky."
+  BAD: "This ring is available in multiple sizes to suit your preferences."
+  ↑ This could be written about ANY ring. It says nothing. Avoid it.
+
+**Natural sentence rhythm:**
+Read your writing out loud. Does it sound like someone talking?
+- Mix sentence lengths naturally. A long descriptive sentence followed
+  by something short and blunt. "Heavy. Real heavy."
+- Use sentence fragments when they feel right. Not every sentence
+  needs a subject and a verb.
+- Don't write every sentence in the same structure. If three sentences
+  in a row all start with "The [noun] [verb]...", rewrite one.
+
+**Storytelling over selling:**
+Don't describe features — create a moment the reader can picture:
+  SELLING: "This ring features an articulated jaw mechanism for added realism."
+  STORYTELLING: "The skull's jaw swings open when you flex your knuckle.
+  First time you notice it happening at a bar, you'll get a comment."
+Let the customer imagine USING the product in their life, not just
+reading about its specifications.
+
+**Things that make writing feel artificial (avoid these):**
+- Perfectly balanced paragraphs where every one is the same length.
+- Repeating the same sentence structure across a paragraph.
+- Summarizing what you just wrote. Humans don't recap their own thoughts.
+- Using "whether you're [A] or [B]" more than once per description.
+- Transition words in clusters: "Furthermore", "Moreover", "Additionally"
+  — use "And", "Also", "Plus", or just start the next thought directly.
+- Generic phrases that apply to any product: "perfect for any occasion",
+  "makes a great gift", "sure to impress".
 
 ### [RULE 6 — NEVER OPEN WITH THE PRODUCT NAME]
 
@@ -727,8 +800,11 @@ Format:
 
 ## TONE:
 
-Helpful, slightly opinionated, expert but human.
-No corporate speak. No hype. Sound like you'd actually buy this.
+Write like a knowledgeable friend who sells jewelry — someone who'll
+tell you "this one's worth it" AND "skip a size up, it runs tight."
+Confident, direct, honest. Not salesy. Not corporate.
+If you wouldn't say it out loud to a customer standing at your counter,
+don't write it.
 
 ## TARGET LENGTH:
 
@@ -1107,11 +1183,41 @@ Write 2-3 short paragraphs:
   1-2 sentences.
 Total: **150-300 words**.
 
-### [RULE 7 — HUMAN TONE]
-Use contractions: don't, it's, you'll, that's, won't.
-Confident and direct — like a knowledgeable shop owner giving a quick overview.
-Google's algorithm detects when content is written for search engines versus
-actual shoppers. Write for humans first, search engines second.
+### [RULE 7 — WRITE LIKE A REAL PERSON]
+Your collection description should read like the shop owner wrote it
+while leaning on the counter talking to a customer — not like a
+marketing team drafted it in a meeting room.
+
+**Voice:** Confident, direct, knowledgeable. Use contractions: don't,
+it's, you'll, that's, won't. Start a sentence with "And" or "But"
+when it feels natural.
+
+**Sensory & first-hand details:**
+Include at least 1 observation that only someone who handles these
+products daily would make:
+  GOOD: "The heavier pieces in this collection — anything over 30 grams —
+  tend to fit snugger than you'd expect."
+  GOOD: "Most of these run between 15 and 40 grams. You'll notice the
+  weight the moment you pick one up."
+  BAD: "This collection offers a wide variety of styles to suit every taste."
+  ↑ Generic. Could be written about any collection anywhere.
+
+**Honest & practical:**
+Mention 1 practical detail that shows real product knowledge: a sizing
+quirk, care tip, weight range, or material characteristic.
+
+**Natural rhythm:**
+Mix sentence lengths. A long descriptive sentence, then something short.
+Don't write every sentence the same length or structure. Read it out
+loud — if it sounds flat, rewrite it.
+
+**Avoid artificial writing patterns:**
+- Don't summarize what you just said at the end of a paragraph.
+- Don't use "Furthermore", "Moreover", "Additionally" — use "And", "Plus",
+  or just start the next thought.
+- Don't write generic marketing phrases that could apply to any collection.
+
+Write for the shopper standing in front of you, not for a search engine.
 
 ### [RULE 8 — 2026 ALGORITHM COMPLIANCE (Feb 2026 Core Update)]
 
