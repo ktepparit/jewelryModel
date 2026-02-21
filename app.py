@@ -161,36 +161,27 @@ across many product pages is a detectable AI pattern. NEVER open or
 anchor a paragraph with these structures:
 > "Most [product type] online [negative statement about competitors]..."
 > "Most [product type] you'll find [negative]..."
+> "Most [product type] look/feel [negative]. This [product] is the opposite..."
 > "This isn't [cheap thing] [negative detail]..."
 > "Unlike most [product type] that [flaw]..."
 > "[Product type] from other stores [negative]..."
 
-BAD (different words but identical pattern — Google detects this across pages):
-- "Most skull rings online feel flat in the hand and lose detail fast."
-- "Most claw rings online look fierce in photos but lose their punch."
-- "Most two-tone rings look like costume jewelry within a month."
-- "This isn't gift-shop merch stamped out of mystery metal."
-↑ 4 different products, 4 different words, but the SAME negative-comparison
-  opening structure. Across 50+ product pages = scaled AI pattern.
+The "[negative]. This is the opposite" two-sentence combo is ALSO banned —
+it's the same negative comparison split into two sentences:
+BAD: "Most signet rings look good in photos and feel like nothing on your finger.
+      This gold fleur de lis ring is the opposite."
+BAD: "Most skull rings online feel flat in the hand. This one is different."
+↑ Same pattern, different products. Across 50+ pages = scaled AI content.
 
-**THE CORE PRINCIPLE:** Your description should stand on its OWN merits.
-Let the product's specific details (weight, material grade, construction,
-dimensions) speak for themselves. A confident description doesn't need
-to put down competitors — it simply shows exactly what THIS product is.
+**THE CORE PRINCIPLE:** Let the product's own details speak for themselves.
+A confident description doesn't need to put down competitors.
+Show quality through SPECIFICS, not through negative comparisons.
 
 GOOD approaches that show quality without negative comparisons:
 - Lead with a specific fact: "34 grams of solid 316L steel, lost-wax cast."
 - Lead with a sensory detail: "The knurled edges grip your skin when you twist it."
 - Lead with a use case: "Sized to sit just below the knuckle on most index fingers."
 - Lead with a material story: ".925 sterling silver — same alloy used in Navajo silversmithing."
-
-Instead of repeating the same "we're better than cheap stuff" contrast,
-use SPECIFIC details unique to THIS product:
-- Name the exact material grade: "316L surgical stainless steel" vs "quality materials"
-- State the actual weight: "34 grams" vs "substantial weight"
-- Describe the construction: "lost-wax cast, hand-finished" vs "carefully crafted"
-- Mention a real trade-off: "heavier than most, runs half a size small"
-Show quality through SPECIFICS, not through repeated cheap-vs-us contrasts.
 
 Natural alternatives to use instead:
 
@@ -985,13 +976,12 @@ NEVER use: "cheap hollow castings cannot match", "unlike cheap alternatives",
 "the kind of weight that [cheap thing] cannot", "no stamped, hollow, or plated".
 
 **ALSO BANNED — Negative Comparison Patterns:**
-Even if exact words differ, the SAME sentence structure repeated across
-many collection pages is detectable. NEVER use these structures:
+NEVER use these structures — even with different words, the repeated
+pattern across collection pages triggers "scaled AI content" detection:
 - "Most [product type] online [negative about competitors]..."
 - "This isn't [cheap thing] [negative detail]..."
 - "Unlike most [product type] that [flaw]..."
-These are the same pattern with different words — Google detects it site-wide.
-Instead, let specific details (material grade, weight range, construction)
+Let specific details (material grade, weight range, construction)
 show quality on their own without putting down competitors.
 
 ### [RULE 3 — KEYWORD ANALYSIS & INTEGRATION]
@@ -1514,7 +1504,7 @@ def get_shopify_all_collections(shop_url, access_token):
             if not items: break
             for c in items:
                 col_type = "custom" if ctype == "custom_collections" else "smart"
-                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", ""), "type": col_type})
+                all_collections.append({"id": c["id"], "title": c.get("title", ""), "handle": c.get("handle", ""), "type": col_type, "body_html": c.get("body_html", "")})
             # Check for next page
             cursor = None
             link_header = res.headers.get("Link", "")
@@ -3511,6 +3501,17 @@ with tab_colwriter:
             store_domain = cw_shop.replace("https://", "").replace("http://", "").replace(".myshopify.com", "").strip()
             collection_full_url = f"https://www.bikerringshop.com/collections/{selected_col['handle']}"
             st.caption(f"🔗 URL: `{collection_full_url}`")
+            
+            # Show current description from Shopify
+            current_body = selected_col.get("body_html", "")
+            if current_body and current_body.strip():
+                with st.expander("📄 Current Description (from Shopify)", expanded=False):
+                    st.markdown(current_body, unsafe_allow_html=True)
+                    plain_text = remove_html_tags(current_body).strip()
+                    word_count = len(plain_text.split()) if plain_text else 0
+                    st.caption(f"📏 {word_count} words | {len(plain_text)} characters")
+            else:
+                st.info("📄 No existing description — this collection is currently empty.")
             
             main_keyword = st.text_input("🔑 Main Keyword:", placeholder="e.g. skull biker rings, gothic silver pendants", key="cw_main_keyword")
             
