@@ -982,6 +982,11 @@ Write 2-3 short paragraphs:
   FORMAT C (material-lead): "Cast in [material], these [collection type] [purpose]."
   FORMAT D (statement): "Every [collection item] in this collection [unique fact]."
   FORMAT E (direct): "If you [need/want], [collection name] [delivers how]."
+  FORMAT F (contrast): "Most [generic category] are [common flaw]. These [collection] [difference]."
+  FORMAT G (weight/spec-lead): "At [weight range] per piece, [collection name] [feel/impression]."
+  FORMAT H (question): "Looking for [specific need]? [Collection name] [answer]."
+  FORMAT I (craftsmanship): "Handcast in [location/method], each [item type] in this collection [detail]."
+  FORMAT J (use-case): "Whether you're [activity 1] or [activity 2], [collection name] [benefit]."
 
   EXAMPLES (each uses a different format — this is what we want across collections):
   A: "Skull biker rings are heavy-duty statement rings built for riders
@@ -994,6 +999,16 @@ Write 2-3 short paragraphs:
      hollow, or plated pieces."
   E: "If you ride and your jewelry doesn't survive the road, these biker
      bracelets are built from the same 316L steel as your exhaust."
+  F: "Most celtic rings you'll find online are hollow castings that dent
+     within a month. These are solid .925 sterling silver, 20-35 grams each."
+  G: "At 25 to 45 grams per ring, these dragon rings have the kind of
+     weight you notice the second you slide one on."
+  H: "Looking for a ring that says something without saying a word?
+     Freemason rings carry centuries of symbolism in solid sterling silver."
+  I: "Handcast using lost-wax method, each gothic ring in this collection
+     holds detail that stamped production pieces can't match."
+  J: "Whether you're commuting daily or riding cross-country, these chain
+     bracelets handle sweat, rain, and road grime without tarnishing."
 
   BAD (every collection starts the same — triggers AI content pattern detection):
   "Cross rings are bold, faith-inspired bands..."
@@ -2093,7 +2108,7 @@ def generate_collection_content(gemini_key, claude_key, openai_key, selected_mod
     prompt = SEO_COLLECTION_WRITER_PROMPT.replace("{main_keyword}", main_keyword).replace("{collection_url}", collection_url)
     
     # Randomize opening format to prevent repetitive patterns across collections
-    formats = ["A", "B", "C", "D", "E"]
+    formats = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
     chosen_format = random.choice(formats)
     format_labels = {
         "A": "definition — '[Collection] are [what they are].'",
@@ -2101,6 +2116,11 @@ def generate_collection_content(gemini_key, claude_key, openai_key, selected_mod
         "C": "material-lead — 'Cast in [material], these [type] [purpose].'",
         "D": "statement — 'Every [item] in this collection [unique fact].'",
         "E": "direct — 'If you [need], [collection] [delivers].'",
+        "F": "contrast — 'Most [generic] are [flaw]. These [difference].'",
+        "G": "weight/spec-lead — 'At [spec], [collection] [impression].'",
+        "H": "question — 'Looking for [need]? [Collection] [answer].'",
+        "I": "craftsmanship — 'Handcast in [method], each [item] [detail].'",
+        "J": "use-case — 'Whether you're [activity], [collection] [benefit].'",
     }
     prompt += f"\n\n⚠️ OPENING FORMAT INSTRUCTION: For THIS collection, use FORMAT {chosen_format} ({format_labels[chosen_format]}) for the first sentence of Paragraph 1. Do NOT use '[Collection name] are...' unless format A was assigned."
     if collection_products_summary:
