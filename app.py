@@ -965,10 +965,37 @@ Write 2-3 short paragraphs:
   specific enough that Google AI Overview or AI Mode can extract and cite it
   as a direct answer. Then context, Main Keyword, what makes collection
   different. 2-3 sentences total.
-  FORMAT: "[Collection name] are [clear definition]. [Differentiator]. [Key detail]."
-  EXAMPLE: "Skull biker rings are heavy-duty statement rings built for riders
-  who treat jewelry like gear, not decoration. Most are cast in 316L stainless
-  steel or .925 sterling silver — metals that handle road grime and sweat."
+
+  **IMPORTANT — VARY YOUR OPENING PATTERN:**
+  The first sentence must define the collection, but DO NOT always use the
+  same "[Collection name] are [definition]" structure. Google's Feb 2026
+  Core Update flags repetitive sentence patterns across category pages as
+  "scaled AI content." Rotate between these opening formats:
+
+  FORMAT A (definition): "[Collection name] are [what they are]."
+  FORMAT B (audience-first): "Built for [audience], [collection name] [key trait]."
+  FORMAT C (material-lead): "Cast in [material], these [collection type] [purpose]."
+  FORMAT D (statement): "Every [collection item] in this collection [unique fact]."
+  FORMAT E (direct): "If you [need/want], [collection name] [delivers how]."
+
+  EXAMPLES (each uses a different format — this is what we want across collections):
+  A: "Skull biker rings are heavy-duty statement rings built for riders
+     who treat jewelry like gear, not decoration."
+  B: "Built for veterans and active-duty service members, military rings
+     carry real insignia detail in solid .925 sterling silver."
+  C: "Cast in solid .925 sterling silver, these owl rings feature hand-carved
+     feather detail that holds up to daily wear."
+  D: "Every cross pendant in this collection is handcast — no stamped,
+     hollow, or plated pieces."
+  E: "If you ride and your jewelry doesn't survive the road, these biker
+     bracelets are built from the same 316L steel as your exhaust."
+
+  BAD (every collection starts the same — triggers AI content pattern detection):
+  "Cross rings are bold, faith-inspired bands..."
+  "Skull rings are heavy-duty statement rings..."
+  "Owl rings are handcrafted sterling silver..."
+  "Military rings are symbol-heavy bands..."
+  ↑ This pattern across 50 collections = flagged as scaled AI output.
 - **Paragraph 2 (detail + "best for"):** Who it's for, key attributes,
   secondary/long-tail keywords. Include 1-2 specific "best for" statements
   that AI can extract (e.g., "best for daily wear," "best for riders who
@@ -2052,7 +2079,20 @@ def summarize_collection_products(shop_url, access_token, collection_id, max_pro
 
 def generate_collection_content(gemini_key, claude_key, openai_key, selected_model, main_keyword, collection_url, catalog_text="", collection_products_summary=""):
     """Generate SEO collection page content."""
+    import random
     prompt = SEO_COLLECTION_WRITER_PROMPT.replace("{main_keyword}", main_keyword).replace("{collection_url}", collection_url)
+    
+    # Randomize opening format to prevent repetitive patterns across collections
+    formats = ["A", "B", "C", "D", "E"]
+    chosen_format = random.choice(formats)
+    format_labels = {
+        "A": "definition — '[Collection] are [what they are].'",
+        "B": "audience-first — 'Built for [audience], [collection] [trait].'",
+        "C": "material-lead — 'Cast in [material], these [type] [purpose].'",
+        "D": "statement — 'Every [item] in this collection [unique fact].'",
+        "E": "direct — 'If you [need], [collection] [delivers].'",
+    }
+    prompt += f"\n\n⚠️ OPENING FORMAT INSTRUCTION: For THIS collection, use FORMAT {chosen_format} ({format_labels[chosen_format]}) for the first sentence of Paragraph 1. Do NOT use '[Collection name] are...' unless format A was assigned."
     if collection_products_summary:
         prompt += f"""
 
