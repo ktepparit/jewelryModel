@@ -1608,7 +1608,8 @@ def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonn
     
     content = []
     if img_pil_list:
-        for img in img_pil_list:
+        for idx, img in enumerate(img_pil_list):
+            content.append({"type": "text", "text": f"[IMAGE {idx+1} of {len(img_pil_list)}]"})
             content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": img_to_base64(img)}})
     content.append({"type": "text", "text": prompt})
     
@@ -1642,7 +1643,8 @@ def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-5.2"):
     
     content = []
     if img_pil_list:
-        for img in img_pil_list:
+        for idx, img in enumerate(img_pil_list):
+            content.append({"type": "text", "text": f"[IMAGE {idx+1} of {len(img_pil_list)}]"})
             content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_to_base64(img)}"}})
     content.append({"type": "text", "text": prompt})
     
@@ -1779,7 +1781,17 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
-        prompt += f"\n\nCRITICAL: You received {num_images} images. Return exactly {num_images} objects in 'image_seo' array."
+        prompt += f"""
+
+CRITICAL IMAGE ORDERING:
+You received {num_images} images labeled [IMAGE 1] through [IMAGE {num_images}].
+You MUST return exactly {num_images} objects in the 'image_seo' array.
+The FIRST object in image_seo corresponds to [IMAGE 1], the SECOND to [IMAGE 2], etc.
+Each file_name and alt_tag MUST describe what is ACTUALLY VISIBLE in that specific
+labeled image — not what you think the image should show based on other images.
+If [IMAGE 3] shows a side view with a question mark design, then image_seo[2]
+must describe a side view with a question mark — NOT an ankh or any other symbol
+visible in a different image. Match by label number, not by guessing."""
     if catalog_text:
         prompt += f"\n\n--- REAL STORE CATALOG DATA (for 'You Might Also Want' section) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
@@ -1796,7 +1808,9 @@ def generate_full_product_content(gemini_key, claude_key, openai_key, selected_m
     # Default: Gemini (with fallback)
     parts = [{"text": prompt}]
     if img_pil_list:
-        for img in img_pil_list: parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
+        for idx, img in enumerate(img_pil_list):
+            parts.append({"text": f"[IMAGE {idx+1} of {len(img_pil_list)}]"})
+            parts.append({"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img)}})
     payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload, timeout=120)
 
