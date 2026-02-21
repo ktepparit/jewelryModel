@@ -155,6 +155,35 @@ NEVER use any of these (or close variants):
 > "the kind of weight/heft that [cheap thing] cannot"
 > "no stamped, hollow, or plated pieces" (once per site is fine — not in every description)
 
+**ALSO BANNED — Negative Comparison Patterns:**
+Even if the exact words differ, repeating the SAME sentence structure
+across many product pages is a detectable AI pattern. NEVER open or
+anchor a paragraph with these structures:
+> "Most [product type] online [negative statement about competitors]..."
+> "Most [product type] you'll find [negative]..."
+> "This isn't [cheap thing] [negative detail]..."
+> "Unlike most [product type] that [flaw]..."
+> "[Product type] from other stores [negative]..."
+
+BAD (different words but identical pattern — Google detects this across pages):
+- "Most skull rings online feel flat in the hand and lose detail fast."
+- "Most claw rings online look fierce in photos but lose their punch."
+- "Most two-tone rings look like costume jewelry within a month."
+- "This isn't gift-shop merch stamped out of mystery metal."
+↑ 4 different products, 4 different words, but the SAME negative-comparison
+  opening structure. Across 50+ product pages = scaled AI pattern.
+
+**THE CORE PRINCIPLE:** Your description should stand on its OWN merits.
+Let the product's specific details (weight, material grade, construction,
+dimensions) speak for themselves. A confident description doesn't need
+to put down competitors — it simply shows exactly what THIS product is.
+
+GOOD approaches that show quality without negative comparisons:
+- Lead with a specific fact: "34 grams of solid 316L steel, lost-wax cast."
+- Lead with a sensory detail: "The knurled edges grip your skin when you twist it."
+- Lead with a use case: "Sized to sit just below the knuckle on most index fingers."
+- Lead with a material story: ".925 sterling silver — same alloy used in Navajo silversmithing."
+
 Instead of repeating the same "we're better than cheap stuff" contrast,
 use SPECIFIC details unique to THIS product:
 - Name the exact material grade: "316L surgical stainless steel" vs "quality materials"
@@ -954,8 +983,16 @@ collection pages triggers Google's "scaled AI content" detection.
 NEVER use: "cheap hollow castings cannot match", "unlike cheap alternatives",
 "mass-produced alternatives can't match", "not like cheap hollow pieces",
 "the kind of weight that [cheap thing] cannot", "no stamped, hollow, or plated".
-Instead, show quality through SPECIFIC details: exact material grade,
-weight range, construction method — not repeated cheap-vs-us contrasts.
+
+**ALSO BANNED — Negative Comparison Patterns:**
+Even if exact words differ, the SAME sentence structure repeated across
+many collection pages is detectable. NEVER use these structures:
+- "Most [product type] online [negative about competitors]..."
+- "This isn't [cheap thing] [negative detail]..."
+- "Unlike most [product type] that [flaw]..."
+These are the same pattern with different words — Google detects it site-wide.
+Instead, let specific details (material grade, weight range, construction)
+show quality on their own without putting down competitors.
 
 ### [RULE 3 — KEYWORD ANALYSIS & INTEGRATION]
 Using the Main Keyword, determine:
@@ -1030,8 +1067,8 @@ Write 2-3 short paragraphs:
      sterling silver — averaging 18 to 30 grams depending on design."
   E: "If you ride and your jewelry doesn't survive the road, these biker
      bracelets are built from the same 316L steel as your exhaust."
-  F: "Most celtic rings you'll find online weigh under 10 grams.
-     These run 20 to 35 grams in solid .925 sterling silver — you feel the difference."
+  F: "Celtic rings need weight to show off their knotwork — these run 20
+     to 35 grams in solid .925 sterling silver, sized from 7 to 14."
   G: "At 25 to 45 grams per ring, these dragon rings have the kind of
      weight you notice the second you slide one on."
   H: "Looking for a ring that says something without saying a word?
