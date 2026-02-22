@@ -949,6 +949,18 @@ You MUST return the result in RAW JSON format ONLY. Do not include markdown back
   ]
 }
 
+**⚠️ CRITICAL — html_content boundaries:**
+The "html_content" field must contain ONLY the visible product description
+that gets published on the page. This means:
+- START with the Hook section (first <p> tag)
+- END with the "You Might Also Want" section (last </p> tag)
+- Do NOT include the META section (Product Title H1, Meta Title, Meta Description)
+  inside html_content — those go in their own JSON fields above.
+- Do NOT include the Keyword Analysis HTML comment inside html_content.
+- Do NOT include any H1 tags inside html_content (the H1 is the product_title_h1 field).
+The META data (title, meta_title, meta_description) lives in separate JSON keys.
+If you put them inside html_content, they will be published on the page as visible text.
+
 ### URL SLUG RULES (for the url_slug field):
 ### Updated for Google's 2026 URL Best Practices
 
