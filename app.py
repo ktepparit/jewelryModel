@@ -758,6 +758,9 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
    the same 2-3 "popular" items. Pick items relevant to THIS product's material,
    style, and category. If this is a brass ring, link to other brass pieces.
    If this is a gothic pendant, link to gothic-themed items.
+7. **NEVER link to the current product itself.** If the product you are
+   writing about appears in the catalog data, SKIP it. Only link to
+   OTHER products and collections — never back to the same page.
 
 > This section creates internal links to related product/collection pages,
 > which strengthens your site's crawlability and topical authority.
@@ -2122,11 +2125,13 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
-def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text="", design_story=""):
+def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text="", design_story="", product_handle=""):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
         prompt += f"\n\nNOTE: This product has {num_images} images. You do NOT need to generate image_seo — it will be handled separately. Return an EMPTY array for image_seo: \"image_seo\": []"
+    if product_handle:
+        prompt += f"\n\n⚠️ THIS PRODUCT'S PATH: /products/{product_handle}\nDo NOT link to this path in the 'You Might Also Want' section. Only link to OTHER products."
     if design_story and design_story.strip():
         prompt += f"""
 
@@ -3075,9 +3080,11 @@ with tab3:
                     else:
                         with st.spinner("Fetching..."):
                             imgs, _ = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_writer_id)
-                            desc_html, _, _, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
+                            desc_html, prod_title, prod_handle, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             if imgs: st.session_state.writer_shopify_imgs = imgs
                             if desc_html: st.session_state[text_area_key] = remove_html_tags(desc_html)
+                            # Store product handle for self-link prevention
+                            st.session_state['writer_product_handle'] = prod_handle or ""
                             # Clear previous results and image SEO edits on new fetch
                             st.session_state.writer_result = None
                             st.session_state.pop("writer_img_seo_edits", None)
@@ -3116,7 +3123,7 @@ with tab3:
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate", type="primary", key=f"writer_run_btn_{writer_key_id}")
         if wb2.button("🔄 Start Over", key=f"writer_startover_btn_{writer_key_id}"):
-            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_key_counter += 1; st.session_state.pop("writer_img_seo_edits", None); st.session_state.pop("_writer_img_seo_fingerprint", None); st.rerun()
+            st.session_state.writer_result = None; st.session_state.writer_shopify_imgs = []; st.session_state.writer_fetched_prod_id = ""; st.session_state.writer_product_handle = ""; st.session_state.writer_key_counter += 1; st.session_state.pop("writer_img_seo_edits", None); st.session_state.pop("_writer_img_seo_fingerprint", None); st.rerun()
     with c2:
         if run_write:
             # Check API key based on selected model
@@ -3188,7 +3195,7 @@ with tab3:
                             if catalog.get("collections") or catalog.get("products"):
                                 catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
                         except: pass
-                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text, design_story=design_story)
+                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text, design_story=design_story, product_handle=st.session_state.get('writer_product_handle', ''))
                         # Show which Gemini model was actually used
                         if current_text_model == "Gemini" and json_txt:
                             active_m = st.session_state.get("_gemini_active_model", "")
@@ -3674,7 +3681,7 @@ with tab_batch:
                                     
                                     json_txt, err = generate_full_product_content(
                                         gemini_key, claude_key, openai_key, batch_model, 
-                                        None, raw_input, catalog_text
+                                        None, raw_input, catalog_text, product_handle=prod.get("handle", "")
                                     )
                                     
                                     if json_txt:
