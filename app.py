@@ -3111,11 +3111,12 @@ with tab3:
                 cols = st.columns(4)
                 for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
-        design_story = st.text_input(
+        design_story = st.text_area(
             "🎨 Design Story / Cultural Reference (optional):",
             key=f"writer_design_story_{writer_key_id}",
-            placeholder="e.g. medusa, celtic knot, Keith Richards — wore Bill Wall skull ring since 1980s",
-            help="Mythology/symbolism = just type the name. Real people/brands = add a short fact to ensure accuracy."
+            height=80,
+            placeholder="e.g.\nmedusa — Greek mythology, symbol of power\nKeith Richards — wore Bill Wall skull ring since 1980s\nCeltic knot — infinite loop, no beginning or end",
+            help="Mythology/symbolism = just type the name. Real people/brands = add a short fact to ensure accuracy. One per line or comma-separated."
         )
         gen_mode = st.radio("Generation Mode:", 
             ["📝 Content + Image SEO", "📝 Content Only", "🖼️ Image SEO Only"],
