@@ -240,6 +240,34 @@ specific sensory details. Think:
 > This is the core of Google's E-E-A-T framework — Experience, Expertise,
 > Authoritativeness, Trustworthiness.
 
+**⚠️ CRITICAL FOR LARGE CATALOGS (1000+ products in same category):**
+When writing sensory details for many products in the same category
+(e.g. 1,000 rings), each product's sensory details MUST describe
+something UNIQUE to THAT specific product — not repeat a generic
+template with swapped numbers.
+
+The TOPIC of sensory details (weight, texture, feel) will naturally
+recur across rings — that's fine, they're all rings. But HOW you
+describe it must be different each time:
+
+  Product A (skull ring): "The jaw hinge clicks when you flex your knuckle."
+  Product B (signet ring): "Flat-top face sits flush — nothing catches on pockets."
+  Product C (band ring): "Smooth inside, knurled outside. You feel the contrast."
+  Product D (chain ring): "The links shift when you move. Not loose — alive."
+
+All 4 describe how the ring FEELS, but each describes something only
+THAT ring does. This is unique content, not a template.
+
+WRONG approach (template with swapped numbers):
+  Product A: "22 grams of cold silver settling into your palm..."
+  Product B: "40 grams of cool metal hitting your palm..."
+  Product C: "31 grams of cold metal pooling in your palm..."
+  ↑ Same structure, same sensory angle, same imagery. Google sees this
+  as template-based publishing across hundreds of pages = scaled content abuse.
+
+The rule is: same CATEGORY of detail is fine (weight, texture, feel).
+Same SENTENCE STRUCTURE describing it is not.
+
 ### [RULE 4 — HONEST OBSERVATION]
 
 Include exactly ONE small, honest imperfection or caveat.
@@ -252,6 +280,24 @@ an outlet. Minor complaint for what you get."
 > December 2025 Core Update) continues to crack down on thin, one-sided
 > AI content. One-sided praise reads as marketing copy.
 > A balanced view signals genuine experience and survives core updates.
+
+**⚠️ LARGE CATALOG WARNING:**
+When writing honest observations for 1,000+ products in the same category,
+you MUST vary what you observe. Do NOT default to the same caveats:
+
+WRONG (same caveat recycled across many rings):
+  Every ring: "Runs half a size small — order up."
+  Every ring: "Sterling tarnishes — keep in pouch."
+  ↑ If 500 rings all end with the same sizing tip → template.
+
+RIGHT (caveat specific to THIS product's actual characteristics):
+  Skull ring: "The teeth on the jaw catch on knit fabrics."
+  Wide band: "At 12mm wide, it blocks your other fingers. Not for stacking."
+  Thin signet: "Light enough to forget you're wearing it — some people want more heft."
+  Chain ring: "Dirt gets in the links. A soft brush helps."
+
+Each observation tells the customer something they'd only know if someone
+actually wore THAT specific ring. That's real E-E-A-T.
 
 ### [RULE 5 — WRITE LIKE A REAL PERSON]
 
@@ -458,19 +504,7 @@ All keywords must feel invisible — embedded in genuine observations,
 not bolted on. If a keyword feels forced when you read it aloud,
 rewrite the sentence. Do NOT keyword-stuff.
 
-### [RULE 10 — FRESHNESS WITHOUT EXPIRY]
-
-Include ONE subtle time-anchor that signals this content is current
-without dating it too fast:
-
-- ✅ "The 2026 version finally adds..."
-- ✅ "Since the latest firmware update..."
-- ✅ "The newest colorway just dropped and..."
-- ❌ "As of February 2026..." (expires too quickly)
-- ❌ "This month's best pick..." (stale in weeks)
-- ❌ No time reference at all (Google can't assess freshness)
-
-### [RULE 11 — AI CONTENT DETECTION & GEO COMPLIANCE (2026)]
+### [RULE 10 — AI CONTENT DETECTION & GEO COMPLIANCE (2026)]
 
 Google's February 2026 Core Update (confirmed Feb 1, 2026) doubled down
 on the December 2025 Core Update's crackdown on thin AI content.
@@ -2088,11 +2122,30 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
-def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text=""):
+def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text="", design_story=""):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
         prompt += f"\n\nNOTE: This product has {num_images} images. You do NOT need to generate image_seo — it will be handled separately. Return an EMPTY array for image_seo: \"image_seo\": []"
+    if design_story and design_story.strip():
+        prompt += f"""
+
+--- DESIGN STORY / CULTURAL REFERENCE ---
+The user provided this context about the product's design inspiration:
+"{design_story.strip()}"
+
+INSTRUCTIONS FOR USING THIS:
+- If it's a mythology, symbol, or cultural concept (e.g. "medusa", "celtic knot",
+  "fleur de lis"): You may expand on it with your knowledge. Weave the cultural
+  meaning naturally into the Hook or "What It's Like to Use" section. Keep it
+  to 1-2 sentences — this is a product page, not a history lesson.
+- If it references a REAL PERSON or BRAND (e.g. "Keith Richards", "MF DOOM",
+  "Versace"): Use ONLY the facts the user provided. Do NOT add details you
+  are not certain about. If the user only gave a name with no facts, mention
+  the cultural association briefly without inventing specifics.
+- The design story should enhance the product description, not dominate it.
+  Maximum 2 sentences woven into existing sections.
+--- END DESIGN STORY ---"""
     if catalog_text:
         prompt += f"\n\n--- REAL STORE CATALOG DATA (for 'You Might Also Want' section) ---\n{catalog_text}\n--- END CATALOG DATA ---"
     
@@ -3051,6 +3104,12 @@ with tab3:
                 cols = st.columns(4)
                 for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
+        design_story = st.text_input(
+            "🎨 Design Story / Cultural Reference (optional):",
+            key=f"writer_design_story_{writer_key_id}",
+            placeholder="e.g. medusa, celtic knot, Keith Richards — wore Bill Wall skull ring since 1980s",
+            help="Mythology/symbolism = just type the name. Real people/brands = add a short fact to ensure accuracy."
+        )
         gen_mode = st.radio("Generation Mode:", 
             ["📝 Content + Image SEO", "📝 Content Only", "🖼️ Image SEO Only"],
             key=f"writer_gen_mode_{writer_key_id}", horizontal=True)
@@ -3129,7 +3188,7 @@ with tab3:
                             if catalog.get("collections") or catalog.get("products"):
                                 catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
                         except: pass
-                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text)
+                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text, design_story=design_story)
                         # Show which Gemini model was actually used
                         if current_text_model == "Gemini" and json_txt:
                             active_m = st.session_state.get("_gemini_active_model", "")
