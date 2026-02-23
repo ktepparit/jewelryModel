@@ -2722,12 +2722,25 @@ with tab1:
             sh_secret_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             if sh_secret_shop and sh_secret_token:
-                sh_gen_id = st.text_input("Product ID", key=f"gen_shopify_id_{gen_key_id}")
+                gen_search_mode = st.radio("Search by:", ["SKU", "Product ID"], key=f"gen_search_mode_{gen_key_id}", horizontal=True)
+                if gen_search_mode == "SKU":
+                    sh_gen_input = st.text_input("SKU", key=f"gen_shopify_sku_{gen_key_id}", placeholder="e.g. BRS-001")
+                else:
+                    sh_gen_input = st.text_input("Product ID", key=f"gen_shopify_id_{gen_key_id}")
                 col_fetch, col_clear = st.columns([2, 1])
                 if col_fetch.button("⬇️ Fetch Images", key=f"gen_fetch_btn_{gen_key_id}"):
-                    if not sh_gen_id: st.warning("Enter ID")
+                    if not sh_gen_input: st.warning("Enter SKU or ID")
                     else:
                         with st.spinner("Downloading..."):
+                            if gen_search_mode == "SKU":
+                                resolved_id, sku_title, sku_handle, sku_err = search_shopify_product_by_sku(sh_secret_shop, sh_secret_token, sh_gen_input)
+                                if sku_err:
+                                    st.error(f"SKU lookup failed: {sku_err}"); st.stop()
+                                sh_gen_id = resolved_id
+                                st.caption(f"✅ Found: **{sku_title}** (ID: {resolved_id})")
+                            else:
+                                sh_gen_id = sh_gen_input
+                            
                             imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_gen_id)
                             if imgs:
                                 _, _, handle, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_gen_id)
@@ -2935,12 +2948,25 @@ with tab_retouch:
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             if sh_secret_shop and sh_secret_token:
                 st.success("✅ Shopify Connected")
-                sh_imp_id = st.text_input("Product ID to Fetch", key=f"rt_imp_id_{rt_key_id}")
+                rt_search_mode = st.radio("Search by:", ["SKU", "Product ID"], key=f"rt_search_mode_{rt_key_id}", horizontal=True)
+                if rt_search_mode == "SKU":
+                    sh_imp_input = st.text_input("SKU", key=f"rt_imp_sku_{rt_key_id}", placeholder="e.g. BRS-001")
+                else:
+                    sh_imp_input = st.text_input("Product ID to Fetch", key=f"rt_imp_id_{rt_key_id}")
                 c_fetch, c_clear = st.columns([2,1])
                 if c_fetch.button("⬇️ Fetch Images", key=f"rt_fetch_btn_{rt_key_id}"):
-                    if not sh_imp_id: st.warning("Enter ID")
+                    if not sh_imp_input: st.warning("Enter SKU or ID")
                     else:
                         with st.spinner("Downloading..."):
+                            if rt_search_mode == "SKU":
+                                resolved_id, sku_title, sku_handle, sku_err = search_shopify_product_by_sku(sh_secret_shop, sh_secret_token, sh_imp_input)
+                                if sku_err:
+                                    st.error(f"SKU lookup failed: {sku_err}"); st.stop()
+                                sh_imp_id = resolved_id
+                                st.caption(f"✅ Found: **{sku_title}** (ID: {resolved_id})")
+                            else:
+                                sh_imp_id = sh_imp_input
+                            
                             imgs, err = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_imp_id)
                             if imgs:
                                 st.session_state.shopify_fetched_imgs = imgs
