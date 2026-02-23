@@ -1750,6 +1750,46 @@ def get_shopify_product_details(shop_url, access_token, product_id):
         return None, None, None, f"Error {response.status_code}: {response.text}"
     except Exception as e: return None, None, None, str(e)
 
+def search_shopify_product_by_sku(shop_url, access_token, sku):
+    """Search for a product by SKU via Shopify Admin API GraphQL."""
+    shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
+    if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
+    url = f"https://{shop_url}/admin/api/2024-01/graphql.json"
+    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+    
+    query = """
+    {
+      productVariants(first: 1, query: "sku:%s") {
+        edges {
+          node {
+            id
+            sku
+            product {
+              id
+              title
+              handle
+            }
+          }
+        }
+      }
+    }
+    """ % sku.replace('"', '\\"')
+    
+    try:
+        response = requests.post(url, headers=headers, json={"query": query}, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+            if edges:
+                node = edges[0]["node"]
+                # Extract numeric product ID from GID
+                gid = node["product"]["id"]  # e.g. "gid://shopify/Product/123456"
+                product_id = gid.split("/")[-1]
+                return product_id, node["product"]["title"], node["product"]["handle"], None
+            return None, None, None, f"No product found with SKU: {sku}"
+        return None, None, None, f"Error {response.status_code}: {response.text[:200]}"
+    except Exception as e: return None, None, None, str(e)
+
 # --- SHOPIFY ADMIN: LIST PRODUCTS & COLLECTIONS ---
 def _shopify_admin_get(shop_url, access_token, endpoint, timeout=30, retries=3):
     """Robust GET for Shopify Admin API with retry and timeout."""
@@ -3141,12 +3181,26 @@ with tab3:
             sh_secret_shop = st.secrets.get("SHOPIFY_SHOP_URL", "")
             sh_secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN", "")
             if sh_secret_shop and sh_secret_token:
-                sh_writer_id = st.text_input("Product ID", key=f"writer_shopify_id_{writer_key_id}")
+                search_mode = st.radio("Search by:", ["SKU", "Product ID"], key=f"writer_search_mode_{writer_key_id}", horizontal=True)
+                if search_mode == "SKU":
+                    sh_writer_input = st.text_input("SKU", key=f"writer_shopify_sku_{writer_key_id}", placeholder="e.g. BRS-001")
+                else:
+                    sh_writer_input = st.text_input("Product ID", key=f"writer_shopify_id_{writer_key_id}")
                 col_w_fetch, col_w_clear = st.columns([2, 1])
                 if col_w_fetch.button("⬇️ Fetch All", key=f"writer_fetch_btn_{writer_key_id}"):
-                    if not sh_writer_id: st.warning("Enter ID")
+                    if not sh_writer_input: st.warning("Enter SKU or ID")
                     else:
                         with st.spinner("Fetching..."):
+                            # Resolve product ID
+                            if search_mode == "SKU":
+                                resolved_id, sku_title, sku_handle, sku_err = search_shopify_product_by_sku(sh_secret_shop, sh_secret_token, sh_writer_input)
+                                if sku_err:
+                                    st.error(f"SKU lookup failed: {sku_err}"); st.stop()
+                                sh_writer_id = resolved_id
+                                st.caption(f"✅ Found: **{sku_title}** (ID: {resolved_id})")
+                            else:
+                                sh_writer_id = sh_writer_input
+                            
                             imgs, _ = get_shopify_product_images(sh_secret_shop, sh_secret_token, sh_writer_id)
                             desc_html, prod_title, prod_handle, _ = get_shopify_product_details(sh_secret_shop, sh_secret_token, sh_writer_id)
                             if imgs: st.session_state.writer_shopify_imgs = imgs
