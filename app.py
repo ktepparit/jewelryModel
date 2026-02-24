@@ -189,6 +189,23 @@ NEVER use any of these (or close variants):
 > "the kind of weight/heft that [cheap thing] cannot"
 > "no stamped, hollow, or plated pieces" (once per site is fine — not in every description)
 
+**ALSO BANNED — Formulaic AI Openers & Transitions:**
+These are "comfort phrases" that AI uses to start paragraphs or transition
+between sections. They are AI tells — easily detectable when repeated
+across hundreds of product pages:
+> "One thing to know:"
+> "Here's the thing:"
+> "Here's what you need to know:"
+> "Let's talk about..."
+> "The first thing you notice:"
+> "First thing you notice when..."
+> "What really sets this apart:"
+> "What stands out here:"
+> "But here's where it gets interesting:"
+> "The bottom line:"
+These are crutches. A real person writing about a product they've held
+doesn't announce what they're about to say — they just say it.
+
 **ALSO BANNED — ALL Negative-Then-Positive Comparison Structures:**
 
 This is a UNIVERSAL RULE, not a list of specific phrases to avoid.
@@ -665,6 +682,80 @@ this product:
 - Include your **1 comparison phrase** here (Rule 8 + Rule 9).
 
 Write 3-5 short paragraphs. Vary rhythm aggressively (Rule 1).
+
+**⚠️ SENSORY WRITING ARCHITECTURE — ANTI-PATTERN RULES:**
+
+When describing how a product feels, looks, or sounds, you MUST vary
+the SENTENCE ARCHITECTURE — not just the words. AI tends to lock into
+a few comfortable structures and reuse them across all products.
+
+**BANNED STRUCTURE 1: "Touch test" template**
+"[Body part action] and you'll feel [texture detail] — not [generic],
+but [specific] with [micro-detail] between them."
+
+This structure appears across many AI-generated jewelry descriptions:
+  BAD: "Run your thumb across the skull and you'll feel the hollow eye
+  sockets — not shallow dents, but deep-set cavities with rough edges."
+  BAD: "Slide your finger along the dragon's spine and you'll feel
+  every scale — not flat etchings, but raised plates with sharp edges."
+  BAD: "Run your hand across the stingray skin and you'll feel the pearl
+  cluster — not smooth leather, but calcified nodules with tiny ridges."
+  ↑ All three: [action] + you'll feel + not [X], but [Y] + with [Z]
+
+To describe texture, use DIFFERENT approaches each time:
+  APPROACH A (observation, no instruction): "The mane curls have sharp
+    ridges between them — deep enough to catch a fingernail."
+  APPROACH B (comparison): "The cross-hatching on the grip feels like
+    a file — coarse enough to notice through a glove."
+  APPROACH C (surprise/discovery): "The inside of the band is mirror-smooth.
+    Didn't expect that, given how aggressive the outside is."
+  APPROACH D (functional): "The hammered finish actually helps with grip.
+    The ring doesn't spin on your finger the way a polished band would."
+  APPROACH E (specific to one detail): "The feather engraving on the left
+    wing is sharper than on the right — handmade variation, not a defect."
+  APPROACH F (wear-over-time): "After a week, the high points start to
+    develop a brighter polish. The recesses stay dark."
+
+**BANNED STRUCTURE 2: "Sizing/fit advisory" template**
+For large rings (and similar products), AI defaults to the same advice:
+  "One thing to know: [dimension]. It sits high off the finger.
+  [Design element] extends over the neighboring knuckle. If you stack
+  rings, you'll feel the edges. Best worn solo on the index or middle
+  finger with some breathing room on either side."
+
+This is a TEMPLATE. When 500+ large rings all end with the same stacking
+warning and "best worn solo on index or middle finger" — Google sees
+template content.
+
+RULES FOR FIT/SIZING OBSERVATIONS:
+1. Do NOT use "One thing to know:" as an opener — this is an AI tell.
+2. Do NOT default to "Best worn solo on index or middle finger" unless
+   the product data specifically suggests this and it's genuinely unusual.
+3. Fit advice MUST be specific to THIS product's unique shape, not a
+   generic "big ring = wear solo" formula.
+4. NOT every large ring needs a stacking warning. Only mention stacking
+   if the design has specific protrusions, moving parts, or unusual
+   geometry that actually causes interference.
+5. Use DIFFERENT phrasings for fit observations:
+
+  WRONG (same advice, every large ring):
+    Ring A: "Best worn solo on index or middle finger with breathing room."
+    Ring B: "Best worn solo on index or middle finger with space on either side."
+    Ring C: "Wear it solo — give it room on adjacent fingers."
+    ↑ Same advice recycled with minor word changes.
+
+  RIGHT (fit advice specific to THIS ring's actual design):
+    Skull ring with jaw hinge: "The jaw extends 3mm past the band edge.
+      It'll tap against a ring on the next finger if you stack tight."
+    Pixiu ring with tall face: "The face stands 8mm above the band.
+      If you type for a living, you'll notice it."
+    Wide flat signet: "It's wide but low-profile — sits flat enough
+      to stack if the neighboring ring isn't domed."
+    Snake wrap ring: "The tail wraps past the band onto the next knuckle.
+      That's the design — just know it before you size."
+
+  Each observation describes a SPECIFIC physical reality of THAT ring,
+  not a generic "big ring" disclaimer.
 
 ---
 
