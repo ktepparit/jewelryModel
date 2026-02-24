@@ -827,21 +827,51 @@ If you're writing about a "Brass Skull Ring with Red Eyes":
 ### ## META (for CMS use — do not publish on page)
 
 **Product Title (H1) — RULES:**
+
+**Purpose:** The H1 is not for search results (that's Meta Title's job). The H1
+is for the VISITOR already on the page AND for AI systems (Google AI Mode,
+ChatGPT Shopping, Perplexity) that parse it as a "data label" to categorize
+and recommend the product. In 2026 AEO (Answer Engine Optimization), the H1
+is one of the first signals AI agents read to decide if your product matches
+a user's query.
+
+**Structure for ecommerce product pages:**
+- Format: [Design/Motif] + [Material] + [Product Type] + [Optional Attribute]
+  This maps directly to Product schema `name` property, which Google Shopping
+  and AI agents use to index the product.
 - Main Keyword MUST appear within the H1, ideally near the front.
 - First letter MUST be capitalized. Use Title Case (capitalize major words).
-- Clear, descriptive, keyword-rich product name.
 - Keep under 70 characters for display consistency.
-- Must NOT be identical to the Meta Title (they serve different purposes:
-  H1 is for the page visitor, Meta Title is for the SERP).
-- Include: [Product Name] + [Key Attribute] (material, style, or category)
-- The H1 should tell a shopper exactly what this product IS at a glance.
-  GOOD: "Skull Flame Ring — Heavy 316L Stainless Steel for Bikers"
+- Do NOT start with the brand name — it wastes prime keyword space.
+  The brand is already visible in the site header and domain.
+
+**Relationship to Meta Title:**
+- H1 and Meta Title should target the SAME primary keyword but be phrased
+  differently. The Meta Title is punchy and click-optimized for SERPs.
+  The H1 is descriptive and natural for on-page clarity.
+- If H1 and Meta Title contradict each other, Google may rewrite your
+  Meta Title using the H1 — which defeats your SERP optimization.
+- Keep them aligned in topic but different in phrasing.
+  GOOD pair:
+    Meta Title: "Skull Flame Ring — Heavy 316L Steel | Bikerringshop"
+    H1: "Skull Flame Ring — 316L Stainless Steel with Hand-Finished Detail"
+  BAD pair:
+    Meta Title: "Best Gothic Rings for Men 2026"
+    H1: "Heavy Skull Ring in Stainless Steel" ← topic mismatch, Google may rewrite
+
+**Quality checklist:**
+- Does the H1 tell a shopper exactly what this product IS at a glance? ✓
+- Could an AI agent use the H1 alone to categorize this product correctly? ✓
+- Does it include: design/motif + material + product type? ✓
+- Is it different from (but aligned with) the Meta Title? ✓
+
+  GOOD: "Skull Flame Ring — Heavy 316L Stainless Steel"
   GOOD: "Gothic Cross Sterling Silver Pendant with Black Onyx"
-  BAD: "Amazing Skull Ring Best Quality 2026" (vague, dated, keyword-stuffed)
+  GOOD: "Crocodile Leather Bifold Wallet — Handmade Exotic Skin"
+  BAD: "Amazing Skull Ring Best Quality" (vague, no material/type)
   BAD: "Product #4521" (no description)
   BAD: "The Most Incredible Ring You've Ever Seen" (no product info)
-- For jewelry/accessories, always include: [design/motif] + [material] + [product type]
-  This helps Google Product schema AND AI systems categorize the item correctly.
+  BAD: "Bikerringshop — Skull Flame Ring" (brand prefix wastes H1 space)
 
 **Meta Title — RULES:**
 - MUST be under 60 characters (Google truncates at ~60 / ~580px pixel width).
