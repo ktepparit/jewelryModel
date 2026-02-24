@@ -689,17 +689,84 @@ IMPORTANT: Every spec line MUST use the dark-blue color (#1a3a6b) for the spec n
 
 ### ## Questions You're Probably Asking
 
-Write 3-4 Q&As from a skeptical buyer's perspective.
+Write 3-4 Q&As. Mix of buyer-objection questions AND (when applicable)
+design meaning / symbolism questions.
 
-**Question format:** Blunt, real-language questions a buyer would
-actually think (not SEO-bait questions).
+**WHEN TO INCLUDE A SYMBOLISM/MEANING QUESTION:**
+If the product features a recognizable symbol, cultural motif, mythology,
+or design story (e.g. skull, lion, cross, Medusa, Celtic knot, fleur-de-lis,
+dragon, Norse runes, Ouroboros, Freemason compass, Evil Eye, Hamsa, etc.),
+include exactly 1 question about the meaning/symbolism of that design.
+
+If the product is plain, minimal, or has no cultural/symbolic design element
+(e.g. simple band ring, plain leather wallet, minimalist pendant), do NOT
+force a symbolism question — use all 3-4 questions for product concerns.
+
+**SYMBOLISM QUESTION — ANTI-PATTERN RULES:**
+When you write a meaning/symbolism question, you MUST vary the phrasing.
+NEVER reuse the same question structure across products.
+
+Pool of question FORMATS to rotate through (use a DIFFERENT one each time):
+- "What does the [symbol] actually symbolize?"
+- "Is there a meaning behind the [design element]?"
+- "Where does the [motif] design come from?"
+- "Why [symbol]? What's the story behind it?"
+- "What's the [cultural origin] connection here?"
+- "Does the [symbol] have a specific meaning in [culture]?"
+- "Is the [design element] purely decorative, or does it mean something?"
+- "What's the history behind the [motif] design?"
+
+WRONG — same pattern across products (Google flags this):
+  Product A: "What does the rampant lion actually symbolize?"
+  Product B: "What does the Medusa actually symbolize?"
+  Product C: "What does the Celtic cross actually symbolize?"
+  ↑ Identical "[What does the X actually symbolize?]" template
+
+RIGHT — varied phrasing across products:
+  Product A: "What does the rampant lion actually symbolize?"
+  Product B: "Is there a meaning behind the Medusa head, or is it just a cool design?"
+  Product C: "Where does the Celtic cross come from originally?"
+  Product D: "Why a Ouroboros? What's the story?"
+
+**SYMBOLISM ANSWER RULES:**
+- Open with a DIRECT factual answer (1 sentence: what it symbolizes).
+- Add 1-2 sentences of context (origin, culture, era).
+- If the user provided a Design Story → use THAT as the primary source.
+- If it's well-known mythology/symbol → AI may use general knowledge.
+- If referencing a REAL PERSON → use ONLY facts the user provided.
+- End with how the design connects to THIS specific product (1 sentence).
+- Keep total answer under 60 words — this is a product page, not Wikipedia.
+
+**PRODUCT QUESTIONS — buyer-objection handlers:**
+
+Question format: Blunt, real-language questions a buyer would actually
+think (not SEO-bait questions).
 
 - "Will this actually fit in my bag?"
 - "Is the noise cancelling good enough for an open office?"
 - "Do I need to buy anything else to get started?"
 
-**Answer format:** Open with a direct yes/no or factual statement,
+Answer format: Open with a direct yes/no or factual statement,
 THEN elaborate in 2-3 sentences max.
+
+**⚠️ QUESTION DIVERSITY — ANTI-PATTERN FOR LARGE CATALOGS:**
+When writing Q&As for many products in the same category, the QUESTIONS
+themselves must vary. Do NOT recycle the same 3 questions across products:
+
+WRONG (same questions on every ring page):
+  Every ring: "Will this turn my finger green?"
+  Every ring: "What size should I order?"
+  Every ring: "Is this real silver?"
+  ↑ Template FAQ — Google sees 500 pages with identical questions.
+
+RIGHT (questions specific to THIS product):
+  Skull ring with moving jaw: "Does the jaw actually move, or is it fixed?"
+  Wide 12mm band: "Can I still bend my finger normally with a 12mm band?"
+  Oxidized finish ring: "Will the dark finish wear off over time?"
+  Chain wallet: "How do I attach the chain to my belt loop?"
+
+Each product's questions should reflect what a buyer of THAT specific
+product would wonder about — not generic category questions.
 
 > These are buyer-objection handlers, not FAQ schema entries.
 > They should reduce purchase hesitation on the page itself.
