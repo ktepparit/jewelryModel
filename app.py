@@ -8,6 +8,7 @@ import time
 import pandas as pd
 import re
 import zipfile
+import random
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
@@ -27,6 +28,21 @@ CLAUDE_MODELS = {
 OPENAI_MODELS = {
     "GPT-5.2": "gpt-5.2",
 }
+
+# Opening Angle Pool for Product Writer diversity
+# Weighted: "design detail" ~70%, other angles ~6% each for natural mix
+OPENING_ANGLE_POOL = [
+    "design detail",
+    "design detail",
+    "design detail",
+    "design detail",
+    "design detail",
+    "design detail",
+    "design detail",
+    "tactile/texture",
+    "who it's for",
+    "practical use",
+]
 
 # --- HELPER: CLEANER ---
 def clean_key(value):
@@ -285,6 +301,32 @@ WRONG approach (template with swapped numbers):
 
 The rule is: same CATEGORY of detail is fine (weight, texture, feel).
 Same SENTENCE STRUCTURE describing it is not.
+
+**SENSORY DIVERSITY POOL — Use angles BEYOND weight:**
+For jewelry, leather goods, and accessories, weight/heft is only ONE of
+many sensory angles. Do NOT default to weight as your primary sensory
+detail. Choose from these 8 categories based on what's most interesting
+about THIS specific product:
+
+1. **Surface texture** — hammered, polished, brushed, matte, oxidized,
+   knurled, sandblasted, mirror-finish, hand-filed edges
+2. **Temperature behavior** — how it warms on skin over time, cold from
+   the box, retains body heat, feels different in summer vs winter
+3. **Sound** — click of a hinge, clink against a table, silence of a
+   tight fit, rattle of loose links, snap of a clasp
+4. **Visual micro-detail** — patina forming in crevices, how light catches
+   a facet, shadow play in deep carving, color shift at angles
+5. **Fit & ergonomics** — how it sits on the finger/wrist/neck, pressure
+   points, comfort zone, what it feels like after 4 hours of wear
+6. **Movement** — how a pendant swings, chain links shift, a ring spins,
+   a bracelet slides, a wallet bends at the fold
+7. **Aging & wear** — how it looks after 6 months, where scratches
+   appear first, how patina develops, leather break-in behavior
+8. **Interaction with daily life** — how it feels gripping handlebars,
+   typing, shaking hands, going through metal detectors, sleeping
+
+**Weight/heft may appear as ONE supporting detail — but NEVER as the
+primary opening angle or dominant sensory focus of the description.**
 
 ### [RULE 4 — HONEST OBSERVATION]
 
@@ -557,7 +599,11 @@ When writing multiple product descriptions (batch mode), you MUST:
 
 ### [Hook — no H2 tag]
 
-2-3 sentences. Open with a pain point or a scene.
+2-3 sentences. Open using the ASSIGNED OPENING ANGLE (provided at the
+end of this prompt). If no angle is assigned, default to the most
+striking DESIGN DETAIL of this specific product.
+
+Do NOT default to weight/heft as your opening angle.
 Make the reader feel recognized before you sell anything.
 
 > The product name + category (Main Keyword) must appear naturally
@@ -2263,13 +2309,28 @@ def generate_seo_for_existing_image(gemini_key, claude_key, openai_key, selected
     payload = {"contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": img_to_base64(img_pil)}}]}], "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"}}
     return _call_gemini_text(gemini_key, payload)
 
-def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text="", design_story="", product_handle=""):
+def generate_full_product_content(gemini_key, claude_key, openai_key, selected_model, img_pil_list, raw_input, catalog_text="", design_story="", product_handle="", opening_angle=""):
     prompt = SEO_PRODUCT_WRITER_PROMPT.replace("{raw_input}", raw_input)
     num_images = len(img_pil_list) if img_pil_list else 0
     if num_images > 0:
         prompt += f"\n\nNOTE: This product has {num_images} images. You do NOT need to generate image_seo — it will be handled separately. Return an EMPTY array for image_seo: \"image_seo\": []"
     if product_handle:
         prompt += f"\n\n⚠️ THIS PRODUCT'S PATH: /products/{product_handle}\nDo NOT link to this path in the 'You Might Also Want' section. Only link to OTHER products."
+    if opening_angle:
+        prompt += f"""
+
+⚠️ ASSIGNED OPENING ANGLE: "{opening_angle}"
+You MUST open the Hook section using this specific angle.
+This means your very first sentence should focus on: {opening_angle}.
+Do NOT open with weight, heft, or how heavy the product feels — unless
+the assigned angle specifically says so.
+Examples of how each angle works:
+- "design detail" → Open with the most striking visual/design element of THIS product
+- "tactile/texture" → Open with how the surface feels to touch
+- "who it's for" → Open with the type of person who'd pick this up
+- "practical use" → Open with a real-world scenario of using this product
+- "visual first impression" → Open with what catches the eye first when you see it
+- "sound/movement" → Open with how it moves, clicks, clinks, or shifts"""
     if design_story and design_story.strip():
         prompt += f"""
 
@@ -3374,7 +3435,7 @@ with tab3:
                             if catalog.get("collections") or catalog.get("products"):
                                 catalog_text = format_catalog_for_prompt(catalog, product_context=raw)
                         except: pass
-                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text, design_story=design_story, product_handle=st.session_state.get('writer_product_handle', ''))
+                        json_txt, err = generate_full_product_content(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw, catalog_text, design_story=design_story, product_handle=st.session_state.get('writer_product_handle', ''), opening_angle=random.choice(OPENING_ANGLE_POOL))
                         # Show which Gemini model was actually used
                         if current_text_model == "Gemini" and json_txt:
                             active_m = st.session_state.get("_gemini_active_model", "")
@@ -3860,7 +3921,8 @@ with tab_batch:
                                     
                                     json_txt, err = generate_full_product_content(
                                         gemini_key, claude_key, openai_key, batch_model, 
-                                        None, raw_input, catalog_text, product_handle=prod.get("handle", "")
+                                        None, raw_input, catalog_text, product_handle=prod.get("handle", ""),
+                                        opening_angle=OPENING_ANGLE_POOL[idx % len(OPENING_ANGLE_POOL)]
                                     )
                                     
                                     if json_txt:
