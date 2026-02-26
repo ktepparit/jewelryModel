@@ -623,6 +623,13 @@ striking DESIGN DETAIL of this specific product.
 Do NOT default to weight/heft as your opening angle.
 Make the reader feel recognized before you sell anything.
 
+**HTML format for the Hook:**
+```html
+<p style="font-size:1.05em; line-height:1.7; color:#2c2c2c; margin-bottom:20px;">
+  [Opening paragraph text — product name + category appear naturally here]
+</p>
+```
+
 > The product name + category (Main Keyword) must appear naturally
 > within this section (Rule 7 + Rule 9).
 > **GEO CRITICAL (2026):** The first 100 words of the product page are
@@ -636,6 +643,11 @@ Make the reader feel recognized before you sell anything.
 ---
 
 ### ## Who This Is Actually For
+
+**HTML format for ALL H2 section headings (use this exact style for every ## heading):**
+```html
+<h2 style="font-size:1.3em; color:#1a3a6b; border-bottom:2px solid #c8a96e; padding-bottom:8px; margin-top:32px; margin-bottom:16px; font-weight:700; letter-spacing:0.5px;">Who This Is Actually For</h2>
+```
 
 ⚠️ CRITICAL — AUDIENCE DETECTION:
 Do NOT assume every product is for bikers just because the store is "Bikerringshop."
@@ -667,6 +679,16 @@ Examples of diverse audience framing:
 - Biker chain wallet: "If you ride and your wallet needs to survive saddlebags..."
   (biker framing IS appropriate here because the product IS a biker wallet)
 
+**HTML format for each "If you..." audience block:**
+```html
+<div style="background:#f8f6f2; border-left:4px solid #c8a96e; padding:14px 18px; margin-bottom:12px; border-radius:4px;">
+  <p style="margin:0; color:#2c2c2c; line-height:1.6;">
+    <strong style="color:#1a3a6b;">If you ride daily</strong> — [description of how this product fits their life]
+  </p>
+</div>
+```
+Use this styled block for ALL THREE audience paragraphs.
+
 > Each "If you..." paragraph should contain a natural long-tail keyword
 > variation (Rule 9).
 
@@ -682,6 +704,20 @@ this product:
 - Include your **1 comparison phrase** here (Rule 8 + Rule 9).
 
 Write 3-5 short paragraphs. Vary rhythm aggressively (Rule 1).
+
+**HTML format for body paragraphs in this section:**
+```html
+<p style="font-size:1em; line-height:1.7; color:#2c2c2c; margin-bottom:16px;">[text]</p>
+```
+
+**HTML format for the honest observation/caveat (MUST use this callout box):**
+```html
+<div style="background:#fff8f0; border-left:4px solid #b85c38; padding:12px 16px; margin:16px 0; border-radius:4px;">
+  <p style="margin:0; color:#2c2c2c; line-height:1.6;">
+    <strong style="color:#b85c38;">Heads up:</strong> [honest caveat specific to THIS product]
+  </p>
+</div>
+```
 
 **⚠️ SENSORY WRITING ARCHITECTURE — ANTI-PATTERN RULES:**
 
@@ -763,6 +799,26 @@ RULES FOR FIT/SIZING OBSERVATIONS:
 
 List 4-6 key specs. Format each spec using this EXACT HTML pattern:
 
+**Use a DIFFERENT icon for each spec (rotate, never repeat within same product):**
+⚙️ Material/Construction | 📏 Dimensions/Size | ⚖️ Weight
+🛡️ Durability/Warranty | 💎 Stone/Finish | 🔧 Closure/Mechanism
+📦 What's Included | 🌡️ Care/Maintenance
+
+**Wrap each spec in a styled row with alternating backgrounds:**
+```html
+<div style="display:flex; align-items:baseline; margin-bottom:10px; padding:10px 14px; background:#f8f6f2; border-radius:6px;">
+  <span style="color:#1a3a6b; font-weight:700; min-width:140px; font-size:0.95em;">⚙️ Material</span>
+  <span style="color:#2c2c2c; line-height:1.5;">316L Surgical Stainless Steel — won't tarnish or irritate skin.</span>
+</div>
+<div style="display:flex; align-items:baseline; margin-bottom:10px; padding:10px 14px; background:#ffffff; border-radius:6px;">
+  <span style="color:#1a3a6b; font-weight:700; min-width:140px; font-size:0.95em;">⚖️ Weight</span>
+  <span style="color:#2c2c2c; line-height:1.5;">42 grams — substantial feel without fatigue.</span>
+</div>
+```
+Alternate background: #f8f6f2 / #ffffff per row.
+
+Additionally, you can ALSO include the inline bold style for key values:
+
 <p><span style="color:#1a3a6b; font-weight:700; font-size:1.05em;">[Spec Name]:</span> Plain-English benefit in one conversational sentence. Wrap the <strong style="color:#1a3a6b;">most important keyword or value</strong> in the benefit sentence with a bold dark-blue span to help readers scan key takeaways quickly.</p>
 
 Example output:
@@ -829,6 +885,14 @@ RIGHT — varied phrasing across products:
 - Keep total answer under 60 words — this is a product page, not Wikipedia.
 
 **PRODUCT QUESTIONS — buyer-objection handlers:**
+
+**HTML format for each Q&A pair:**
+```html
+<div style="margin-bottom:16px;">
+  <p style="font-weight:700; color:#1a3a6b; margin-bottom:4px; font-size:1.02em;">Q: [question text]</p>
+  <p style="color:#2c2c2c; line-height:1.6; margin-top:0; padding-left:16px; border-left:3px solid #e8e4de;">[answer text]</p>
+</div>
+```
 
 Question format: Blunt, real-language questions a buyer would actually
 think (not SEO-bait questions).
@@ -906,6 +970,15 @@ IMPORTANT:
 ---
 
 ### ## You Might Also Want
+
+**Wrap this entire section in a styled box:**
+```html
+<div style="background:#f8f6f2; padding:18px 20px; border-radius:8px; margin-top:24px; border:1px solid #e8e4de;">
+  <h2 style="font-size:1.15em; color:#1a3a6b; margin-top:0; margin-bottom:12px; font-weight:700;">You Might Also Want</h2>
+  <p style="color:#2c2c2c; line-height:1.7; margin-bottom:8px;">[recommendation with link]</p>
+  <p style="color:#2c2c2c; line-height:1.7; margin-bottom:0;">[recommendation with link]</p>
+</div>
+```
 
 Write 2-3 natural "bridge" sentences pointing to complementary
 or alternative products. Frame as genuine advice, not a sales push.
