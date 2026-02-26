@@ -1306,11 +1306,25 @@ You MUST return the result in RAW JSON format ONLY. Do not include markdown back
   "meta_title": "Meta Title Example (Max 60 chars)",
   "meta_description": "Meta Description Example (Max 160 chars)",
   "product_title_h1": "Product Title Example",
-  "html_content": "<p>Your full HTML product description here...</p>",
+  "html_content": "<p style=\"font-size:1.05em; line-height:1.7; color:#2c2c2c; margin-bottom:20px;\">Hook paragraph here...</p><h2 style=\"font-size:1.3em; color:#1a3a6b; border-bottom:2px solid #c8a96e; padding-bottom:8px; margin-top:32px; margin-bottom:16px; font-weight:700; letter-spacing:0.5px;\">Who This Is Actually For</h2><div style=\"background:#f8f6f2; border-left:4px solid #c8a96e; padding:14px 18px; margin-bottom:12px; border-radius:4px;\"><p style=\"margin:0; color:#2c2c2c; line-height:1.6;\"><strong style=\"color:#1a3a6b;\">If you...</strong> — description</p></div>...continues with all styled sections...",
   "image_seo": [
     { "file_name": "descriptive-name.jpg", "alt_tag": "Unique description of what this specific image shows" }
   ]
 }
+
+**⚠️ CRITICAL — html_content MUST use inline CSS styling:**
+The html_content field MUST contain fully styled HTML with inline CSS
+as demonstrated in the OUTPUT STRUCTURE section above. Specifically:
+- Hook: <p> with font-size:1.05em, line-height:1.7, color:#2c2c2c
+- All H2 headings: color:#1a3a6b, border-bottom:2px solid #c8a96e
+- "If you..." blocks: background:#f8f6f2, border-left:4px solid #c8a96e
+- Honest caveat: background:#fff8f0, border-left:4px solid #b85c38
+- Spec rows: display:flex with icon + navy label + alternating bg
+- FAQ Q&As: navy bold Q + border-left:#e8e4de on answer
+- Quick Specs table: gradient header, alternating rows (already specified above)
+- You Might Also Want: background:#f8f6f2 rounded box
+- All links: color:#1a3a6b; font-weight:600; text-decoration:underline
+Do NOT output plain unstyled HTML. Every element MUST have inline styles.
 
 **⚠️ CRITICAL — html_content boundaries:**
 The "html_content" field must contain ONLY the visible product description
