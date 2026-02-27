@@ -14,7 +14,7 @@ import random
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 
 # Model IDs
-MODEL_IMAGE_GEN = "models/gemini-3.1-flash-image-preview"
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
 MODEL_TEXT_GEMINI = "models/gemini-3.1-pro-preview"
 MODEL_TEXT_GEMINI_FALLBACK = "models/gemini-3-pro-preview"
 
@@ -4566,6 +4566,7 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
 
 
 
