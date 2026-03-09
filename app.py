@@ -3603,7 +3603,7 @@ with tab3:
             help="Mythology/symbolism = just type the name. Real people/brands = add a short fact to ensure accuracy. One per line or comma-separated."
         )
         gen_mode = st.radio("Generation Mode:", 
-            ["📝 Content + Image SEO", "📝 Content Only", "🖼️ Image SEO Only"],
+            ["📝 Content + Image SEO", "📝 Content Only", "🖼️ Image SEO Only", "🔗 URL Slug Only"],
             key=f"writer_gen_mode_{writer_key_id}", horizontal=True)
         wb1, wb2 = st.columns([1, 1])
         run_write = wb1.button("🚀 Generate", type="primary", key=f"writer_run_btn_{writer_key_id}")
@@ -3619,13 +3619,27 @@ with tab3:
             
             if missing_key: st.error("Missing API Key")
             elif gen_mode == "🖼️ Image SEO Only" and not writer_imgs: st.error("No images — fetch a product or upload images first")
-            elif gen_mode != "🖼️ Image SEO Only" and not raw: st.error("Missing details")
+            elif gen_mode not in ("🖼️ Image SEO Only",) and not raw: st.error("Missing details")
             else:
                 # Clear previous image SEO edits
                 st.session_state.pop("writer_img_seo_edits", None)
                 st.session_state.pop("_writer_img_seo_fingerprint", None)
                 
-                if gen_mode == "🖼️ Image SEO Only":
+                if gen_mode == "🔗 URL Slug Only":
+                    # --- URL SLUG ONLY MODE ---
+                    with st.spinner(f"Generating URL Slug with {current_text_model}..."):
+                        slug_json, slug_err = generate_seo_name_slug(gemini_key, claude_key, openai_key, current_text_model, writer_imgs, raw)
+                        if slug_json:
+                            slug_d = parse_json_response(slug_json)
+                            if isinstance(slug_d, list) and slug_d: slug_d = slug_d[0]
+                            if isinstance(slug_d, dict):
+                                st.session_state.writer_result = {"_url_slug_only": True, "product_name": slug_d.get("product_name", ""), "url_slug": slug_d.get("url_slug", "")}
+                                st.rerun()
+                            else:
+                                st.error("Could not parse URL slug result")
+                        else:
+                            st.error(slug_err or "Failed to generate URL slug")
+                elif gen_mode == "🖼️ Image SEO Only":
                     # --- IMAGE SEO ONLY MODE ---
                     with st.spinner(f"Generating Image SEO with {current_text_model}..."):
                         product_name = raw[:100] if raw else "Product"
@@ -3752,8 +3766,13 @@ with tab3:
         if st.session_state.writer_result:
             d = st.session_state.writer_result
             is_img_seo_only = d.get("_image_seo_only", False)
+            is_url_slug_only = d.get("_url_slug_only", False)
             
-            if not is_img_seo_only:
+            if is_url_slug_only:
+                st.subheader("🔗 URL Slug Result")
+                st.write("**Product Name:**"); st.code(d.get('product_name', ''))
+                st.write("**URL Slug:**"); st.code(d.get('url_slug', ''))
+            elif not is_img_seo_only:
                 st.subheader("Content Results")
                 # Show which model actually ran
                 active_gemini = st.session_state.get("_gemini_active_model", "")
@@ -3772,113 +3791,114 @@ with tab3:
                 st.markdown(d.get('html_content', ''), unsafe_allow_html=True)
             else:
                 st.subheader("🖼️ Image SEO Only Results")
-            st.divider(); st.subheader("🖼️ Image SEO")
-            img_tags = d.get('image_seo', [])
-            if writer_imgs:
-                # Initialize or reinitialize editable image_seo from current result
-                # Use a fingerprint to detect when result has changed
-                current_seo_fingerprint = str([(t.get('file_name',''), t.get('alt_tag','')) for t in img_tags if isinstance(t, dict)])
-                prev_fingerprint = st.session_state.get("_writer_img_seo_fingerprint", "")
-                
-                needs_reinit = (
-                    "writer_img_seo_edits" not in st.session_state
-                    or len(st.session_state.writer_img_seo_edits) != len(writer_imgs)
-                    or current_seo_fingerprint != prev_fingerprint
-                )
-                
-                if needs_reinit:
-                    st.session_state.writer_img_seo_edits = []
-                    for i in range(len(writer_imgs)):
-                        if i < len(img_tags) and isinstance(img_tags[i], dict):
-                            st.session_state.writer_img_seo_edits.append({
-                                "file_name": clean_filename(img_tags[i].get('file_name', '')),
-                                "alt_tag": img_tags[i].get('alt_tag', '')
-                            })
-                        else:
-                            st.session_state.writer_img_seo_edits.append({
-                                "file_name": f"product-image-{i+1}.jpg",
-                                "alt_tag": f"Product image {i+1}"
-                            })
-                    st.session_state._writer_img_seo_fingerprint = current_seo_fingerprint
-                
-                img_seo_changed = False
-                for i, img in enumerate(writer_imgs):
-                    ic1, ic2 = st.columns([1, 3])
-                    with ic1: st.image(img, width=120); st.caption(f"Image {i+1}")
-                    with ic2:
-                        new_fname = st.text_input(
-                            f"File Name (Image {i+1}):", 
-                            value=st.session_state.writer_img_seo_edits[i]["file_name"],
-                            key=f"img_seo_fname_{writer_key_id}_{i}"
-                        )
-                        new_alt = st.text_input(
-                            f"Alt Tag (Image {i+1}):", 
-                            value=st.session_state.writer_img_seo_edits[i]["alt_tag"],
-                            key=f"img_seo_alt_{writer_key_id}_{i}"
-                        )
-                        # Track changes
-                        if new_fname != st.session_state.writer_img_seo_edits[i]["file_name"]:
-                            st.session_state.writer_img_seo_edits[i]["file_name"] = new_fname
-                            img_seo_changed = True
-                        if new_alt != st.session_state.writer_img_seo_edits[i]["alt_tag"]:
-                            st.session_state.writer_img_seo_edits[i]["alt_tag"] = new_alt
-                            img_seo_changed = True
-                    st.divider()
-                
-                # Apply edits button
-                if st.button("💾 Apply Image SEO Edits", key=f"apply_img_seo_{writer_key_id}", type="secondary"):
-                    st.session_state.writer_result["image_seo"] = [
+            if not is_url_slug_only:
+                st.divider(); st.subheader("🖼️ Image SEO")
+                img_tags = d.get('image_seo', [])
+                if writer_imgs:
+                    # Initialize or reinitialize editable image_seo from current result
+                    # Use a fingerprint to detect when result has changed
+                    current_seo_fingerprint = str([(t.get('file_name',''), t.get('alt_tag','')) for t in img_tags if isinstance(t, dict)])
+                    prev_fingerprint = st.session_state.get("_writer_img_seo_fingerprint", "")
+                    
+                    needs_reinit = (
+                        "writer_img_seo_edits" not in st.session_state
+                        or len(st.session_state.writer_img_seo_edits) != len(writer_imgs)
+                        or current_seo_fingerprint != prev_fingerprint
+                    )
+                    
+                    if needs_reinit:
+                        st.session_state.writer_img_seo_edits = []
+                        for i in range(len(writer_imgs)):
+                            if i < len(img_tags) and isinstance(img_tags[i], dict):
+                                st.session_state.writer_img_seo_edits.append({
+                                    "file_name": clean_filename(img_tags[i].get('file_name', '')),
+                                    "alt_tag": img_tags[i].get('alt_tag', '')
+                                })
+                            else:
+                                st.session_state.writer_img_seo_edits.append({
+                                    "file_name": f"product-image-{i+1}.jpg",
+                                    "alt_tag": f"Product image {i+1}"
+                                })
+                        st.session_state._writer_img_seo_fingerprint = current_seo_fingerprint
+                    
+                    img_seo_changed = False
+                    for i, img in enumerate(writer_imgs):
+                        ic1, ic2 = st.columns([1, 3])
+                        with ic1: st.image(img, width=120); st.caption(f"Image {i+1}")
+                        with ic2:
+                            new_fname = st.text_input(
+                                f"File Name (Image {i+1}):", 
+                                value=st.session_state.writer_img_seo_edits[i]["file_name"],
+                                key=f"img_seo_fname_{writer_key_id}_{i}"
+                            )
+                            new_alt = st.text_input(
+                                f"Alt Tag (Image {i+1}):", 
+                                value=st.session_state.writer_img_seo_edits[i]["alt_tag"],
+                                key=f"img_seo_alt_{writer_key_id}_{i}"
+                            )
+                            # Track changes
+                            if new_fname != st.session_state.writer_img_seo_edits[i]["file_name"]:
+                                st.session_state.writer_img_seo_edits[i]["file_name"] = new_fname
+                                img_seo_changed = True
+                            if new_alt != st.session_state.writer_img_seo_edits[i]["alt_tag"]:
+                                st.session_state.writer_img_seo_edits[i]["alt_tag"] = new_alt
+                                img_seo_changed = True
+                        st.divider()
+                    
+                    # Apply edits button
+                    if st.button("💾 Apply Image SEO Edits", key=f"apply_img_seo_{writer_key_id}", type="secondary"):
+                        st.session_state.writer_result["image_seo"] = [
+                            {"file_name": e["file_name"], "alt_tag": e["alt_tag"]}
+                            for e in st.session_state.writer_img_seo_edits
+                        ]
+                        st.success("✅ Image SEO updated!")
+                        st.rerun()
+                    
+                    # Always sync edits to writer_result for publish
+                    d["image_seo"] = [
                         {"file_name": e["file_name"], "alt_tag": e["alt_tag"]}
                         for e in st.session_state.writer_img_seo_edits
                     ]
-                    st.success("✅ Image SEO updated!")
-                    st.rerun()
-                
-                # Always sync edits to writer_result for publish
-                d["image_seo"] = [
-                    {"file_name": e["file_name"], "alt_tag": e["alt_tag"]}
-                    for e in st.session_state.writer_img_seo_edits
-                ]
-            st.markdown("---"); st.subheader("🚀 Publish to Shopify")
-            with st.container(border=True):
-                secret_shop = st.secrets.get("SHOPIFY_SHOP_URL")
-                secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN")
-                s_shop, s_token, s_prod_id = None, None, None
-                # Get Product ID from fetched value (updates on each Fetch)
-                fetched_writer_id = st.session_state.get("writer_fetched_prod_id", "")
-                writer_publish_counter = st.session_state.get("writer_publish_counter", 0)
-                if secret_shop and secret_token:
-                    col_info, col_input = st.columns([1, 1])
-                    with col_info: st.success("✅ Credentials Loaded"); s_shop = secret_shop; s_token = secret_token
-                    # Use publish_counter in key so widget refreshes when Fetch is clicked
-                    with col_input: s_prod_id = st.text_input("Product ID", value=fetched_writer_id, key=f"writer_prod_id_{writer_key_id}_{writer_publish_counter}")
-                else: 
-                    st.warning("⚠️ Credentials Required")
-                    c_x1, c_x2, c_x3 = st.columns(3)
-                    s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}")
-                    s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}")
-                    s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}_{writer_publish_counter}")
-                
-                if is_img_seo_only:
-                    # Image SEO Only — re-upload images with new filenames + alt tags
-                    st.info("🖼️ Image SEO Only — will delete old images and re-upload with new filenames & alt tags (no content changes)")
-                    if st.button("☁️ Re-upload Images with SEO", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
-                        if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
-                        else:
-                            with st.spinner("Updating image SEO..."):
-                                success, msg = update_shopify_image_seo_only(s_shop, s_token, s_prod_id, d.get("image_seo", []), writer_imgs)
-                                if success: st.success(msg); st.balloons()
-                                else: st.error(msg)
-                else:
-                    # Full content update
-                    enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
-                    if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}_{writer_publish_counter}"):
-                        if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
-                        else:
-                            with st.spinner("Updating..."):
-                                success, msg = update_shopify_product_v2(s_shop, s_token, s_prod_id, st.session_state.writer_result, writer_imgs, enable_img_upload)
-                                if success: st.success(msg); st.balloons()
-                                else: st.error(msg)
+                st.markdown("---"); st.subheader("🚀 Publish to Shopify")
+                with st.container(border=True):
+                    secret_shop = st.secrets.get("SHOPIFY_SHOP_URL")
+                    secret_token = st.secrets.get("SHOPIFY_ACCESS_TOKEN")
+                    s_shop, s_token, s_prod_id = None, None, None
+                    # Get Product ID from fetched value (updates on each Fetch)
+                    fetched_writer_id = st.session_state.get("writer_fetched_prod_id", "")
+                    writer_publish_counter = st.session_state.get("writer_publish_counter", 0)
+                    if secret_shop and secret_token:
+                        col_info, col_input = st.columns([1, 1])
+                        with col_info: st.success("✅ Credentials Loaded"); s_shop = secret_shop; s_token = secret_token
+                        # Use publish_counter in key so widget refreshes when Fetch is clicked
+                        with col_input: s_prod_id = st.text_input("Product ID", value=fetched_writer_id, key=f"writer_prod_id_{writer_key_id}_{writer_publish_counter}")
+                    else: 
+                        st.warning("⚠️ Credentials Required")
+                        c_x1, c_x2, c_x3 = st.columns(3)
+                        s_shop = c_x1.text_input("Shop URL", key=f"writer_shop_{writer_key_id}")
+                        s_token = c_x2.text_input("Token", type="password", key=f"writer_token_{writer_key_id}")
+                        s_prod_id = c_x3.text_input("Product ID", value=fetched_writer_id, key=f"writer_prodid2_{writer_key_id}_{writer_publish_counter}")
+                    
+                    if is_img_seo_only:
+                        # Image SEO Only — re-upload images with new filenames + alt tags
+                        st.info("🖼️ Image SEO Only — will delete old images and re-upload with new filenames & alt tags (no content changes)")
+                        if st.button("☁️ Re-upload Images with SEO", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
+                            if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
+                            else:
+                                with st.spinner("Updating image SEO..."):
+                                    success, msg = update_shopify_image_seo_only(s_shop, s_token, s_prod_id, d.get("image_seo", []), writer_imgs)
+                                    if success: st.success(msg); st.balloons()
+                                    else: st.error(msg)
+                    else:
+                        # Full content update
+                        enable_img_upload = st.checkbox("📷 Upload Images", value=True, key=f"writer_imgchk_{writer_key_id}")
+                        if st.button("☁️ Update Product", type="primary", use_container_width=True, key=f"writer_update_btn_{writer_key_id}_{writer_publish_counter}"):
+                            if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
+                            else:
+                                with st.spinner("Updating..."):
+                                    success, msg = update_shopify_product_v2(s_shop, s_token, s_prod_id, st.session_state.writer_result, writer_imgs, enable_img_upload)
+                                    if success: st.success(msg); st.balloons()
+                                    else: st.error(msg)
 
 # === TAB BATCH WRITER ===
 with tab_batch:
