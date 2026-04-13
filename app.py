@@ -1943,7 +1943,7 @@ def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_
     if not images_pil:
         return False, "No images available to upload"
     
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     # Build images array with new filenames + alt tags (same method as update_shopify_product_v2)
@@ -1970,7 +1970,7 @@ def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_
 def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     product_payload = {
@@ -2004,7 +2004,7 @@ def update_shopify_product_v2(shop_url, access_token, product_id, data, images_p
 def add_single_image_to_shopify(shop_url, access_token, product_id, image_bytes, file_name=None, alt_tag=None):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}/images.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     if not image_bytes: return False, "No valid image data."
@@ -2020,7 +2020,7 @@ def add_single_image_to_shopify(shop_url, access_token, product_id, image_bytes,
 def upload_only_images_to_shopify(shop_url, access_token, product_id, image_bytes_list):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     img_payloads = []
@@ -2038,7 +2038,7 @@ def upload_only_images_to_shopify(shop_url, access_token, product_id, image_byte
 def get_shopify_product_images(shop_url, access_token, product_id):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}/images.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}/images.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     try:
@@ -2060,7 +2060,7 @@ def get_shopify_product_images(shop_url, access_token, product_id):
 def get_shopify_product_details(shop_url, access_token, product_id):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     try:
@@ -2075,7 +2075,7 @@ def search_shopify_product_by_sku(shop_url, access_token, sku):
     """Search for a product by SKU via Shopify Admin API GraphQL."""
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/graphql.json"
+    url = f"https://{shop_url}/admin/api/2026-04/graphql.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     query = """
@@ -2117,7 +2117,7 @@ def _shopify_admin_get(shop_url, access_token, endpoint, timeout=30, retries=3):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
-    url = f"https://{shop_url}/admin/api/2024-01/{endpoint}"
+    url = f"https://{shop_url}/admin/api/2026-04/{endpoint}"
     
     for attempt in range(retries):
         try:
@@ -2237,7 +2237,7 @@ def update_shopify_description_only(shop_url, access_token, product_id, data):
     """Update only title, body_html, and meta fields — no images."""
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    url = f"https://{shop_url}/admin/api/2024-01/products/{product_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     product_payload = {
@@ -2909,7 +2909,7 @@ def update_shopify_collection(shop_url, access_token, collection_id, data, colle
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
     
     endpoint_type = "custom_collections" if collection_type == "custom" else "smart_collections"
-    url = f"https://{shop_url}/admin/api/2024-01/{endpoint_type}/{collection_id}.json"
+    url = f"https://{shop_url}/admin/api/2026-04/{endpoint_type}/{collection_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
     
     col_key = "custom_collection" if collection_type == "custom" else "smart_collection"
