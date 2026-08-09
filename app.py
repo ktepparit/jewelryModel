@@ -4697,7 +4697,6 @@ def _run_fix_agent(handle, audit_file, model, budget, box):
         lines.append(line.rstrip())
         box.code("\n".join(lines[-30:]))
     proc.wait(timeout=60)
-    ok = proc.returncode == 0 and "independent re-audit: PASS" in "\n".join(lines)
     fl = {}
     try:
         with open(_os.path.join(_os.path.dirname(audit_file),
@@ -4705,6 +4704,13 @@ def _run_fix_agent(handle, audit_file, model, budget, box):
             fl = json.load(f)
     except Exception:
         pass
+    if not fl.get("reaudit_verdict"):
+        m = re.search(r"independent re-audit: (\w+)", "\n".join(lines))
+        if m:
+            fl["reaudit_verdict"] = m.group(1)
+    # success = FAIL issues resolved. Re-audit WARN still counts as success:
+    # WARNs are house-style items that were never fix targets (severity policy).
+    ok = proc.returncode == 0 and fl.get("reaudit_verdict") in ("PASS", "WARN")
     return ok, fl, proc.returncode
 
 
@@ -4878,7 +4884,9 @@ with tab_audit:
                         try:
                             ok, fl, rc = _run_fix_agent(fix_handle, sel["_file"], fix_model, fix_budget, box)
                             if ok:
-                                status.update(label=f"✅ {fix_handle} fixed — re-audit PASS", state="complete")
+                                v = fl.get("reaudit_verdict", "PASS")
+                                extra = "" if v == "PASS" else " (เหลือเฉพาะ WARN house-style ที่ไม่ใช่เป้า fix)"
+                                status.update(label=f"✅ {fix_handle} fixed — re-audit {v}{extra}", state="complete")
                                 st.balloons()
                             elif rc == 0:
                                 status.update(label="⚠️ agent finished — check re-audit verdict in log", state="complete")
@@ -4915,10 +4923,11 @@ with tab_audit:
                                 except Exception as e:
                                     ok, fl = False, {}
                                     qbox.code(str(e))
+                                qv = fl.get("reaudit_verdict", "?")
                                 qs.update(label=("✅" if ok else "❌") + f" [{qi}/{len(queue)}] {qh}"
-                                          + (f" — PASS · ${(fl.get('cost_usd') or 0):.2f}" if ok else " — ดู log"),
+                                          + (f" — {qv} · ${(fl.get('cost_usd') or 0):.2f}" if ok else " — ดู log"),
                                           state="complete" if ok else "error")
-                            q_results.append({"handle": qh, "ผล": "✅ PASS" if ok else "❌ ตรวจ log",
+                            q_results.append({"handle": qh, "ผล": "✅ สำเร็จ" if ok else "❌ ตรวจ log",
                                               "re-audit": fl.get("reaudit_verdict", "?"),
                                               "cost_usd": round(fl.get("cost_usd") or 0, 2),
                                               "turns": fl.get("num_turns")})
