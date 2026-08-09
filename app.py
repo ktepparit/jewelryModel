@@ -4680,6 +4680,34 @@ def _run_script(args, timeout=1800):
         return False, str(e)
 
 
+def _run_fix_agent(handle, audit_file, model, budget, box):
+    """Run agent_fixer.py for one product, streaming log lines into `box`.
+    Returns (ok, fix_log_dict, returncode) — ok requires the wrapper's own
+    'independent re-audit: PASS' line, not just exit 0."""
+    args = [_os.path.join(SHOPIFY_AI_DIR, "agent_fixer.py"), "--handle", handle,
+            "--audit-json", audit_file, "--model", model, "--budget", str(budget)]
+    proc = _sp.Popen([_sys.executable] + args, cwd=SHOPIFY_AI_DIR, env=_audit_env(),
+                     stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True, encoding="utf-8")
+    lines = []
+    for line in proc.stdout:
+        # expected notice when the agent runs on the API key
+        # (by design: billed to API, not the Max subscription)
+        if "connectors are disabled" in line:
+            continue
+        lines.append(line.rstrip())
+        box.code("\n".join(lines[-30:]))
+    proc.wait(timeout=60)
+    ok = proc.returncode == 0 and "independent re-audit: PASS" in "\n".join(lines)
+    fl = {}
+    try:
+        with open(_os.path.join(_os.path.dirname(audit_file),
+                                f"fix_{handle[:70]}.json"), encoding="utf-8") as f:
+            fl = json.load(f)
+    except Exception:
+        pass
+    return ok, fl, proc.returncode
+
+
 def _load_audit_rows(out_dir):
     """Read per-product JSONs from an audit output dir into table rows.
     Two shapes: mechanical `<handle>.json` (has "checks") and full-audit
@@ -4844,47 +4872,67 @@ with tab_audit:
                         st.write(f"{icon} **{label}** — {iss['detail']}")
 
                 if st.button(f"🔧 Fix {fix_handle} now", type="primary", key="audit_fix_btn"):
-                    args = [_os.path.join(SHOPIFY_AI_DIR, "agent_fixer.py"),
-                            "--handle", fix_handle, "--audit-json", sel["_file"],
-                            "--model", fix_model, "--budget", str(fix_budget)]
                     with st.status(f"Fix agent running on {fix_handle} — typically 3-15 min, "
                                    f"do not close this page...", expanded=True) as status:
                         box = st.empty()
                         try:
-                            proc = _sp.Popen([_sys.executable] + args, cwd=SHOPIFY_AI_DIR,
-                                             env=_audit_env(), stdout=_sp.PIPE, stderr=_sp.STDOUT,
-                                             text=True, encoding="utf-8")
-                            lines = []
-                            for line in proc.stdout:
-                                # expected notice when the agent runs on the API key
-                                # (by design: billed to API, not the Max subscription)
-                                if "connectors are disabled" in line:
-                                    continue
-                                lines.append(line.rstrip())
-                                box.code("\n".join(lines[-30:]))
-                            proc.wait(timeout=60)
-                            full = "\n".join(lines)
-                            if proc.returncode == 0 and "independent re-audit: PASS" in full:
+                            ok, fl, rc = _run_fix_agent(fix_handle, sel["_file"], fix_model, fix_budget, box)
+                            if ok:
                                 status.update(label=f"✅ {fix_handle} fixed — re-audit PASS", state="complete")
                                 st.balloons()
-                            elif proc.returncode == 0:
-                                status.update(label=f"⚠️ agent finished — check re-audit verdict in log", state="complete")
+                            elif rc == 0:
+                                status.update(label="⚠️ agent finished — check re-audit verdict in log", state="complete")
                             else:
-                                status.update(label=f"❌ fix failed (exit {proc.returncode})", state="error")
-                            # persist result summary (cost + links) across reruns
-                            fl = {}
-                            try:
-                                with open(_os.path.join(_os.path.dirname(sel["_file"]),
-                                                        f"fix_{fix_handle[:70]}.json"), encoding="utf-8") as f:
-                                    fl = json.load(f)
-                            except Exception:
-                                pass
+                                status.update(label=f"❌ fix failed (exit {rc})", state="error")
                             st.session_state.audit_last_fix = {
-                                "handle": fix_handle, "id": sel.get("id"), "log": fl,
-                                "ok": proc.returncode == 0 and "independent re-audit: PASS" in full,
+                                "handle": fix_handle, "id": sel.get("id"), "log": fl, "ok": ok,
                             }
                         except Exception as e:
                             status.update(label=f"❌ {e}", state="error")
+
+                if len(fixable) > 1:
+                    st.divider()
+                    st.markdown("**🧺 Fix หลายตัวต่อคิว** — เลือกรายการแล้วระบบรันให้ทีละตัวจนครบ "
+                                "(แต่ละตัวได้ workflow เต็ม + re-audit เหมือนกดเอง; ใช้ Model และ Budget cap ด้านบน)")
+                    queue = st.multiselect("คิวสินค้า FAIL ที่จะแก้",
+                                           [r["handle"] for r in fixable],
+                                           default=[r["handle"] for r in fixable],
+                                           key="audit_fix_queue")
+                    if queue:
+                        st.caption(f"ประมาณการ ~${len(queue)*1.0:.0f}–{len(queue)*2:.0f} รวม "
+                                   f"(~$1–2/ตัว) · ใช้เวลา ~{len(queue)*5}–{len(queue)*15} นาที · "
+                                   f"เปิดหน้านี้ค้างไว้จนจบ")
+                    if st.button(f"🧺 Fix ทั้งคิว ({len(queue)} ตัว)", key="audit_fix_queue_btn",
+                                 disabled=not queue):
+                        q_results = []
+                        prog = st.progress(0.0, text=f"0/{len(queue)}")
+                        for qi, qh in enumerate(queue, 1):
+                            q_sel = next(r for r in fixable if r["handle"] == qh)
+                            with st.status(f"[{qi}/{len(queue)}] {qh} ...", expanded=False) as qs:
+                                qbox = st.empty()
+                                try:
+                                    ok, fl, rc = _run_fix_agent(qh, q_sel["_file"], fix_model, fix_budget, qbox)
+                                except Exception as e:
+                                    ok, fl = False, {}
+                                    qbox.code(str(e))
+                                qs.update(label=("✅" if ok else "❌") + f" [{qi}/{len(queue)}] {qh}"
+                                          + (f" — PASS · ${(fl.get('cost_usd') or 0):.2f}" if ok else " — ดู log"),
+                                          state="complete" if ok else "error")
+                            q_results.append({"handle": qh, "ผล": "✅ PASS" if ok else "❌ ตรวจ log",
+                                              "re-audit": fl.get("reaudit_verdict", "?"),
+                                              "cost_usd": round(fl.get("cost_usd") or 0, 2),
+                                              "turns": fl.get("num_turns")})
+                            prog.progress(qi / len(queue), text=f"{qi}/{len(queue)}")
+                        st.session_state.audit_last_queue = q_results
+                        if all(r["ผล"].startswith("✅") for r in q_results):
+                            st.balloons()
+
+                qr = st.session_state.get("audit_last_queue")
+                if qr:
+                    st.markdown("**สรุปคิวล่าสุด:**")
+                    st.dataframe(pd.DataFrame(qr), use_container_width=True)
+                    st.caption(f"รวมคิวนี้: ${sum(r['cost_usd'] for r in qr):.2f} · "
+                               f"ผ่าน {sum(1 for r in qr if r['ผล'].startswith('✅'))}/{len(qr)}")
 
                 lf = st.session_state.get("audit_last_fix")
                 if lf:
