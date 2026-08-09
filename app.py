@@ -4725,9 +4725,10 @@ with tab_audit:
                    "and compare — union of findings catches blind spots.")
 
     tcol1, tcol2 = st.columns([1, 2])
-    target_kind = tcol1.radio("Target", ["Handle", "Collection"], horizontal=True, key="audit_target_kind")
-    target_val = tcol2.text_input("handle / collection-handle", key="audit_target_val",
-                                  placeholder="e.g. skull-rings or spade-skull-crossbones-ring")
+    target_kind = tcol1.radio("Target", ["Product (handle or SKU)", "Collection"],
+                              horizontal=True, key="audit_target_kind")
+    target_val = tcol2.text_input("handle / SKU / collection-handle", key="audit_target_val",
+                                  placeholder="e.g. 3601 or spade-skull-crossbones-ring or skull-rings")
     limit = st.number_input("Limit (collection only, 0 = all)", 0, 250, 0, key="audit_limit")
 
     PROVIDER_MAP = {
@@ -4745,8 +4746,14 @@ with tab_audit:
         out_dir = _os.path.join(SHOPIFY_AI_DIR, "audit_results",
                                 _date.today().strftime("%Y%m%d") + "_app")
         script = "judgment_audit.py" if is_full else "product_audit_checks.py"
+        if target_kind == "Collection":
+            target_flag = "--collection"
+        elif re.fullmatch(r"\d{2,8}", target):
+            target_flag = "--sku"      # numeric input = SKU (e.g. 3601); resolved to the product via GraphQL
+        else:
+            target_flag = "--handle"
         args = [_os.path.join(SHOPIFY_AI_DIR, script),
-                "--collection" if target_kind == "Collection" else "--handle", target,
+                target_flag, target,
                 "--out", out_dir]
         if target_kind == "Collection" and limit:
             args += ["--limit", str(int(limit))]
