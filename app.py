@@ -4680,6 +4680,20 @@ def _run_script(args, timeout=1800):
         return False, str(e)
 
 
+# checks whose fix is real content writing -> worth Opus; everything else is
+# mechanical / light judgment where Sonnet performs identically at ~40% the cost
+OPUS_CHECKS = {"M10", "M13", "J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9"}
+
+
+def _auto_model(issues):
+    """Pick the fix model from the product's FAIL issues. Returns (model, reason)."""
+    hard = sorted({i["id"] for i in issues
+                   if i.get("status") == "fail" and i["id"] in OPUS_CHECKS})
+    if hard:
+        return "claude-opus-5", f"งานเขียนเนื้อหา ({', '.join(hard)})"
+    return "claude-sonnet-5", "mechanical / กึ่ง judgment"
+
+
 def _run_fix_agent(handle, audit_file, model, budget, box):
     """Run agent_fixer.py for one product, streaming log lines into `box`.
     Returns (ok, fix_log_dict, returncode) — ok requires the wrapper's own
@@ -4861,7 +4875,7 @@ with tab_audit:
                 fc1, fc2, fc3 = st.columns([2, 1, 1])
                 fix_handle = fc1.selectbox("Product to fix",
                                            [r["handle"] for r in fixable], key="audit_fix_handle")
-                fix_model = fc2.selectbox("Model", ["claude-sonnet-5", "claude-opus-5"], key="audit_fix_model")
+                fix_model = fc2.selectbox("Model", ["Auto (เลือกตาม issue)", "claude-sonnet-5", "claude-opus-5"], key="audit_fix_model")
                 fix_budget = fc3.number_input("Budget cap $", 1.0, 20.0, 5.0, key="audit_fix_budget")
 
                 sel = next(r for r in fixable if r["handle"] == fix_handle)
@@ -4877,12 +4891,18 @@ with tab_audit:
                         label = f"{iss['id']} · {short}" if short else iss["id"]
                         st.write(f"{icon} **{label}** — {iss['detail']}")
 
+                if fix_model.startswith("Auto"):
+                    eff_model, reason = _auto_model(sel["issues"])
+                    st.caption(f"🤖 Auto เลือก **{eff_model}** — {reason}")
+                else:
+                    eff_model = fix_model
+
                 if st.button(f"🔧 Fix {fix_handle} now", type="primary", key="audit_fix_btn"):
-                    with st.status(f"Fix agent running on {fix_handle} — typically 3-15 min, "
-                                   f"do not close this page...", expanded=True) as status:
+                    with st.status(f"Fix agent running on {fix_handle} ({eff_model}) — typically "
+                                   f"3-15 min, do not close this page...", expanded=True) as status:
                         box = st.empty()
                         try:
-                            ok, fl, rc = _run_fix_agent(fix_handle, sel["_file"], fix_model, fix_budget, box)
+                            ok, fl, rc = _run_fix_agent(fix_handle, sel["_file"], eff_model, fix_budget, box)
                             if ok:
                                 v = fl.get("reaudit_verdict", "PASS")
                                 extra = "" if v == "PASS" else " (เหลือเฉพาะ WARN house-style ที่ไม่ใช่เป้า fix)"
@@ -4907,19 +4927,30 @@ with tab_audit:
                                            default=[r["handle"] for r in fixable],
                                            key="audit_fix_queue")
                     if queue:
-                        st.caption(f"ประมาณการ ~${len(queue)*1.0:.0f}–{len(queue)*2:.0f} รวม "
-                                   f"(~$1–2/ตัว) · ใช้เวลา ~{len(queue)*5}–{len(queue)*15} นาที · "
-                                   f"เปิดหน้านี้ค้างไว้จนจบ")
+                        q_plan = {}
+                        for qh in queue:
+                            q_sel0 = next(r for r in fixable if r["handle"] == qh)
+                            q_plan[qh] = (_auto_model(q_sel0["issues"])[0]
+                                          if fix_model.startswith("Auto") else fix_model)
+                        n_opus = sum(1 for m in q_plan.values() if "opus" in m)
+                        n_son = len(q_plan) - n_opus
+                        lo = n_son * 1.0 + n_opus * 2.0
+                        hi = n_son * 2.0 + n_opus * 3.5
+                        st.caption(f"แผนคิว: Sonnet {n_son} ตัว + Opus {n_opus} ตัว · "
+                                   f"ประมาณการ ~${lo:.0f}–{hi:.0f} รวม · "
+                                   f"ใช้เวลา ~{len(queue)*5}–{len(queue)*15} นาที · เปิดหน้านี้ค้างไว้จนจบ")
                     if st.button(f"🧺 Fix ทั้งคิว ({len(queue)} ตัว)", key="audit_fix_queue_btn",
                                  disabled=not queue):
                         q_results = []
                         prog = st.progress(0.0, text=f"0/{len(queue)}")
                         for qi, qh in enumerate(queue, 1):
                             q_sel = next(r for r in fixable if r["handle"] == qh)
-                            with st.status(f"[{qi}/{len(queue)}] {qh} ...", expanded=False) as qs:
+                            q_model = (_auto_model(q_sel["issues"])[0]
+                                       if fix_model.startswith("Auto") else fix_model)
+                            with st.status(f"[{qi}/{len(queue)}] {qh} ({q_model}) ...", expanded=False) as qs:
                                 qbox = st.empty()
                                 try:
-                                    ok, fl, rc = _run_fix_agent(qh, q_sel["_file"], fix_model, fix_budget, qbox)
+                                    ok, fl, rc = _run_fix_agent(qh, q_sel["_file"], q_model, fix_budget, qbox)
                                 except Exception as e:
                                     ok, fl = False, {}
                                     qbox.code(str(e))
@@ -4929,6 +4960,7 @@ with tab_audit:
                                           state="complete" if ok else "error")
                             q_results.append({"handle": qh, "ผล": "✅ สำเร็จ" if ok else "❌ ตรวจ log",
                                               "re-audit": fl.get("reaudit_verdict", "?"),
+                                              "model": q_model.replace("claude-", ""),
                                               "cost_usd": round(fl.get("cost_usd") or 0, 2),
                                               "turns": fl.get("num_turns")})
                             prog.progress(qi / len(queue), text=f"{qi}/{len(queue)}")
