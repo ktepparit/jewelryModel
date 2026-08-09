@@ -4728,6 +4728,30 @@ def _run_fix_agent(handle, audit_file, model, budget, box):
     return ok, fl, proc.returncode
 
 
+def _load_verified_registry():
+    try:
+        with open(_os.path.join(SHOPIFY_AI_DIR, "audit_results", "verified_clean.json"),
+                  encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _parse_run_output(out):
+    """Extract per-product outcomes from an audit run's stdout."""
+    audited, skipped = [], []
+    for line in out.splitlines():
+        m = re.search(r"\[\d+/\d+\] (\S+): SKIP \(([^)]+)\)", line)
+        if m:
+            skipped.append((m.group(1), m.group(2)))
+            continue
+        m = re.search(r"\[\d+/\d+\] (\S+): (?:LEGACY )?(PASS|WARN|FAIL)", line)
+        if m:
+            audited.append((m.group(1), m.group(2)))
+    summary = next((l for l in out.splitlines() if l.startswith("== ")), "")
+    return audited, skipped, summary
+
+
 def _load_audit_rows(out_dir):
     """Read per-product JSONs from an audit output dir into table rows.
     Two shapes: mechanical `<handle>.json` (has "checks") and full-audit
@@ -4860,10 +4884,41 @@ with tab_audit:
             ok, out = _run_script(args, timeout=21600 if is_all else 3600)
         st.session_state.audit_out_dir = out_dir
         st.session_state.audit_last_log = out
+        aud, skp, summ = _parse_run_output(out)
+        st.session_state.audit_last_run = {"audited": aud, "skipped": skp, "summary": summ}
         if not ok:
             st.error("Audit script failed — log below")
         with st.expander("Run log", expanded=not ok):
             st.code(out[-6000:])
+
+    lr = st.session_state.get("audit_last_run")
+    if lr:
+        st.divider()
+        st.subheader("📌 ผล run ล่าสุด")
+        if not lr["audited"] and not lr["skipped"]:
+            st.warning("ไม่มี product ถูกตรวจใน run ล่าสุด — เปิด Run log ดูสาเหตุ "
+                       "(handle/SKU ผิด หรือ collection ว่าง)")
+        if len(lr["audited"]) <= 10:
+            for h, v in lr["audited"]:
+                box = st.success if v == "PASS" else (st.warning if v == "WARN" else st.error)
+                icon = "✅" if v == "PASS" else ("🟡" if v == "WARN" else "🔴")
+                box(f"{icon} ตรวจใหม่: **{h}** — {v}")
+        else:
+            cnt = {v: sum(1 for _, x in lr["audited"] if x == v) for v in ("PASS", "WARN", "FAIL")}
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("ตรวจใหม่", len(lr["audited"]))
+            m2.metric("PASS", cnt["PASS"]); m3.metric("WARN", cnt["WARN"]); m4.metric("FAIL", cnt["FAIL"])
+        if lr["skipped"]:
+            vreg = _load_verified_registry()
+            if len(lr["skipped"]) <= 10:
+                for h, reason in lr["skipped"]:
+                    e = vreg.get(h, {})
+                    st.info(f"⏭️ **{h}** — ข้าม ({reason}) · สถานะที่บันทึกไว้: "
+                            f"{e.get('mech') or e.get('judgment') or '?'} · ตรวจล่าสุด {e.get('verified_at', '?')}")
+            else:
+                st.info(f"⏭️ ข้าม {len(lr['skipped'])} ตัว (ตรวจผ่านแล้ว เนื้อหาไม่เปลี่ยน)")
+        if lr["summary"]:
+            st.caption(lr["summary"])
 
     out_dir = st.session_state.get("audit_out_dir")
     if out_dir and _os.path.isdir(out_dir):
@@ -4872,8 +4927,10 @@ with tab_audit:
             st.divider()
             n_f = sum(1 for r in rows if r["verdict"] == "FAIL")
             n_w = sum(1 for r in rows if r["verdict"] == "WARN")
-            st.subheader(f"Results: {len(rows)} audited — "
+            st.subheader(f"📚 ผลสะสมวันนี้: {len(rows)} audited — "
                          f"{len(rows)-n_f-n_w} PASS / {n_w} WARN / {n_f} FAIL")
+            st.caption("ตารางนี้รวมทุก scan ของวันนี้ (โฟลเดอร์เดียวกัน) — ไม่ใช่เฉพาะ run ล่าสุด; "
+                       "ตัวที่ fix สำเร็จจะถูกอัปเดตเป็นผล re-audit ใหม่อัตโนมัติ")
             st.caption("Severity policy: FAIL = real breakage (fix now) · WARN = house-style "
                        "on live content (fix opportunistically on the next content edit — "
                        "never as a retro batch).")
