@@ -4799,11 +4799,23 @@ with tab_audit:
                    "and compare — union of findings catches blind spots.")
 
     tcol1, tcol2 = st.columns([1, 2])
-    target_kind = tcol1.radio("Target", ["Product (handle or SKU)", "Collection"],
+    target_kind = tcol1.radio("Target", ["Product (handle or SKU)", "Collection",
+                                         "🏪 ทั้งร้าน (ทุก product)"],
                               horizontal=True, key="audit_target_kind")
+    is_all = target_kind.startswith("🏪")
     target_val = tcol2.text_input("handle / SKU / collection-handle", key="audit_target_val",
-                                  placeholder="e.g. 3601 or spade-skull-crossbones-ring or skull-rings")
+                                  placeholder="e.g. 3601 or spade-skull-crossbones-ring or skull-rings",
+                                  disabled=is_all)
+    if is_all:
+        st.caption("🏪 ทั้งร้าน ≈ 1,160 products · Quick scan รอบแรก ~20–30 นาที (มี pagination ครบ) — "
+                   "ถ้าเปิด ⏭️ ข้ามตัวที่ผ่านแล้ว รอบถัดไปจะเหลือเฉพาะตัวที่เปลี่ยน/ยังไม่เคยตรวจ · "
+                   "Full audit ทั้งร้านคิดค่า AI ~$25–45 — แนะนำใช้ Luna + effort ต่ำถ้าจะทำ")
     limit = st.number_input("Limit (collection only, 0 = all)", 0, 250, 0, key="audit_limit")
+    skip_verified = st.checkbox(
+        "⏭️ ข้ามตัวที่ตรวจผ่านแล้วและไม่มีการแก้ไขตั้งแต่นั้น (เร็วขึ้น + ประหยัดค่า AI)",
+        value=True, key="audit_skip_verified",
+        help="จำผลจาก verified_clean.json คู่กับ updated_at ของ Shopify — ถ้าสินค้าถูกแก้ไข"
+             "หลังการตรวจครั้งล่าสุด จะถูกตรวจใหม่อัตโนมัติเสมอ ชั้น mechanical กับชั้น AI จำแยกกัน")
 
     PROVIDER_MAP = {
         "Gemini 3.1 Pro": ("gemini", None),
@@ -4815,20 +4827,24 @@ with tab_audit:
         "Claude Opus 5": ("claude", "claude-opus-5"),
     }
 
-    if st.button("▶️ Run audit", type="primary", key="audit_run_btn", disabled=not target_val.strip()):
+    if st.button("▶️ Run audit", type="primary", key="audit_run_btn",
+                 disabled=(not is_all and not target_val.strip())):
         target = target_val.strip()
         out_dir = _os.path.join(SHOPIFY_AI_DIR, "audit_results",
                                 _date.today().strftime("%Y%m%d") + "_app")
         script = "judgment_audit.py" if is_full else "product_audit_checks.py"
-        if target_kind == "Collection":
-            target_flag = "--collection"
+        if is_all:
+            target_args = ["--all"]
+        elif target_kind == "Collection":
+            target_args = ["--collection", target]
         elif re.fullmatch(r"\d{2,8}", target):
-            target_flag = "--sku"      # numeric input = SKU (e.g. 3601); resolved to the product via GraphQL
+            target_args = ["--sku", target]   # numeric input = SKU (e.g. 3601)
         else:
-            target_flag = "--handle"
-        args = [_os.path.join(SHOPIFY_AI_DIR, script),
-                target_flag, target,
-                "--out", out_dir]
+            target_args = ["--handle", target]
+        args = ([_os.path.join(SHOPIFY_AI_DIR, script)] + target_args
+                + ["--out", out_dir])
+        if skip_verified:
+            args += ["--skip-verified"]
         if target_kind == "Collection" and limit:
             args += ["--limit", str(int(limit))]
         if is_full:
@@ -4836,9 +4852,10 @@ with tab_audit:
             args += ["--provider", prov]
             if model:
                 args += ["--model", model]
-        with st.spinner(f"Running {script} on {target} ... (mechanical scan fetches the "
-                        f"live catalog first, ~30s; AI judgment adds ~10-30s per product)"):
-            ok, out = _run_script(args, timeout=3600)
+        with st.spinner(f"Running {script} on {'ALL products' if is_all else target} ... "
+                        f"(mechanical scan fetches the live catalog first, ~30s; "
+                        f"AI judgment adds ~10-30s per product)"):
+            ok, out = _run_script(args, timeout=21600 if is_all else 3600)
         st.session_state.audit_out_dir = out_dir
         st.session_state.audit_last_log = out
         if not ok:
