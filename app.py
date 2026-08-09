@@ -4812,10 +4812,12 @@ with tab_audit:
                    "Full audit ทั้งร้านคิดค่า AI ~$25–45 — แนะนำใช้ Luna + effort ต่ำถ้าจะทำ")
     limit = st.number_input("Limit (collection only, 0 = all)", 0, 250, 0, key="audit_limit")
     skip_verified = st.checkbox(
-        "⏭️ ข้ามตัวที่ตรวจผ่านแล้วและไม่มีการแก้ไขตั้งแต่นั้น (เร็วขึ้น + ประหยัดค่า AI)",
+        "⏭️ ข้ามตัวที่ตรวจผ่านแล้วและเนื้อหาไม่เปลี่ยน (เร็วขึ้น + ประหยัดค่า AI)",
         value=True, key="audit_skip_verified",
-        help="จำผลจาก verified_clean.json คู่กับ updated_at ของ Shopify — ถ้าสินค้าถูกแก้ไข"
-             "หลังการตรวจครั้งล่าสุด จะถูกตรวจใหม่อัตโนมัติเสมอ ชั้น mechanical กับชั้น AI จำแยกกัน")
+        help="จำผลใน verified_clean.json คู่กับ hash ของเนื้อหา (title+body) — การขายของ/สต็อก/"
+             "ราคา/แท็กเปลี่ยนจะไม่ trigger ตรวจซ้ำ แต่ถ้า body หรือ title ถูกแก้เมื่อไหร่จะตรวจใหม่"
+             "อัตโนมัติเสมอ ชั้น mechanical กับชั้น AI จำแยกกัน · ข้อยกเว้นเดียว: ถ้าแก้ Meta Title/"
+             "Description ตรงใน Shopify admin โดยไม่แตะ body ให้ปิด checkbox นี้หนึ่งรอบสำหรับตัวนั้น")
 
     PROVIDER_MAP = {
         "Gemini 3.1 Pro": ("gemini", None),
