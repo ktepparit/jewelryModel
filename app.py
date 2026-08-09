@@ -4715,7 +4715,7 @@ def _load_audit_rows(out_dir):
                                         "detail": (x.get("detail", "") +
                                                    (f" → {x['fix_hint']}" if x.get("fix_hint") else ""))}
                                        for x in iss],
-                            "_file": fp, "_judgment": True, "_mtime": _os.path.getmtime(fp)}
+                            "id": r.get("id"), "_file": fp, "_judgment": True, "_mtime": _os.path.getmtime(fp)}
         else:
             fails = [c for c in r["checks"] if c["status"] == "fail"]
             warns = [c for c in r["checks"] if c["status"] == "warn"]
@@ -4724,7 +4724,7 @@ def _load_audit_rows(out_dir):
                             "warns": "|".join(c["id"] for c in warns),
                             "issues": [{"id": c["id"], "status": c["status"], "detail": c["detail"]}
                                        for c in fails + warns],
-                            "_file": fp, "_judgment": False, "_mtime": _os.path.getmtime(fp)}
+                            "id": r.get("id"), "_file": fp, "_judgment": False, "_mtime": _os.path.getmtime(fp)}
     return list(rows.values())
 
 
@@ -4831,6 +4831,11 @@ with tab_audit:
                 fix_budget = fc3.number_input("Budget cap $", 1.0, 20.0, 5.0, key="audit_fix_budget")
 
                 sel = next(r for r in fixable if r["handle"] == fix_handle)
+                sel_links = [f"[🔗 เปิดหน้า {fix_handle}](https://www.bikerringshop.com/products/{fix_handle})"]
+                if sel.get("id"):
+                    _sub = st.secrets.get("SHOPIFY_SHOP_URL", "bikerringshop.myshopify.com").split(".")[0]
+                    sel_links.append(f"[🛠️ Shopify admin](https://admin.shopify.com/store/{_sub}/products/{sel['id']})")
+                st.markdown("  ·  ".join(sel_links))
                 with st.expander(f"Issues on {fix_handle}", expanded=True):
                     for iss in sel["issues"]:
                         icon = "🔴" if iss["status"] == "fail" else "🟡"
@@ -4866,8 +4871,45 @@ with tab_audit:
                                 status.update(label=f"⚠️ agent finished — check re-audit verdict in log", state="complete")
                             else:
                                 status.update(label=f"❌ fix failed (exit {proc.returncode})", state="error")
+                            # persist result summary (cost + links) across reruns
+                            fl = {}
+                            try:
+                                with open(_os.path.join(_os.path.dirname(sel["_file"]),
+                                                        f"fix_{fix_handle[:70]}.json"), encoding="utf-8") as f:
+                                    fl = json.load(f)
+                            except Exception:
+                                pass
+                            st.session_state.audit_last_fix = {
+                                "handle": fix_handle, "id": sel.get("id"), "log": fl,
+                                "ok": proc.returncode == 0 and "independent re-audit: PASS" in full,
+                            }
                         except Exception as e:
                             status.update(label=f"❌ {e}", state="error")
+
+                lf = st.session_state.get("audit_last_fix")
+                if lf:
+                    st.divider()
+                    st.subheader(("✅" if lf["ok"] else "⚠️") + f" ผลการ fix ล่าสุด: {lf['handle']}")
+                    log = lf.get("log") or {}
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("ค่าใช้จ่าย fix นี้", f"${(log.get('cost_usd') or 0):.2f}")
+                    m2.metric("Agent turns", log.get("num_turns", "—"))
+                    m3.metric("Model", (log.get("model") or "?").replace("claude-", ""))
+                    m4.metric("Re-audit", log.get("reaudit_verdict", "?"))
+                    links = [f"[🔗 เปิดหน้าสินค้าจริง](https://www.bikerringshop.com/products/{lf['handle']})"]
+                    if lf.get("id"):
+                        store_sub = st.secrets.get("SHOPIFY_SHOP_URL", "bikerringshop.myshopify.com").split(".")[0]
+                        links.append(f"[🛠️ เปิดใน Shopify admin](https://admin.shopify.com/store/{store_sub}/products/{lf['id']})")
+                    st.markdown("  ·  ".join(links))
+                    total, n_runs = 0.0, 0
+                    for p in _glob.glob(_os.path.join(SHOPIFY_AI_DIR, "audit_results", "*", "fix_*.json")):
+                        try:
+                            with open(p, encoding="utf-8") as f:
+                                total += (json.load(f).get("cost_usd") or 0)
+                            n_runs += 1
+                        except Exception:
+                            pass
+                    st.caption(f"💰 ค่า fix สะสมทั้งหมด: ${total:.2f} จาก {n_runs} runs (รวมทุก fix log ใน audit_results)")
         else:
             st.info("No result files in the last output dir yet — run an audit above.")
 
