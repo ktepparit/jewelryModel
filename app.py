@@ -4637,6 +4637,32 @@ from datetime import date as _date
 SHOPIFY_AI_DIR = st.secrets.get("SHOPIFY_AI_DIR", r"C:\Users\pc1\shopify-ai")
 AUDIT_EXCLUDE_HANDLES = {"express-service"}  # service SKUs — not real products, never audit/fix
 
+# (short name, explanation) per check — M = mechanical layer, J = AI judgment layer
+CHECK_NOTES = {
+    "M1":  ("Meta Title", "ต้องมี Meta Title และยาวไม่เกิน 60 ตัวอักษร (เกิน = โดนตัดใน Google, ขึ้นเป็น WARN)"),
+    "M2":  ("Meta Description", "ต้องมี MD, ไม่เกิน 155 ตัวอักษร, มี keyword จาก H1 ในช่วงต้น (ยาวเกิน = WARN)"),
+    "M3":  ("ราคาในเนื้อหา", "ห้ามมีราคา ($xx) ใน H1 / Meta Title / Meta Description / body"),
+    "M4":  ("Banned AI words", "คำต้องห้ามสไตล์ AI เช่น Delve, Elevate, Unleash, Seamlessly ฯลฯ"),
+    "M5":  ("Banned phrases", "โครงประโยค/วลีต้องห้าม เช่น 'lost-wax cast', 'the first thing you notice', formulaic openers"),
+    "M6":  ("Mojibake/encoding", "ตัวอักษรเพี้ยนจาก encoding: €, \ufffd, อักษรไทยหลุดในเนื้อหาอังกฤษ"),
+    "M7":  ("Multilingual CSS", "CSS ที่พังกับ 20 ภาษา: letter-spacing, line-height ต่ำกว่า 1.8, spec row ไม่มี gap ฯลฯ"),
+    "M8":  ("YMAW links", "ลิงก์ You Might Also Want: FAIL เฉพาะ section หาย/ไม่มีลิงก์/full URL — จำนวนลิงก์หรือ anchor ยาว = WARN (house-style)"),
+    "M9":  ("ลิงก์ตาย/redirect", "ลิงก์ภายในต้องชี้ไปหน้า published ที่ตอบ HTTP 200 แบบไม่ redirect — ลิงก์ตายกระทบ SEO จริง"),
+    "M10": ("FAQ format", "ต้องมี FAQ 3–4 ข้อ คำตอบ ~40–60 คำ (นอกช่วง = WARN, ไม่มี FAQ เลย = FAIL)"),
+    "M11": ("FAQ schema", "metafield custom.faq_schema ต้องมีและตรงกับ FAQ ใน body คำต่อคำ (สำคัญกับ AI citation)"),
+    "M12": ("H1 ซ้ำ Meta Title", "คำใน MT ทับซ้อน H1: เกิน 80% = FAIL (แทบก๊อปกัน), 70–80% = WARN"),
+    "M13": ("โครงสร้างหน้า", "โครง 7 section: H2 ครบ, Quick Specs table, 'If you...' blocks, styled hook — ขาด = FAIL"),
+    "J1":  ("Deictic opener", "AI ตรวจ: เปิดด้วยโครง 'That X... / The Y...' ซึ่งเป็น pattern ต้องห้าม"),
+    "J2":  ("Negative-then-positive", "AI ตรวจ: โครงเปรียบเทียบ 'ของอื่นแย่ → ของเราดี' ทุก variant"),
+    "J3":  ("Content swappability", "AI ตรวจ: ย่อหน้า generic ที่สลับไปใส่สินค้าอื่นแล้วยังอ่านรอด = filler"),
+    "J4":  ("FAQ quality", "AI ตรวจ: คำตอบ FAQ ตอบตรงคำถามไหม เจาะจงสินค้านี้ไหม"),
+    "J5":  ("Heads-up/caveat", "AI ตรวจ: ข้อสังเกตตรงไปตรงมา unique จริงไหม (ไม่ใช่ใช้ได้ทั้ง category)"),
+    "J6":  ("Sensory rules", "AI ตรวจ: การเขียนเชิงสัมผัสตามกฎ ไม่ใช้ touch-test template"),
+    "J7":  ("Spec integrity", "AI ตรวจ: สเปคหาย/เกิน/ขัดแย้งกับต้นฉบับ (เทียบ CSV/variant จริง)"),
+    "J8":  ("Audience targeting", "AI ตรวจ: target ตามตัวสินค้า ไม่ใช่ตามชื่อร้าน"),
+    "J9":  ("Cross-product pattern", "AI ตรวจ: opening/FAQ/caveat ซ้ำ pattern กับสินค้าอื่นข้าม collection"),
+}
+
 
 def _audit_env():
     return {**_os.environ, "PYTHONIOENCODING": "utf-8"}
@@ -4784,6 +4810,9 @@ with tab_audit:
             st.caption("Severity policy: FAIL = real breakage (fix now) · WARN = house-style "
                        "on live content (fix opportunistically on the next content edit — "
                        "never as a retro batch).")
+            with st.expander("📖 รหัส check ทั้งหมดคืออะไร (M = mechanical scan, J = AI judgment)"):
+                for code, (short, desc) in CHECK_NOTES.items():
+                    st.markdown(f"**{code} · {short}** — {desc}")
             st.dataframe(pd.DataFrame([{k: r[k] for k in ("handle", "verdict", "fails", "warns")}
                                        for r in rows]),
                          use_container_width=True, height=min(400, 60 + 35 * len(rows)))
@@ -4805,7 +4834,9 @@ with tab_audit:
                 with st.expander(f"Issues on {fix_handle}", expanded=True):
                     for iss in sel["issues"]:
                         icon = "🔴" if iss["status"] == "fail" else "🟡"
-                        st.write(f"{icon} **{iss['id']}** — {iss['detail']}")
+                        short = CHECK_NOTES.get(iss["id"], ("", ""))[0]
+                        label = f"{iss['id']} · {short}" if short else iss["id"]
+                        st.write(f"{icon} **{label}** — {iss['detail']}")
 
                 if st.button(f"🔧 Fix {fix_handle} now", type="primary", key="audit_fix_btn"):
                     args = [_os.path.join(SHOPIFY_AI_DIR, "agent_fixer.py"),
