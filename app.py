@@ -14,19 +14,21 @@ import random
 st.set_page_config(layout="wide", page_title="Jewelry AI Studio 12/9")
 
 # Model IDs
-MODEL_IMAGE_GEN = "models/gemini-3-pro-image-preview"
+MODEL_IMAGE_GEN = "models/gemini-3-pro-image"  # GA alias of Nano Banana Pro (same model as the old -preview; verified 2026-08-09)
 MODEL_TEXT_GEMINI = "models/gemini-3.1-pro-preview"
-MODEL_TEXT_GEMINI_FALLBACK = "models/gemini-3-pro-preview"
+MODEL_TEXT_GEMINI_FALLBACK = "models/gemini-3.6-flash"
 
 # Claude Models
 CLAUDE_MODELS = {
-    "Claude Sonnet 4.6": "claude-sonnet-4-6",
-    "Claude Opus 4.6": "claude-opus-4-6",
+    "Claude Sonnet 5": "claude-sonnet-5",
+    "Claude Opus 5": "claude-opus-5",
 }
 
 # OpenAI Models (Chat Completions API compatible)
 OPENAI_MODELS = {
-    "GPT-5.2": "gpt-5.2",
+    "GPT-5.6 Terra": "gpt-5.6-terra",
+    "GPT-5.6 Sol": "gpt-5.6-sol",
+    "GPT-5.6 Luna": "gpt-5.6-luna",
 }
 
 # Opening Angle Pool for Product Writer diversity
@@ -1934,45 +1936,78 @@ def remove_html_tags(text):
     return "\n".join([line.strip() for line in text.split('\n') if line.strip()])
 
 # --- SHOPIFY HELPER FUNCTIONS ---
-def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_list, images_pil):
-    """Re-upload images with new filenames and alt tags — no content/title/meta changes.
-    Uses Shopify's product PUT with images array which replaces all images at once."""
+def update_shopify_image_seo_only(shop_url, access_token, product_id, image_seo_list, images_pil=None):
+    """Update ALT TAGS in place on the product's EXISTING images — no delete/re-upload.
+    Old behavior (PUT images array) replaced every image: new image IDs, new CDN URLs,
+    broken references, and lost originals. Filenames are NOT changed (renaming requires
+    re-upload, which we deliberately never do — CDN URLs must stay stable)."""
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
-    
-    if not images_pil:
-        return False, "No images available to upload"
-    
-    url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
-    
-    # Build images array with new filenames + alt tags (same method as update_shopify_product_v2)
-    img_payloads = []
-    for i, img in enumerate(images_pil):
-        seo = image_seo_list[i] if i < len(image_seo_list) else {}
-        img_payloads.append({
-            "attachment": img_to_base64(img),
-            "filename": seo.get("file_name", f"product-image-{i+1}.jpg"),
-            "alt": seo.get("alt_tag", "")
-        })
-    
-    # Only send id + images — no title, body_html, or metafields
-    product_payload = {"id": product_id, "images": img_payloads}
-    
+
+    list_url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}/images.json"
     try:
-        response = requests.put(url, json={"product": product_payload}, headers=headers, timeout=60)
-        if response.status_code in [200, 201]:
-            return True, f"✅ Re-uploaded {len(img_payloads)} images with new filenames & alt tags"
-        return False, f"Shopify API Error {response.status_code}: {response.text}"
+        r = requests.get(list_url, headers=headers, timeout=20)
     except Exception as e:
         return False, f"Connection Error: {str(e)}"
+    if r.status_code != 200:
+        return False, f"Shopify API Error {r.status_code}: {r.text}"
+    live_images = r.json().get("images", [])
+    if not live_images:
+        return False, "Product has no images on Shopify"
+
+    updated, errors = 0, []
+    for i, img_info in enumerate(live_images):
+        seo = image_seo_list[i] if i < len(image_seo_list) else {}
+        alt = (seo.get("alt_tag") or "").strip()
+        if not alt or alt == (img_info.get("alt") or ""):
+            continue  # nothing to change for this image
+        img_id = img_info["id"]
+        put_url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}/images/{img_id}.json"
+        try:
+            pr = requests.put(put_url, json={"image": {"id": img_id, "alt": alt}},
+                              headers=headers, timeout=20)
+            if pr.status_code in (200, 201):
+                updated += 1
+            else:
+                errors.append(f"image {img_id}: {pr.status_code}")
+        except Exception as e:
+            errors.append(f"image {img_id}: {e}")
+        time.sleep(0.4)  # REST rate-limit safety
+
+    if errors:
+        return False, f"Updated {updated}, failed {len(errors)}: {'; '.join(errors[:3])}"
+    return True, f"✅ Updated alt tags in place on {updated}/{len(live_images)} existing images (filenames/CDN URLs unchanged)"
 
 def update_shopify_product_v2(shop_url, access_token, product_id, data, images_pil=None, upload_images=False):
     shop_url = shop_url.replace("https://", "").replace("http://", "").strip()
     if not shop_url.endswith(".myshopify.com"): shop_url += ".myshopify.com"
     url = f"https://{shop_url}/admin/api/2026-04/products/{product_id}.json"
     headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
-    
+
+    # SIZE GUARD — a truncated/buggy generation must never replace a full description.
+    # (A regex bug once wiped 24 product bodies; 80% floor per shopify-ai CLAUDE.md safety rules.)
+    new_body = data.get('html_content') or ""
+    if new_body:
+        try:
+            cur = requests.get(url, headers=headers, timeout=20)
+        except Exception as e:
+            return False, f"⛔ SIZE GUARD: could not fetch current product to compare ({e}) — push aborted, retry."
+        if cur.status_code != 200:
+            return False, f"⛔ SIZE GUARD: fetch current product failed ({cur.status_code}) — push aborted, retry."
+        orig_body = (cur.json().get("product") or {}).get("body_html") or ""
+        if orig_body and len(new_body) < 0.8 * len(orig_body):
+            return False, (f"⛔ SIZE GUARD: new body_html {len(new_body):,} chars is under 80% of the "
+                           f"live version ({len(orig_body):,} chars) — push aborted. Inspect the "
+                           f"generated content for truncation before retrying.")
+        # local backup of the live body before overwriting (best-effort)
+        try:
+            with open(f"body_backup_app_{product_id}_{time.strftime('%Y%m%d')}.json", "w", encoding="utf-8") as f:
+                json.dump({"product_id": product_id, "body_html": orig_body,
+                           "saved_at": time.strftime("%Y-%m-%d %H:%M:%S")}, f, ensure_ascii=False)
+        except Exception:
+            pass
+
     product_payload = {
         "id": product_id,
         "title": data.get('product_title_h1'),
@@ -2378,7 +2413,7 @@ def format_catalog_for_prompt(catalog, max_collections=50, max_products=150, pro
 # ============================================================
 # --- CLAUDE API FUNCTION ---
 # ============================================================
-def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-4-6"):
+def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonnet-5"):
     """Call Claude API for Text/SEO tasks with optional image support"""
     url = "https://api.anthropic.com/v1/messages"
     headers = {"Content-Type": "application/json", "x-api-key": claude_key, "anthropic-version": "2023-06-01"}
@@ -2413,7 +2448,7 @@ def call_claude_api(claude_key, prompt, img_pil_list=None, model_id="claude-sonn
 # ============================================================
 # --- OPENAI API FUNCTION (NEW) ---
 # ============================================================
-def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-5.2"):
+def call_openai_api(openai_key, prompt, img_pil_list=None, model_id="gpt-5.6-terra"):
     """Call OpenAI API for Text/SEO tasks with optional image support"""
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {openai_key}"}
@@ -3041,7 +3076,7 @@ with st.sidebar:
     st.caption(f"**Active Image Model:** Gemini")
 
 st.title("💎 Jewelry AI Studio")
-tab1, tab_retouch, tab2, tab3, tab_batch, tab_colwriter, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📝 Batch Writer", "📂 Collection Writer", "📚 Library", "ℹ️ Models"])
+tab1, tab_retouch, tab2, tab3, tab_batch, tab_colwriter, tab_audit, tab4, tab5 = st.tabs(["✨ Gen Image", "🎨 Retouch", "🏷️ Bulk SEO", "📝 Writer", "📝 Batch Writer", "📂 Collection Writer", "🔍 Agent Audit", "📚 Library", "ℹ️ Models"])
 
 # === TAB 1: GEN IMAGE ===
 with tab1:
@@ -3881,8 +3916,8 @@ with tab3:
                     
                     if is_img_seo_only:
                         # Image SEO Only — re-upload images with new filenames + alt tags
-                        st.info("🖼️ Image SEO Only — will delete old images and re-upload with new filenames & alt tags (no content changes)")
-                        if st.button("☁️ Re-upload Images with SEO", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
+                        st.info("🖼️ Image SEO Only — updates ALT TAGS in place on existing images (no delete/re-upload; filenames & CDN URLs unchanged; no content changes)")
+                        if st.button("☁️ Update Alt Tags on Existing Images", type="primary", use_container_width=True, key=f"writer_update_imgseo_btn_{writer_key_id}_{writer_publish_counter}"):
                             if not s_shop or not s_token or not s_prod_id: st.error("❌ Missing Data")
                             else:
                                 with st.spinner("Updating image SEO..."):
@@ -4550,7 +4585,7 @@ with tab5:
         st.write("**Current Configuration:**")
         current_model = st.session_state.get('selected_text_model', 'Gemini')
         model_info = {
-            "Image Generation": "Gemini (gemini-3-pro-image-preview)", 
+            "Image Generation": "Gemini (gemini-3-pro-image)",
             "Text/SEO Model": current_model,
             "Gemini Text": MODEL_TEXT_GEMINI,
             "Gemini Fallback": MODEL_TEXT_GEMINI_FALLBACK
@@ -4563,9 +4598,9 @@ with tab5:
         
         st.write("**Available Models:**")
         st.write("🔹 **Gemini** - Google AI (Free tier available)")
-        st.write("🔹 **Claude Sonnet 4.6** - Anthropic (Best value, near-Opus performance)")
-        st.write("🔹 **Claude Opus 4.6** - Anthropic (Highest quality)")
-        st.write("🔹 **GPT-5.2** - OpenAI (Flagship model)")
+        st.write("🔹 **Claude Sonnet 5** - Anthropic (Best value; intro $2/$10 per MTok through Aug 2026)")
+        st.write("🔹 **Claude Opus 5** - Anthropic (Highest quality)")
+        st.write("🔹 **GPT-5.6 Terra / Sol / Luna** - OpenAI (Terra = main, Sol = hardest work, Luna = cheap pre-screen)")
         
     with col2:
         st.write("**API Status:**")
@@ -4586,6 +4621,213 @@ with tab5:
                     st.success(f"Found {len(gem)} models")
                     st.dataframe(pd.DataFrame(gem)[['name','version','displayName']], use_container_width=True)
                 else: st.error("Failed")
+
+
+# === TAB AGENT AUDIT (Phase 4 of JEWELRYMODEL_AGENT_WRITER_PLAN_20260809) ===
+# Audit layer 1 = product_audit_checks.py (mechanical, free), layer 2 = judgment_audit.py
+# (AI, provider-selectable). Fix = agent_fixer.py (Claude Agent SDK ONLY). All three
+# scripts live in the shopify-ai repo and read their own credentials from data.env there,
+# so this tab only shells out to them — LOCAL machine only, not Streamlit Cloud.
+import subprocess as _sp
+import glob as _glob
+import os as _os
+import sys as _sys
+from datetime import date as _date
+
+SHOPIFY_AI_DIR = st.secrets.get("SHOPIFY_AI_DIR", r"C:\Users\pc1\shopify-ai")
+AUDIT_EXCLUDE_HANDLES = {"express-service"}  # service SKUs — not real products, never audit/fix
+
+
+def _audit_env():
+    return {**_os.environ, "PYTHONIOENCODING": "utf-8"}
+
+
+def _run_script(args, timeout=1800):
+    """Run a shopify-ai script, return (ok, stdout+stderr)."""
+    try:
+        r = _sp.run([_sys.executable] + args, cwd=SHOPIFY_AI_DIR, env=_audit_env(),
+                    capture_output=True, text=True, encoding="utf-8", timeout=timeout)
+        return r.returncode == 0, (r.stdout or "") + ("\n" + r.stderr if r.stderr else "")
+    except _sp.TimeoutExpired:
+        return False, f"timeout after {timeout}s"
+    except Exception as e:
+        return False, str(e)
+
+
+def _load_audit_rows(out_dir):
+    """Read per-product JSONs from an audit output dir into table rows.
+    Two shapes: mechanical `<handle>.json` (has "checks") and full-audit
+    `judgment_<handle>.json` (has "issues" with severity). When both exist for
+    the same handle (quick scan then full audit, same day), judgment wins."""
+    rows = {}
+    for fp in sorted(_glob.glob(_os.path.join(out_dir, "*.json"))):
+        base = _os.path.basename(fp)
+        if base.startswith(("fix_", "_")):
+            continue
+        try:
+            with open(fp, encoding="utf-8") as f:
+                r = json.load(f)
+        except Exception:
+            continue
+        handle = r.get("handle")
+        if not handle or handle in AUDIT_EXCLUDE_HANDLES:
+            continue
+        is_judgment = base.startswith("judgment_")
+        if not is_judgment and "checks" not in r:
+            continue
+        if handle in rows and rows[handle]["_mtime"] >= _os.path.getmtime(fp):
+            continue  # keep the NEWER result (audit truth decays with time)
+        if is_judgment:
+            iss = r.get("issues", [])
+            hi = [x for x in iss if x.get("severity") == "high"]
+            lo = [x for x in iss if x.get("severity") != "high"]
+            rows[handle] = {"handle": handle, "verdict": r.get("verdict", "?"),
+                            "fails": "|".join(x.get("id", "?") for x in hi),
+                            "warns": "|".join(x.get("id", "?") for x in lo),
+                            "issues": [{"id": x.get("id", "?"),
+                                        "status": "fail" if x.get("severity") == "high" else "warn",
+                                        "detail": (x.get("detail", "") +
+                                                   (f" → {x['fix_hint']}" if x.get("fix_hint") else ""))}
+                                       for x in iss],
+                            "_file": fp, "_judgment": True, "_mtime": _os.path.getmtime(fp)}
+        else:
+            fails = [c for c in r["checks"] if c["status"] == "fail"]
+            warns = [c for c in r["checks"] if c["status"] == "warn"]
+            rows[handle] = {"handle": handle, "verdict": r.get("verdict", "?"),
+                            "fails": "|".join(c["id"] for c in fails),
+                            "warns": "|".join(c["id"] for c in warns),
+                            "issues": [{"id": c["id"], "status": c["status"], "detail": c["detail"]}
+                                       for c in fails + warns],
+                            "_file": fp, "_judgment": False, "_mtime": _os.path.getmtime(fp)}
+    return list(rows.values())
+
+
+with tab_audit:
+    st.header("🔍 Product Audit (/product-writing rules)")
+    if not _os.path.isdir(SHOPIFY_AI_DIR):
+        st.error(f"shopify-ai repo not found at {SHOPIFY_AI_DIR} — this tab runs on the "
+                 f"local machine only (set SHOPIFY_AI_DIR in secrets to override).")
+        st.stop()
+
+    run_mode = st.radio("Mode", ["⚡ Quick scan (mechanical — free, no AI)",
+                                 "🔍 Full audit (mechanical + AI judgment)"],
+                        horizontal=True, key="audit_run_mode")
+    is_full = run_mode.startswith("🔍")
+
+    provider_model = None
+    if is_full:
+        c1, c2 = st.columns(2)
+        provider_model = c1.selectbox("AI Model (judgment)", [
+            "Gemini 3.1 Pro", "Gemini 3.6 Flash",
+            "GPT-5.6 Terra", "GPT-5.6 Sol", "GPT-5.6 Luna (pre-screen)",
+            "Claude Sonnet 5", "Claude Opus 5"], key="audit_provider")
+        c2.caption("~$0.02–0.09 per product. Cross-check: run twice with two models "
+                   "and compare — union of findings catches blind spots.")
+
+    tcol1, tcol2 = st.columns([1, 2])
+    target_kind = tcol1.radio("Target", ["Handle", "Collection"], horizontal=True, key="audit_target_kind")
+    target_val = tcol2.text_input("handle / collection-handle", key="audit_target_val",
+                                  placeholder="e.g. skull-rings or spade-skull-crossbones-ring")
+    limit = st.number_input("Limit (collection only, 0 = all)", 0, 250, 0, key="audit_limit")
+
+    PROVIDER_MAP = {
+        "Gemini 3.1 Pro": ("gemini", None),
+        "Gemini 3.6 Flash": ("gemini", "models/gemini-3.6-flash"),
+        "GPT-5.6 Terra": ("openai", None),
+        "GPT-5.6 Sol": ("openai", "gpt-5.6-sol"),
+        "GPT-5.6 Luna (pre-screen)": ("openai", "gpt-5.6-luna"),
+        "Claude Sonnet 5": ("claude", None),
+        "Claude Opus 5": ("claude", "claude-opus-5"),
+    }
+
+    if st.button("▶️ Run audit", type="primary", key="audit_run_btn", disabled=not target_val.strip()):
+        target = target_val.strip()
+        out_dir = _os.path.join(SHOPIFY_AI_DIR, "audit_results",
+                                _date.today().strftime("%Y%m%d") + "_app")
+        script = "judgment_audit.py" if is_full else "product_audit_checks.py"
+        args = [_os.path.join(SHOPIFY_AI_DIR, script),
+                "--collection" if target_kind == "Collection" else "--handle", target,
+                "--out", out_dir]
+        if target_kind == "Collection" and limit:
+            args += ["--limit", str(int(limit))]
+        if is_full:
+            prov, model = PROVIDER_MAP[provider_model]
+            args += ["--provider", prov]
+            if model:
+                args += ["--model", model]
+        with st.spinner(f"Running {script} on {target} ... (mechanical scan fetches the "
+                        f"live catalog first, ~30s; AI judgment adds ~10-30s per product)"):
+            ok, out = _run_script(args, timeout=3600)
+        st.session_state.audit_out_dir = out_dir
+        st.session_state.audit_last_log = out
+        if not ok:
+            st.error("Audit script failed — log below")
+        with st.expander("Run log", expanded=not ok):
+            st.code(out[-6000:])
+
+    out_dir = st.session_state.get("audit_out_dir")
+    if out_dir and _os.path.isdir(out_dir):
+        rows = _load_audit_rows(out_dir)
+        if rows:
+            st.divider()
+            n_f = sum(1 for r in rows if r["verdict"] == "FAIL")
+            n_w = sum(1 for r in rows if r["verdict"] == "WARN")
+            st.subheader(f"Results: {len(rows)} audited — "
+                         f"{len(rows)-n_f-n_w} PASS / {n_w} WARN / {n_f} FAIL")
+            st.caption("Severity policy: FAIL = real breakage (fix now) · WARN = house-style "
+                       "on live content (fix opportunistically on the next content edit — "
+                       "never as a retro batch).")
+            st.dataframe(pd.DataFrame([{k: r[k] for k in ("handle", "verdict", "fails", "warns")}
+                                       for r in rows]),
+                         use_container_width=True, height=min(400, 60 + 35 * len(rows)))
+
+            fixable = [r for r in rows if r["verdict"] == "FAIL"]
+            if fixable:
+                st.divider()
+                st.subheader("🔧 Fix (Claude Agent SDK — one product at a time)")
+                st.caption("Fix runs the full safety workflow (backup → size-guard → push → "
+                           "verify → re-audit). ~$0.5–2 per product, billed to the Anthropic "
+                           "API key in shopify-ai data.env — NOT the Claude Max subscription.")
+                fc1, fc2, fc3 = st.columns([2, 1, 1])
+                fix_handle = fc1.selectbox("Product to fix",
+                                           [r["handle"] for r in fixable], key="audit_fix_handle")
+                fix_model = fc2.selectbox("Model", ["claude-sonnet-5", "claude-opus-5"], key="audit_fix_model")
+                fix_budget = fc3.number_input("Budget cap $", 1.0, 20.0, 5.0, key="audit_fix_budget")
+
+                sel = next(r for r in fixable if r["handle"] == fix_handle)
+                with st.expander(f"Issues on {fix_handle}", expanded=True):
+                    for iss in sel["issues"]:
+                        icon = "🔴" if iss["status"] == "fail" else "🟡"
+                        st.write(f"{icon} **{iss['id']}** — {iss['detail']}")
+
+                if st.button(f"🔧 Fix {fix_handle} now", type="primary", key="audit_fix_btn"):
+                    args = [_os.path.join(SHOPIFY_AI_DIR, "agent_fixer.py"),
+                            "--handle", fix_handle, "--audit-json", sel["_file"],
+                            "--model", fix_model, "--budget", str(fix_budget)]
+                    with st.status(f"Fix agent running on {fix_handle} — typically 3-15 min, "
+                                   f"do not close this page...", expanded=True) as status:
+                        box = st.empty()
+                        try:
+                            proc = _sp.Popen([_sys.executable] + args, cwd=SHOPIFY_AI_DIR,
+                                             env=_audit_env(), stdout=_sp.PIPE, stderr=_sp.STDOUT,
+                                             text=True, encoding="utf-8")
+                            lines = []
+                            for line in proc.stdout:
+                                lines.append(line.rstrip())
+                                box.code("\n".join(lines[-30:]))
+                            proc.wait(timeout=60)
+                            full = "\n".join(lines)
+                            if proc.returncode == 0 and "independent re-audit: PASS" in full:
+                                status.update(label=f"✅ {fix_handle} fixed — re-audit PASS", state="complete")
+                                st.balloons()
+                            elif proc.returncode == 0:
+                                status.update(label=f"⚠️ agent finished — check re-audit verdict in log", state="complete")
+                            else:
+                                status.update(label=f"❌ fix failed (exit {proc.returncode})", state="error")
+                        except Exception as e:
+                            status.update(label=f"❌ {e}", state="error")
+        else:
+            st.info("No result files in the last output dir yet — run an audit above.")
 
 
 
