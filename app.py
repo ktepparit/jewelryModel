@@ -4820,6 +4820,10 @@ with tab_audit:
                                              text=True, encoding="utf-8")
                             lines = []
                             for line in proc.stdout:
+                                # expected notice when the agent runs on the API key
+                                # (by design: billed to API, not the Max subscription)
+                                if "connectors are disabled" in line:
+                                    continue
                                 lines.append(line.rstrip())
                                 box.code("\n".join(lines[-30:]))
                             proc.wait(timeout=60)
