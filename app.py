@@ -4941,6 +4941,25 @@ with tab_audit:
                                        for r in rows]),
                          use_container_width=True, height=min(400, 60 + 35 * len(rows)))
 
+            # systemic-pattern radar: the same check firing across >25% of a scan
+            # = site-wide "sameness" (the thing Google detects) — CLAUDE.md caps any
+            # single opener/pattern type at ~25% of a collection
+            if len(rows) >= 8:
+                fire = {}
+                for r in rows:
+                    for cid in {c for c in (r["fails"] + "|" + r["warns"]).split("|") if c}:
+                        fire[cid] = fire.get(cid, 0) + 1
+                systemic = sorted(((c, n) for c, n in fire.items()
+                                   if n >= 3 and n / len(rows) > 0.25 and c != "M10"),
+                                  key=lambda x: -x[1])
+                if systemic:
+                    st.warning("🚨 **Pattern เชิงระบบ** — check เดียว fire เกิน 25% ของที่ scan: "
+                               + " · ".join(f"**{c}** {n}/{len(rows)}"
+                                            f" ({CHECK_NOTES.get(c, ('?',))[0]})"
+                                            for c, n in systemic)
+                               + " — ความซ้ำระดับนี้คือ sameness ที่ Google ตรวจจับ "
+                               "ควรวางแผนแก้เป็นชุดเดียวกัน ไม่ใช่รายตัวแบบสุ่ม")
+
             fixable = [r for r in rows if r["verdict"] == "FAIL"]
             if fixable:
                 st.divider()
@@ -5077,6 +5096,164 @@ with tab_audit:
                     st.caption(f"💰 ค่า fix สะสมทั้งหมด: ${total:.2f} จาก {n_runs} runs (รวมทุก fix log ใน audit_results)")
         else:
             st.info("No result files in the last output dir yet — run an audit above.")
+
+    # ---- Cross-check: two independent AI auditors + adjudicator (single product) ----
+    st.divider()
+    st.subheader("🤝 Cross-check: 2 AI ตรวจอิสระ + ผู้ตัดสิน (ราย product)")
+    st.caption("โมเดล 2 ตัวตรวจแบบไม่เห็นกัน (กัน anchor) → ผู้ตัดสินเทียบกับเนื้อหาจริง แยก "
+               "consensus / ขัดแย้ง / over-fire และถามคุณเฉพาะข้อเท็จจริงที่ต้องการคนจับสินค้าจริง "
+               "→ คำตอบเข้าใบสั่งแก้เป็น ground truth · ค่าตรวจ ~$0.08–0.15/ตัว (ไม่รวมค่า fix)")
+    PAIRS = {
+        "Terra + Gemini 3.1 Pro": [("openai", None, "gpt-5.6-terra"),
+                                   ("gemini", None, "gemini-3.1-pro")],
+        "Terra + Sonnet 5": [("openai", None, "gpt-5.6-terra"),
+                             ("claude", None, "claude-sonnet-5")],
+        "Gemini 3.1 Pro + Sonnet 5": [("gemini", None, "gemini-3.1-pro"),
+                                      ("claude", None, "claude-sonnet-5")],
+    }
+    ADJS = {"Claude Sonnet 5": ("claude", None), "GPT-5.6 Terra": ("openai", None),
+            "Gemini 3.1 Pro": ("gemini", None)}
+    x1, x2, x3, x4 = st.columns([2, 1.2, 1.2, 0.8])
+    cc_target = x1.text_input("handle หรือ SKU", key="cc_target")
+    cc_pair = x2.selectbox("คู่ผู้ตรวจ", list(PAIRS), key="cc_pair")
+    cc_adj = x3.selectbox("ผู้ตัดสิน", list(ADJS), key="cc_adj")
+    cc_budget = x4.number_input("Fix budget $", 1.0, 20.0, 5.0, key="cc_budget")
+
+    if st.button("🤝 Run cross-check", key="cc_run", disabled=not cc_target.strip()):
+        tgt = cc_target.strip()
+        base_out = _os.path.join(SHOPIFY_AI_DIR, "audit_results",
+                                 _date.today().strftime("%Y%m%d") + "_app")
+        with st.status("Cross-check กำลังรัน (2 audits + ผู้ตัดสิน ~2-4 นาที)...",
+                       expanded=True) as ccs:
+            reports = []
+            failed = False
+            for idx, (prov, model, label) in enumerate(PAIRS[cc_pair]):
+                sub = _os.path.join(base_out, f"xchk_{'ab'[idx]}")
+                _os.makedirs(sub, exist_ok=True)
+                for old in _glob.glob(_os.path.join(sub, "judgment_*.json")):
+                    _os.remove(old)
+                st.write(f"🔍 ผู้ตรวจ {idx+1}: {label} ...")
+                jargs = [_os.path.join(SHOPIFY_AI_DIR, "judgment_audit.py"),
+                         "--sku" if re.fullmatch(r"\d{2,8}", tgt) else "--handle", tgt,
+                         "--provider", prov, "--out", sub]
+                if model:
+                    jargs += ["--model", model]
+                ok, out = _run_script(jargs, timeout=900)
+                jfiles = _glob.glob(_os.path.join(sub, "judgment_*.json"))
+                if not ok or not jfiles:
+                    st.error(f"ผู้ตรวจ {label} ล้มเหลว")
+                    st.code(out[-2500:])
+                    failed = True
+                    break
+                reports.append((label, jfiles[0]))
+            if not failed:
+                handle = json.load(open(reports[0][1], encoding="utf-8"))["handle"]
+                st.write(f"⚖️ ผู้ตัดสิน: {cc_adj} ...")
+                aprov, amodel = ADJS[cc_adj]
+                aargs = [_os.path.join(SHOPIFY_AI_DIR, "adjudicate_audit.py"),
+                         "--handle", handle, "--a", reports[0][1], "--b", reports[1][1],
+                         "--name-a", reports[0][0], "--name-b", reports[1][0],
+                         "--provider", aprov, "--out", base_out]
+                if amodel:
+                    aargs += ["--model", amodel]
+                ok, out = _run_script(aargs, timeout=600)
+                adj_path = _os.path.join(base_out, f"adjudicated_{handle[:70]}.json")
+                if not ok or not _os.path.exists(adj_path):
+                    st.error("ผู้ตัดสินล้มเหลว")
+                    st.code(out[-2500:])
+                    failed = True
+            if failed:
+                ccs.update(label="❌ Cross-check ล้มเหลว", state="error")
+            else:
+                st.session_state.cc_result = json.load(open(adj_path, encoding="utf-8"))
+                st.session_state.pop("cc_order", None)
+                ccs.update(label="✅ Cross-check เสร็จ", state="complete")
+
+    ccr = st.session_state.get("cc_result")
+    if ccr:
+        st.markdown(f"### ผล cross-check: `{ccr['handle']}`")
+        st.caption(f"ผู้ตรวจ: {ccr['model_a']} + {ccr['model_b']} · ผู้ตัดสิน: "
+                   f"{ccr['adjudicator']} · ค่าตัดสิน ${ccr.get('cost_usd', 0):.3f}")
+        st.info("📝 " + ccr.get("summary_th", ""))
+        if ccr.get("consensus"):
+            st.markdown("**✅ Consensus — ทั้งสองเห็นตรงกัน (เข้าใบสั่งแก้):**")
+            for i in ccr["consensus"]:
+                short = CHECK_NOTES.get(i["id"], ("", ""))[0]
+                st.write(f"🔴 **{i['id']}{' · ' + short if short else ''}** — {i['detail']}"
+                         + (f"  \n→ _{i['fix_hint']}_" if i.get("fix_hint") else ""))
+        if ccr.get("disputed"):
+            st.markdown("**⚖️ Disputed — เห็นไม่ตรงกัน (ผู้ตัดสินชี้ไว้ ปรับได้):**")
+            for k, i in enumerate(ccr["disputed"]):
+                icon = {"fix": "🔧", "skip": "🗑️", "ask_owner": "❓"}.get(i["recommendation"], "❔")
+                with st.expander(f"{icon} {i['id']} — คำตัดสิน: **{i['recommendation']}** · {i['reason'][:80]}"):
+                    st.write(f"**A ({ccr['model_a']}):** {i['model_a_view']}")
+                    st.write(f"**B ({ccr['model_b']}):** {i['model_b_view']}")
+                    st.write(f"**สรุปประเด็น:** {i['detail']}")
+                    if i.get("fix_hint"):
+                        st.write(f"**แนวแก้:** {i['fix_hint']}")
+                st.radio(f"↳ ตัดสินใจกับ {i['id']}", ["ตามผู้ตัดสิน", "บังคับแก้", "ข้าม"],
+                         horizontal=True, key=f"cc_disp_{k}")
+        if ccr.get("dropped"):
+            st.markdown("**🗑️ ตัดทิ้ง (over-fire):** "
+                        + " · ".join(f"~~{d['id']}~~ ({d['reason'][:50]})" for d in ccr["dropped"]))
+        if ccr.get("owner_questions"):
+            st.markdown("**❓ คำถามถึงคุณ — คำตอบจะเป็น ground truth ที่ agent ห้ามเถียง:**")
+            for qi, q in enumerate(ccr["owner_questions"]):
+                st.text_input(f"{q['question']}", key=f"cc_ans_{qi}",
+                              help=f"ทำไมต้องถาม: {q['why_needed']} (เกี่ยวกับ {q['affects_issue_id']})")
+
+        if st.button("📝 สร้างใบสั่งแก้จากผลนี้", key="cc_build"):
+            issues = list(ccr.get("consensus", []))
+            for k, i in enumerate(ccr.get("disputed", [])):
+                choice = st.session_state.get(f"cc_disp_{k}", "ตามผู้ตัดสิน")
+                take = (choice == "บังคับแก้"
+                        or (choice == "ตามผู้ตัดสิน"
+                            and i["recommendation"] in ("fix", "ask_owner")))
+                if take:
+                    issues.append({"id": i["id"], "severity": "high",
+                                   "detail": i["detail"], "fix_hint": i.get("fix_hint", "")})
+            answers = []
+            for qi, q in enumerate(ccr.get("owner_questions", [])):
+                a = (st.session_state.get(f"cc_ans_{qi}") or "").strip()
+                if a:
+                    answers.append({"question": q["question"], "answer": a,
+                                    "affects_issue_id": q["affects_issue_id"]})
+            order = {"handle": ccr["handle"], "id": ccr.get("id"), "source": "crosscheck",
+                     "verdict": "FAIL" if issues else "PASS",
+                     "issues": issues, "owner_answers": answers}
+            opath = _os.path.join(SHOPIFY_AI_DIR, "audit_results",
+                                  _date.today().strftime("%Y%m%d") + "_app",
+                                  f"crosscheck_{ccr['handle'][:70]}.json")
+            with open(opath, "w", encoding="utf-8") as f:
+                json.dump(order, f, ensure_ascii=False, indent=1)
+            st.session_state.cc_order = opath
+
+        opath = st.session_state.get("cc_order")
+        if opath and _os.path.exists(opath):
+            order = json.load(open(opath, encoding="utf-8"))
+            if not order["issues"]:
+                st.success("ใบสั่งแก้ว่าง — ไม่มีประเด็นต้องแก้หลังตัดสิน ✅")
+            else:
+                effm, reason = _auto_model(order["issues"])
+                st.success(f"ใบสั่งแก้พร้อม: {len(order['issues'])} issues · "
+                           f"คำตอบ owner {len(order['owner_answers'])} ข้อ · "
+                           f"Auto จะใช้ **{effm}** ({reason})")
+                if st.button(f"🔧 Fix {order['handle']} ตามใบสั่ง", type="primary", key="cc_fix"):
+                    with st.status(f"Fix agent ({effm}) กำลังแก้ {order['handle']} ...",
+                                   expanded=True) as fs:
+                        fbox = st.empty()
+                        try:
+                            ok, fl, rc = _run_fix_agent(order["handle"], opath, effm,
+                                                        cc_budget, fbox)
+                            v = fl.get("reaudit_verdict", "?")
+                            if ok:
+                                fs.update(label=f"✅ {order['handle']} — re-audit {v} · "
+                                          f"${(fl.get('cost_usd') or 0):.2f}", state="complete")
+                                st.balloons()
+                            else:
+                                fs.update(label=f"❌ ดู log (exit {rc})", state="error")
+                        except Exception as e:
+                            fs.update(label=f"❌ {e}", state="error")
 
 
 
