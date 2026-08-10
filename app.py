@@ -4652,6 +4652,7 @@ CHECK_NOTES = {
     "M11": ("FAQ schema", "metafield custom.faq_schema ต้องมีและตรงกับ FAQ ใน body คำต่อคำ (สำคัญกับ AI citation)"),
     "M12": ("H1 ซ้ำ Meta Title", "คำใน MT ทับซ้อน H1: เกิน 80% = FAIL (แทบก๊อปกัน), 70–80% = WARN"),
     "M13": ("โครงสร้างหน้า", "โครง 7 section: H2 ครบ, Quick Specs table, 'If you...' blocks, styled hook — ขาด = FAIL"),
+    "M14": ("ไซส์ใน body ≠ variants", "ช่วงไซส์ที่เขียนใน body/FAQ ต้องตรงกับ variant จริง: อ้างไซส์ที่ไม่มีขาย = FAIL, บอกแคบกว่าที่มีขาย = WARN (variants = ground truth)"),
     "J1":  ("Deictic opener", "AI ตรวจ: เปิดด้วยโครง 'That X... / The Y...' ซึ่งเป็น pattern ต้องห้าม"),
     "J2":  ("Negative-then-positive", "AI ตรวจ: โครงเปรียบเทียบ 'ของอื่นแย่ → ของเราดี' ทุก variant"),
     "J3":  ("Content swappability", "AI ตรวจ: ย่อหน้า generic ที่สลับไปใส่สินค้าอื่นแล้วยังอ่านรอด = filler"),
