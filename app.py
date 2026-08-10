@@ -5177,11 +5177,14 @@ with tab_audit:
                    f"{ccr['adjudicator']} · ค่าตัดสิน ${ccr.get('cost_usd', 0):.3f}")
         st.info("📝 " + ccr.get("summary_th", ""))
         if ccr.get("consensus"):
-            st.markdown("**✅ Consensus — ทั้งสองเห็นตรงกัน (เข้าใบสั่งแก้):**")
+            st.markdown("**✅ Consensus — ทั้งสองเห็นตรงกัน:**")
             for i in ccr["consensus"]:
                 short = CHECK_NOTES.get(i["id"], ("", ""))[0]
-                st.write(f"🔴 **{i['id']}{' · ' + short if short else ''}** — {i['detail']}"
-                         + (f"  \n→ _{i['fix_hint']}_" if i.get("fix_hint") else ""))
+                hi = i.get("severity") == "high"
+                icon = "🔴" if hi else "🟡"
+                tag = "" if hi else " · house-style WARN — ไม่เข้าใบสั่งแก้ (นโยบาย: เก็บตอนแตะสินค้านี้ครั้งหน้า)"
+                st.write(f"{icon} **{i['id']}{' · ' + short if short else ''}**{tag} — {i['detail']}"
+                         + (f"  \n→ _{i['fix_hint']}_" if hi and i.get("fix_hint") else ""))
         if ccr.get("disputed"):
             st.markdown("**⚖️ Disputed — เห็นไม่ตรงกัน (ผู้ตัดสินชี้ไว้ ปรับได้):**")
             for k, i in enumerate(ccr["disputed"]):
@@ -5204,7 +5207,8 @@ with tab_audit:
                               help=f"ทำไมต้องถาม: {q['why_needed']} (เกี่ยวกับ {q['affects_issue_id']})")
 
         if st.button("📝 สร้างใบสั่งแก้จากผลนี้", key="cc_build"):
-            issues = list(ccr.get("consensus", []))
+            issues = [i for i in ccr.get("consensus", [])
+                      if i.get("severity") == "high"]
             for k, i in enumerate(ccr.get("disputed", [])):
                 choice = st.session_state.get(f"cc_disp_{k}", "ตามผู้ตัดสิน")
                 take = (choice == "บังคับแก้"
