@@ -4808,9 +4808,17 @@ with tab_audit:
                  f"local machine only (set SHOPIFY_AI_DIR in secrets to override).")
         st.stop()
 
-    run_mode = st.radio("Mode", ["⚡ Quick scan (mechanical — free, no AI)",
-                                 "🔍 Full audit (mechanical + AI judgment)"],
-                        horizontal=True, key="audit_run_mode")
+    hc1, hc2 = st.columns([4, 1])
+    if hc2.button("🧹 ล้างผลบนจอ", key="audit_clear",
+                  help="ล้างผลเก่าที่ค้างบนหน้าจอทั้งหมด (ผล scan/cross-check/fix ถูกเก็บใน "
+                       "session โดยตั้งใจ เพื่อไม่ให้หายเวลากดปุ่มอื่น — ปุ่มนี้หรือกด F5 เพื่อเริ่มจอใหม่)"):
+        for k in ("audit_last_run", "audit_last_queue", "audit_last_fix",
+                  "cc_result", "cc_order", "audit_out_dir", "audit_last_log"):
+            st.session_state.pop(k, None)
+        st.rerun()
+    run_mode = hc1.radio("Mode", ["⚡ Quick scan (mechanical — free, no AI)",
+                                  "🔍 Full audit (mechanical + AI judgment)"],
+                         horizontal=True, key="audit_run_mode")
     is_full = run_mode.startswith("🔍")
 
     provider_model = None
