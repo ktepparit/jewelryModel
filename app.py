@@ -57,7 +57,8 @@ def safe_st_image(url, width=None, caption=None):
     try:
         clean_url = str(url).strip().replace(" ", "").replace("\n", "")
         if clean_url.startswith("http"):
-            st.image(clean_url, width=width, caption=caption)
+            # Streamlit >=1.49 rejects width=None ("content" = natural size)
+            st.image(clean_url, width=width if width else "content", caption=caption)
     except Exception:
         st.warning("⚠️ Image unavailable")
 
@@ -3156,7 +3157,7 @@ with tab1:
             images_to_send = [Image.open(f) for f in files] if files else []
         if images_to_send:
             cols = st.columns(4)
-            for i, img in enumerate(images_to_send): cols[i%4].image(img, use_column_width=True)
+            for i, img in enumerate(images_to_send): cols[i%4].image(img, width="stretch")
 
     with c2:
         st.subheader("2. Settings")
@@ -3237,7 +3238,7 @@ with tab1:
 
             if st.session_state.image_generated_success and st.session_state.current_generated_image:
                 st.divider(); st.subheader("✨ Result")
-                st.image(st.session_state.current_generated_image, use_column_width=True)
+                st.image(st.session_state.current_generated_image, width="stretch")
                 
                 # Edit/Refine section
                 with st.container(border=True):
@@ -3375,7 +3376,7 @@ with tab_retouch:
         if rt_imgs:
             with st.expander(f"📸 View Input ({len(rt_imgs)} images)", expanded=False):
                 cols = st.columns(4)
-                for i, img in enumerate(rt_imgs): cols[i%4].image(img, use_column_width=True)
+                for i, img in enumerate(rt_imgs): cols[i%4].image(img, width="stretch")
         else: st.warning("Waiting for images...")
 
     with rt_c2:
@@ -3462,7 +3463,7 @@ with tab_retouch:
         for i, res_bytes in enumerate(st.session_state.retouch_results):
             with cols[i%3]:
                 st.write(f"**#{i+1}**")
-                if res_bytes: st.image(res_bytes, use_column_width=True)
+                if res_bytes: st.image(res_bytes, width="stretch")
                 else: st.error("Failed")
         st.markdown("---"); st.subheader("🚀 Upload to Shopify")
         with st.container(border=True):
@@ -3628,7 +3629,7 @@ with tab3:
         if writer_imgs:
             with st.expander(f"📸 Preview ({len(writer_imgs)} images)", expanded=False):
                 cols = st.columns(4)
-                for i, img in enumerate(writer_imgs): cols[i%4].image(img, use_column_width=True)
+                for i, img in enumerate(writer_imgs): cols[i%4].image(img, width="stretch")
         raw = st.text_area("Paste Details:", height=300, key=text_area_key)
         design_story = st.text_area(
             "🎨 Design Story / Cultural Reference (optional):",
